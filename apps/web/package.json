@@ -1,0 +1,38 @@
+{
+  "name": "@planning-poker/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:web": "vitest run src/App.test.tsx src/App.delta-sync.test.tsx",
+    "test:web:perf": "vitest run src/App.perf.test.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:perf": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.perf.spec.ts",
+    "test:e2e:sim": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.sim.spec.ts",
+    "test:e2e:sim:matrix21": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.sim.matrix21.spec.ts"
+  },
+  "dependencies": {
+    "@planning-poker/shared": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@playwright/test": "^1.52.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.2.5",
+    "vitest": "^3.1.1"
+  }
+}

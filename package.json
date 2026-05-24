@@ -1,0 +1,46 @@
+{
+  "name": "opa-voting-tool",
+  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "description": "Open-source realtime voting tool and Scrum planning poker app for self-hosted agile estimation, team polling, and collaborative decisions.",
+  "keywords": [
+    "open-source",
+    "voting-tool",
+    "realtime-voting",
+    "scrum",
+    "planning-poker",
+    "agile-estimation",
+    "self-hosted",
+    "collaboration",
+    "websocket",
+    "podman",
+    "sqlite"
+  ],
+  "packageManager": "pnpm@10.30.3",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "help": "./dev.sh help",
+    "deps": "./dev.sh deps",
+    "build": "./dev.sh build",
+    "lint": "./dev.sh lint",
+    "typecheck": "./dev.sh typecheck",
+    "test:scripts": "./dev.sh test:scripts",
+    "test:unit": "./dev.sh test:unit",
+    "test:int": "./dev.sh test:int",
+    "test:web": "./dev.sh test:web",
+    "test:e2e": "./dev.sh test:e2e",
+    "test:e2e:sim": "./dev.sh test:e2e:sim",
+    "test:full": "./dev.sh test:full",
+    "stack:up": "./dev.sh stack:up",
+    "stack:down": "./dev.sh stack:down",
+    "stack:verify": "./dev.sh stack:verify",
+    "sim:seed": "./dev.sh sim:seed",
+    "sim:up": "./dev.sh sim:up",
+    "sim:down": "./dev.sh sim:down",
+    "sim:status": "./dev.sh sim:status"
+  }
+}

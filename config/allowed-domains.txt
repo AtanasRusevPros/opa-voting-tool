@@ -1,0 +1,4 @@
+# One email domain per line.
+# Edit this file before deployment to match your company domains.
+example-company.com
+example-partner.com

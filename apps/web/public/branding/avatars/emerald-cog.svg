@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-hidden="true">
+  <rect width="96" height="96" rx="26" fill="#E0F8EB"/>
+  <g transform="translate(48 48) scale(1.2) translate(-48 -48)">
+    
+        <circle cx="48" cy="48" r="20" fill="#0B4F34"/>
+        <circle cx="48" cy="48" r="9" fill="#F6FFFB"/>
+        <path d="M48 15 V25 M48 71 V81 M15 48 H25 M71 48 H81 M25 25 L32 32 M64 64 L71 71 M25 71 L32 64 M64 32 L71 25" stroke="#178257" stroke-width="6" stroke-linecap="round"/>
+      
+  </g>
+</svg>

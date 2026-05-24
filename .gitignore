@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.vite
+.turbo
+*.log
+config/deployment.local.toml
+config/managed-branding/*
+!config/managed-branding/.gitkeep
+apps/api/data
+apps/api/test-data
+apps/web/playwright-report
+apps/web/test-results
+.simulator

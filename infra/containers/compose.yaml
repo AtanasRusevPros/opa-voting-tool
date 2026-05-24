@@ -1,0 +1,23 @@
+services:
+  planning-poker:
+    build:
+      context: ../..
+      dockerfile: infra/containers/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      PORT: 3001
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      SESSION_TTL_DAYS: 90
+      DATA_DIR: ${DATA_DIR:-/app/apps/api/data}
+      E2E_DEBUG_CODES: ${E2E_DEBUG_CODES:-0}
+      SIMULATOR_MODE_ENABLED: ${SIMULATOR_MODE_ENABLED:-1}
+      SIMULATOR_SHARED_SECRET: ${SIMULATOR_SHARED_SECRET:-planning-poker-simulator}
+    volumes:
+      - planning_poker_data:/app/apps/api/data
+      - ${APP_CONFIG_DIR:-../../config}:/app/config
+
+volumes:
+  planning_poker_data:

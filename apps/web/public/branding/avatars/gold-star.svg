@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-hidden="true">
+  <rect width="96" height="96" rx="26" fill="#FFF6D8"/>
+  <g transform="translate(48 48) scale(1.2) translate(-48 -48)">
+    <path d="M48 18 L55 38 L76 38 L59 50 L65 72 L48 58 L31 72 L37 50 L20 38 L41 38 Z" fill="#6D4E0A"/>
+  </g>
+</svg>

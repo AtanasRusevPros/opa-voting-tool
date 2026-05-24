@@ -1,0 +1,54 @@
+# Repo-shipped safe deployment configuration template.
+#
+# SMTP is intentionally blank here so the repo defaults to the supported
+# no-SMTP/manual-share operating mode.
+#
+# Before starting a real deployment, create ignored config/deployment.local.toml
+# and set [admin].username and [admin].password there. The app refuses to start
+# without explicit super-admin credentials.
+
+[app]
+base_url = "http://localhost:3001"
+allowed_domains_path = "config/allowed-domains.txt"
+
+[admin]
+# Required before first start. The app refuses to start while these are blank.
+username = ""
+password = ""
+display_name = "Super Admin"
+
+[smtp]
+host = ""
+port = 0
+user = ""
+pass = ""
+from = ""
+
+[jira]
+client_id = ""
+client_secret = ""
+cloud_id = ""
+site_url = ""
+site_name = ""
+access_token = ""
+refresh_token = ""
+access_token_expires_at = ""
+
+[branding]
+login_logo = "/branding/login-logo.svg"
+login_background = "/branding/login-background.svg"
+team_logo = "/branding/team-logo.svg"
+team_background = "/branding/team-background.svg"
+background_opacity = 0.12
+footer_creator_text = ""
+footer_company_text = ""
+primary_action = "#3a88ff"
+accent_highlight = "#579dff"
+surface_tint = "#eff5fd"
+text_emphasis = "#203047"
+
+[demo]
+enabled = false
+
+[history_popup]
+timezone_keys = "[\"gmt\",\"usa-davidson\",\"bulgaria-sofia\"]"

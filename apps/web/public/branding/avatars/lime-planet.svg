@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-hidden="true">
+  <rect width="96" height="96" rx="26" fill="#EFFFD9"/>
+  <g transform="translate(48 48) scale(1.2) translate(-48 -48)">
+    
+        <circle cx="48" cy="47" r="18" fill="#3A650E"/>
+        <ellipse cx="48" cy="50" rx="31" ry="11" fill="none" stroke="#5EA11D" stroke-width="5"/>
+        <circle cx="62" cy="34" r="3" fill="#FBFFF2"/>
+      
+  </g>
+</svg>

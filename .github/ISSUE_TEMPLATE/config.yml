@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and general discussion
+    url: https://github.com/AtanasRusevPROS/opa-voting-tool/discussions
+    about: Use GitHub Discussions for questions, ideas, and usage help when enabled.
+  - name: Security vulnerability
+    url: https://github.com/AtanasRusevPROS/opa-voting-tool/security/advisories/new
+    about: Please do not report vulnerabilities in public issues. Use private vulnerability reporting when available.
+

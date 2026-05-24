@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-hidden="true">
+  <rect width="96" height="96" rx="26" fill="#EFFFD9"/>
+  <g transform="translate(48 48) scale(1.2) translate(-48 -48)">
+    
+        <path d="M29 29 H54 V41 H45 L63 59 L56 66 L38 48 V57 H29 Z" fill="#3A650E"/>
+        <rect x="52" y="48" width="10" height="24" rx="5" fill="#5EA11D" transform="rotate(45 57 60)"/>
+      
+  </g>
+</svg>
