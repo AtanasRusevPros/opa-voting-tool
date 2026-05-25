@@ -74,3 +74,10 @@ Before each public tag:
 The first public tag is `v0.1.0`, but the current `./deploy.sh update` command still updates from the checked-out Git branch.
 
 Normal operators should eventually prefer tagged releases or explicit release branches. The exact self-update/channel policy is deferred to the later operations phase, especially before adding automatic update checks.
+
+Until that later policy exists:
+
+- Treat `./deploy.sh update` as an operator-controlled branch update, not an automatic release-channel manager.
+- Run it only after reviewing the current branch/changelog and taking the built-in backup seriously.
+- Do not move an existing public tag after it is pushed. If a docs-only or deployment fix is needed after `v0.1.0`, release it as a later patch version such as `v0.1.1` when it deserves a public tag.
+- Keep real deployment settings in ignored `config/deployment.local.toml`; release updates should not require operators to overwrite their local config.

@@ -39,6 +39,8 @@ Use:
 
 > Low-latency realtime voting tested with simulated sessions up to 400 concurrent users.
 
+This wording is appropriate for the current README and launch docs because it describes the tested scenario without turning a benchmark run into a production promise.
+
 Avoid:
 
 > Guaranteed under 200ms for all frontend and backend responses.

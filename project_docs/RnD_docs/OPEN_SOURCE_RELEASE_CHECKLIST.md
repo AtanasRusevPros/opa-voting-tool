@@ -53,6 +53,8 @@ Use this as the compact execution checklist for the open-source release pass. De
 - Confirm `./dev.sh version` and `./deploy.sh version` report the intended public version.
 - Run nearest documentation/metadata checks.
 - Run technical checks only where the release pass changes executable behavior.
+- For docs-only patch releases, do not move old tags; create a new patch tag only when the changelog/release note value justifies it.
+- For deployed update guidance, verify that ignored local deployment config is preserved and that operator docs do not instruct users to overwrite `config/deployment.local.toml`.
 
 ## 5. Defer Explicitly
 
@@ -62,3 +64,4 @@ Use this as the compact execution checklist for the open-source release pass. De
 - Backup/restore has been smoke-tested with `./deploy.sh backup`, `./deploy.sh backup:list`, and `./deploy.sh restore <file>`; re-run the rehearsal before a release if backup behavior changes.
 - The first clean public repo tag is `v0.1.0`; future release tags should follow the documented versioning policy.
 - Search discoverability should be revisited after launch using real search/referral signals rather than guessed keyword density.
+- Automatic update checks, backup pruning, release-channel selection, and major/minor/patch update policy belong to the later post-launch operations phase.
