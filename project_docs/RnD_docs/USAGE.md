@@ -39,6 +39,13 @@ Behavior:
 
 Use [`deploy.sh`](../../deploy.sh) on the server after the repo is cloned to `/opt/opa-voting-tool/app` or another deployment directory. This script is for deployed operations; keep using `./dev.sh` for local development and automated verification.
 
+Public clone command for a fresh deployed checkout:
+
+```bash
+git clone https://github.com/AtanasRusevPros/opa-voting-tool.git app
+cd app
+```
+
 Common commands:
 - `./deploy.sh help`
 - `./deploy.sh version`
@@ -70,6 +77,11 @@ New release/update flow on the VPS:
 4. Run `./deploy.sh public-health`.
 5. Open the HTTPS app and do a short login/team/vote/reveal smoke test.
 6. If anything looks wrong, run `./deploy.sh diagnose` before editing Caddy or firewall settings.
+
+Migration note for the first switch from the old private-history checkout to the clean public repository:
+- take a backup before changing the checkout
+- preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`
+- do not copy historical untracked compose/config scratch folders into the clean public checkout
 
 Backup/restore rehearsal on a test deployment:
 1. Create a clearly named baseline team in the browser, for example `BACKUP_BASELINE_KEEP_ME`.

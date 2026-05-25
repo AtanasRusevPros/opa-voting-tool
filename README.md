@@ -52,6 +52,13 @@ Important public-release notes:
 
 ## Self-Hosted Deployment
 
+Clone the public repository on a server:
+
+```bash
+git clone https://github.com/AtanasRusevPros/opa-voting-tool.git app
+cd app
+```
+
 For a deployed server, the recommended operator command is:
 
 ```bash
@@ -161,6 +168,8 @@ New release/update on the VPS:
 - run `./deploy.sh update`
 - run `./deploy.sh public-health`
 - do a short login/team/vote/reveal browser smoke test
+
+If you are moving an existing private-history checkout to the clean public repository, make a backup first and preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and any `config/managed-branding` uploads.
 
 ### Allowed Domains
 

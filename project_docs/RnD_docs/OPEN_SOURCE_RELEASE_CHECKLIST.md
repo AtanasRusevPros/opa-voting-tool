@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Open Source Release Checklist
 
-Status: Active release-readiness checklist
+Status: Reusable release-readiness checklist
 
 Use this as the compact execution checklist for the open-source release pass. Detailed owner decisions and private release-prep notes may exist separately in the local development environment, but this checklist must remain safe to publish.
 
@@ -60,5 +60,5 @@ Use this as the compact execution checklist for the open-source release pass. De
 - Screenshots/GIFs are deferred to Phase 19.1/20 until demo data/media rules and launch branding are ready.
 - Repo/package renaming needs a dedicated technical pass.
 - Backup/restore has been smoke-tested with `./deploy.sh backup`, `./deploy.sh backup:list`, and `./deploy.sh restore <file>`; re-run the rehearsal before a release if backup behavior changes.
-- Release tags are after publication readiness. The first clean public repo tag should be `v0.1.0`.
+- The first clean public repo tag is `v0.1.0`; future release tags should follow the documented versioning policy.
 - Search discoverability should be revisited after launch using real search/referral signals rather than guessed keyword density.

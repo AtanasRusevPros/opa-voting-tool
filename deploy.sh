@@ -209,7 +209,7 @@ git_commit() {
 print_project_version() {
   echo "OpaVoting $(project_version)"
   echo "Git commit: $(git_commit)"
-  echo "Release status: alpha / pre-public-tag"
+  echo "Release status: alpha / public v$(project_version)"
 }
 
 show_help() {

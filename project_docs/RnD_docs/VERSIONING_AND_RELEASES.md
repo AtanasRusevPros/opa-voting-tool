@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Versioning And Releases
 
-Status: Alpha policy for the first public repository.
+Status: Alpha release policy.
 
 ## Current Version
 
@@ -24,15 +24,15 @@ Both commands print the project version and current Git commit. This keeps deplo
 
 ## Public Release Strategy
 
-The first public release should be created from the clean public repository, not from the private-history repository.
+The first public release was created from the clean public repository, not from the private-history repository.
 
-Recommended launch sequence:
+Completed first-public-alpha sequence:
 
-1. Copy the sanitized public tree into the new clean `opa-voting-tool` repository.
-2. Create the first public commit.
-3. Run the release checklist verification.
-4. Tag the first public alpha release as `v0.1.0`.
-5. Create GitHub release notes from `CHANGELOG.md`.
+1. Sanitized public tree copied into the clean `opa-voting-tool` repository.
+2. First public commit created.
+3. Release checklist verification run.
+4. First public alpha tag pushed as `v0.1.0`.
+5. Future GitHub release notes should be created from `CHANGELOG.md`.
 
 Do not create public release tags in the private-history repository.
 
@@ -71,6 +71,6 @@ Before each public tag:
 
 ## Deployment Updates
 
-Before public release tags exist, `./deploy.sh update` updates from the current Git branch.
+The first public tag is `v0.1.0`, but the current `./deploy.sh update` command still updates from the checked-out Git branch.
 
-After public releases exist, normal operators should prefer tagged releases or explicit release branches. The exact self-update/channel policy is deferred to the later operations phase, especially before adding automatic update checks.
+Normal operators should eventually prefer tagged releases or explicit release branches. The exact self-update/channel policy is deferred to the later operations phase, especially before adding automatic update checks.

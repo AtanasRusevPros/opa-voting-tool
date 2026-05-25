@@ -20,13 +20,17 @@ The public wording should keep voting-tool positioning primary while making Scru
 
 ## Repository-Level Actions
 
-When the public repository is ready:
+Now that the public repository exists:
 
 - Use a clear GitHub repository description such as: `Open-source realtime voting tool and Scrum planning poker app for self-hosted team decisions.`
 - Add GitHub topics such as `voting-tool`, `planning-poker`, `scrum`, `agile-estimation`, `realtime`, `self-hosted`, `open-source`, `collaboration`, `websocket`, `podman`, and `sqlite`.
 - Add a clean social preview image after the screenshot/media pass.
 - Keep README headings descriptive because search engines and AI assistants both use visible headings to understand the project.
-- Publish a first tagged release when Phase 19 is complete enough, so external sites have a stable page to link to.
+- Keep the first `v0.1.0` tagged release discoverable so external sites have a stable page to link to.
+
+Current status:
+- GitHub description and topics above were applied to the public repository on 2026-05-25.
+- Social preview remains deferred until screenshot/logo/media polish.
 
 ## Content Actions
 
