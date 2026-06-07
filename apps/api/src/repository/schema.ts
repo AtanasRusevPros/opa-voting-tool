@@ -239,7 +239,6 @@ export function runBaseSchema(db: DatabaseSync): void {
       CREATE INDEX IF NOT EXISTS idx_team_memberships_user_role_team ON team_memberships(user_id, role, team_id);
       CREATE INDEX IF NOT EXISTS idx_workspaces_kind ON workspaces(kind);
       CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user ON workspace_memberships(user_id);
-      CREATE INDEX IF NOT EXISTS idx_teams_workspace ON teams(workspace_id);
       CREATE INDEX IF NOT EXISTS idx_user_team_preferences_team ON user_team_preferences(team_id);
       CREATE INDEX IF NOT EXISTS idx_team_join_requests_user ON team_join_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_team_join_requests_team ON team_join_requests(team_id);
@@ -251,12 +250,9 @@ export function runBaseSchema(db: DatabaseSync): void {
       CREATE INDEX IF NOT EXISTS idx_action_history_team_created ON action_history(team_id, created_at DESC, id DESC);
       CREATE INDEX IF NOT EXISTS idx_action_history_created ON action_history(created_at DESC, id DESC);
       CREATE INDEX IF NOT EXISTS idx_rounds_team_status ON rounds(team_id, status);
-      CREATE INDEX IF NOT EXISTS idx_rounds_pending_issue ON rounds(pending_issue_id);
       CREATE INDEX IF NOT EXISTS idx_history_team_completed ON history_entries(team_id, completed_at DESC);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_team_pending_issues_external ON team_pending_issues(team_id, source, external_issue_id);
       CREATE INDEX IF NOT EXISTS idx_team_pending_issues_team_position ON team_pending_issues(team_id, position ASC, updated_at DESC);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_history_import_batch_entry ON history_entries(team_id, import_batch_id, import_entry_id)
-      WHERE import_batch_id IS NOT NULL AND import_entry_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_history_comments_entry_created ON history_comments(history_entry_id, created_at DESC);
     `);
 
@@ -272,6 +268,8 @@ export function runBaseSchema(db: DatabaseSync): void {
   ensureColumn(db, "history_entries", "quorum_blocked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "history_entries", "voted_count", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "history_entries", "not_voted_count", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "history_entries", "import_batch_id", "TEXT");
+  ensureColumn(db, "history_entries", "import_entry_id", "TEXT");
   ensureColumn(db, "users", "board_shortcuts_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_popup_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_keys_json", "TEXT");
@@ -287,6 +285,10 @@ export function runBaseSchema(db: DatabaseSync): void {
       FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_user_team_preferences_team ON user_team_preferences(team_id);
+    CREATE INDEX IF NOT EXISTS idx_teams_workspace ON teams(workspace_id);
+    CREATE INDEX IF NOT EXISTS idx_rounds_pending_issue ON rounds(pending_issue_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_history_import_batch_entry ON history_entries(team_id, import_batch_id, import_entry_id)
+    WHERE import_batch_id IS NOT NULL AND import_entry_id IS NOT NULL;
   `);
 }
 

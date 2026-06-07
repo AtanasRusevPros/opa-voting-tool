@@ -13,6 +13,7 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Fixed upgrades from older persisted SQLite databases failing during startup when indexes were created before newly introduced workspace and import columns.
 - Added optional, default-disabled public-trial workspaces with SMTP-backed signup, workspace isolation, configurable hosted limits, public policy pages, and operator usage/export reports.
 - Hardened timer/reconnect behavior and repeated large-demo voting counts with new regression coverage.
 - Added deployed backup pruning and portable packaged-stack test fallback behavior.

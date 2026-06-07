@@ -4,11 +4,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BRANDING_MANIFEST, calculateAverage, getDeckCards, getDeckLabel } from "@planning-poker/shared";
 import { resolveDefaultDeploymentConfigPath } from "../src/configPaths.js";
 import { getConfig, loadAllowedDomains } from "../src/config.js";
 import { DeploymentConfigManager } from "../src/deploymentConfig.js";
+import { runBaseSchema } from "../src/repository/schema.js";
 
 const tempPaths: string[] = [];
 
@@ -38,6 +40,50 @@ describe("loadAllowedDomains", () => {
     fs.writeFileSync(file, "# comment\nexample-company.com\n\nexample-partner.com\n");
 
     expect(loadAllowedDomains(file)).toEqual(["example-company.com", "example-partner.com"]);
+  });
+});
+
+describe("runBaseSchema", () => {
+  it("upgrades legacy tables before creating indexes for newly added columns", () => {
+    const databasePath = path.join(os.tmpdir(), `legacy-schema-${Date.now()}.db`);
+    tempPaths.push(databasePath);
+    const db = new DatabaseSync(databasePath);
+
+    try {
+      db.exec(`
+        CREATE TABLE teams (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+        CREATE TABLE rounds (
+          id TEXT PRIMARY KEY,
+          team_id TEXT NOT NULL,
+          status TEXT NOT NULL
+        );
+        CREATE TABLE history_entries (
+          id TEXT PRIMARY KEY,
+          team_id TEXT NOT NULL,
+          completed_at TEXT NOT NULL
+        );
+      `);
+
+      runBaseSchema(db);
+
+      const teamColumns = db.prepare("PRAGMA table_info(teams)").all() as Array<{ name: string }>;
+      const roundColumns = db.prepare("PRAGMA table_info(rounds)").all() as Array<{ name: string }>;
+      const historyColumns = db.prepare("PRAGMA table_info(history_entries)").all() as Array<{ name: string }>;
+      const indexes = new Set((db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as Array<{ name: string }>).map((row) => row.name));
+
+      expect(teamColumns.some((column) => column.name === "workspace_id")).toBe(true);
+      expect(roundColumns.some((column) => column.name === "pending_issue_id")).toBe(true);
+      expect(historyColumns.some((column) => column.name === "import_batch_id")).toBe(true);
+      expect(historyColumns.some((column) => column.name === "import_entry_id")).toBe(true);
+      expect(indexes).toContain("idx_teams_workspace");
+      expect(indexes).toContain("idx_rounds_pending_issue");
+      expect(indexes).toContain("idx_history_import_batch_entry");
+    } finally {
+      db.close();
+    }
   });
 });
 
