@@ -24,7 +24,9 @@ The separate team-admin guide now lives at:
 - SMTP configuration when the customer wants integrated email delivery
 - Jira Cloud OAuth client setup and site binding when the customer wants backlog import
 - demo-mode enable/disable
+- optional public-trial mode only when intentionally operating a hosted test server
 - whole-database snapshot export/import
+- deployed usage/workspace/user reports from `./deploy.sh`
 - demotion of team-admins back to regular members
 - keeping the platform operational when SMTP is intentionally not used
 
@@ -46,6 +48,7 @@ Deployment security note:
 - plain HTTP should be used only for certificate automation and redirect at the reverse proxy
 - the app's internal port should not be publicly reachable
 - routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh diagnose`, and `./deploy.sh backup`
+- public-trial mode is disabled by default and should remain disabled for normal self-hosted deployments
 
 ## Super-Admin Account
 
@@ -90,6 +93,7 @@ The in-app `Platform settings` surface currently controls:
 - `App settings`:
   - base URL
   - demo-mode enable/disable
+  - public-trial mode settings if the deployment intentionally exposes a hosted test server
 - `SMTP`:
   - SMTP host, port, username, password, and from-address
 - `Super-admin`:
@@ -155,6 +159,12 @@ Practical operator checklist:
 - collect username/password or service-account credentials
 - set a valid from-address owned by the customer
 - verify the first live test against an internal mailbox before relying on invite/reset delivery
+
+Current alpha validation:
+
+- SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider, including external Gmail inbox checks.
+- Disallowed-domain requests remained blocked as expected.
+- Repeat a small SMTP smoke test after any SMTP provider, sender, DNS, or credential change.
 
 Common provider notes:
 
@@ -237,6 +247,32 @@ Operational expectations:
 - local defaults intentionally leave Jira disconnected
 - the sample deployment TOML includes example Jira fields so operators know what to fill in
 - disconnecting Jira removes the active platform-wide Jira Cloud binding and stops team imports until reconnected
+
+## Public-Trial Hosted Server Mode
+
+Public-trial mode is for an owner-operated hosted test server, not for the normal self-hosted setup.
+
+Operational expectations:
+
+- `[public_trial]` stays disabled unless the operator intentionally enables hosted public testing.
+- Open public-trial signup requires SMTP-backed code delivery and terms acceptance.
+- Public-trial signup creates an isolated workspace and starter team for the first user.
+- Public-trial users are limited by configured workspace caps such as teams, users, and monthly revealed rounds.
+- Public-trial collaborator invites are SMTP-only and stay inside the inviter's workspace.
+- Normal self-hosted/no-SMTP teams keep the manual-share invite/reset behavior documented below.
+- Policy pages for hosted public trial users live at `/public-trial/terms`, `/public-trial/privacy`, `/public-trial/acceptable-use`, and `/public-trial/export-cleanup`.
+- Do not promote a hosted public trial until SMTP, terms, isolation, limits, reporting, and emergency-disable checks have passed on the VPS.
+
+Useful deployed reporting commands:
+
+```bash
+./deploy.sh usage
+./deploy.sh usage:json
+./deploy.sh users:export
+./deploy.sh workspaces:export
+```
+
+These commands are intended for operator review and must not expose passwords, tokens, SMTP secrets, Jira secrets, or deployment secrets.
 
 ## Simulator Visibility Note
 
@@ -323,6 +359,7 @@ After SMTP-related changes, also verify:
 
 - the settings save correctly
 - a safe test delivery path behaves as expected
+- platform admission delivers a working generated password when SMTP is configured
 - if SMTP is intentionally disabled, manual-share onboarding still works
 - if SMTP is intentionally disabled, manual-share reset for an existing user still works
 - if SMTP is enabled, a test password-reset or invite reaches the intended mailbox

@@ -31,6 +31,18 @@ function createTestConfig(): AppConfig {
     simulatorModeEnabled: false,
     simulatorSharedSecret: "test-secret",
     demoModeEnabled: false,
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
     superAdminUsername: "platform-admin",
     superAdminPassword: "PlatformAdmin123!",
     superAdminDisplayName: "Platform Admin",
@@ -126,6 +138,33 @@ describe("Phase 12 room engine", () => {
 
     snapshot = rooms.getSnapshot(team.id);
     expect(snapshot.activeRound?.votes.map((vote) => `${vote.displayName}:${vote.value}`)).toEqual(["Member:5", "Owner:3"]);
+  });
+
+  it("does not inflate voted counts when the same user changes an active vote", () => {
+    const repo = new Repository(createTestConfig());
+    const owner = createUser(repo, "phase12-revote-owner@example-company.com", "Owner");
+    const member = createUser(repo, "phase12-revote-member@example-company.com", "Member");
+    const team = repo.createTeam(owner.id, "Phase 12 Revote Team");
+    repo.joinTeam(member.id, team.id);
+    const round = repo.createRound(team.id, "ROOM-REVOTE");
+    const rooms = createRoomEngineManager(repo);
+
+    expect(rooms.getSnapshot(team.id).activeRound?.votes).toHaveLength(0);
+
+    repo.submitVote(round.id, owner.id, "3");
+    rooms.noteVoteChange(team.id, round.id, owner.id, "3");
+    repo.submitVote(round.id, owner.id, "8");
+    rooms.noteVoteChange(team.id, round.id, owner.id, "8");
+
+    const snapshot = rooms.getSnapshot(team.id);
+    expect(snapshot.activeRound?.votes).toHaveLength(1);
+    expect(snapshot.activeRound?.votes[0]?.value).toBe("8");
+    expect(snapshot.activeRound?.votedCount).toBe(1);
+    expect(snapshot.activeRound?.notVotedCount).toBe(1);
+
+    const delta = rooms.peekPendingVoteDelta(team.id);
+    expect(delta?.votedCount).toBe(1);
+    expect(delta?.notVotedCount).toBe(1);
   });
 
   it("reloads a dirty room snapshot after non-vote team changes and keeps the updated team metadata", () => {

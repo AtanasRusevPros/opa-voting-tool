@@ -90,6 +90,7 @@ export class DemoModeManager {
   private readonly pendingVoteTimers = new Set<ReturnType<typeof setTimeout>>();
   private readonly knownDemoTeamIds = new Set<string>();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
+  private enabled = false;
 
   constructor(options: DemoModeManagerOptions) {
     this.repository = options.repository;
@@ -117,6 +118,10 @@ export class DemoModeManager {
   }
 
   private enable() {
+    if (this.enabled) {
+      return;
+    }
+
     const superAdmin = this.repository.getSuperAdminUser();
     if (!superAdmin) {
       return;
@@ -182,9 +187,12 @@ export class DemoModeManager {
     }
 
     this.onChooserChanged();
+    this.enabled = true;
   }
 
   private disable() {
+    this.enabled = false;
+
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;

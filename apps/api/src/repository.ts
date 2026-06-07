@@ -129,6 +129,11 @@ type EnsureSeededTeamInput = EnsureSimulatorTeamInput & {
 };
 
 const JIRA_PENDING_ISSUE_SOURCE = "jira_cloud" as const;
+const DEFAULT_WORKSPACE_ID = "default-workspace";
+const DEFAULT_WORKSPACE_NAME = "Default Workspace";
+const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-06-05";
+const PUBLIC_TRIAL_WORKSPACE_NAME = "My First Workspace";
+const PUBLIC_TRIAL_STARTER_TEAM_NAME = "My First Team";
 
 type TeamPermissionContext = {
   isSuperAdmin: boolean;
@@ -136,9 +141,25 @@ type TeamPermissionContext = {
 };
 
 type ActionHistoryScope = "platform" | "team";
+type WorkspaceUserRole = "none" | "member" | "admin" | "owner";
 type NotificationFeedOptions = {
   includeSeenHistory?: boolean;
   includeActionHistory?: boolean;
+};
+
+type WorkspaceSummary = {
+  id: string;
+  name: string;
+  kind: "default" | "public_trial" | "private";
+  createdAt: string;
+  updatedAt: string;
+  lastActivityAt: string;
+};
+
+type PublicTrialSignupResult = {
+  user: SessionUser;
+  workspace: WorkspaceSummary;
+  team: TeamSummary;
 };
 
 export class RoundNotActiveError extends Error {
@@ -193,6 +214,7 @@ export class Repository {
     this.ensureUserUpdatedAtColumn();
     this.ensureUserAvatarColumns();
     this.ensureUserPasswordColumn();
+    this.ensureUserTermsColumns();
     this.ensureUserAdminColumns();
     this.ensureUserShortcutPreferenceColumn();
     this.ensureTeamTimerColumn();
@@ -202,6 +224,7 @@ export class Repository {
     this.ensureTeamAdminColumns();
     this.ensureTeamDemoColumn();
     this.ensureTeamMembershipRoleColumn();
+    this.ensureTeamWorkspaceColumn();
     this.ensureRoundTimerColumns();
     this.ensureRoundFibonacciRangeColumns();
     this.ensureRoundRevealMetadataColumns();
@@ -210,8 +233,11 @@ export class Repository {
     this.ensureHistoryImportColumns();
     this.ensureHistoryCommentMetadataColumns();
     this.ensureTeamActivityBackfill();
+    this.ensureDefaultWorkspaceBackfill();
     this.ensureSuperAdminAccount();
+    this.ensureDefaultWorkspaceBackfill();
     this.ensureSuperAdminMemberships();
+    this.ensureDefaultWorkspaceBackfill();
   }
 
   getBrandingManifest() {
@@ -932,7 +958,13 @@ export class Repository {
       };
     });
 
-    const visibleTeams = mapped.filter((row) => this.isTeamVisibleToUser(row.demo, viewerIsSuperAdmin) && this.isTeamVisibleByRuntime(row.name));
+    const viewerHasPublicTrialWorkspace = !viewerIsSuperAdmin && this.userHasPublicTrialWorkspace(userId);
+    const visibleTeams = mapped.filter(
+      (row) =>
+        this.isTeamVisibleToUser(row.demo, viewerIsSuperAdmin) &&
+        this.isTeamVisibleByRuntime(row.name) &&
+        (!viewerHasPublicTrialWorkspace || row.currentUserRole !== "none")
+    );
 
     const memberships = visibleTeams
       .filter((row) => row.currentUserRole !== "none")
@@ -957,11 +989,140 @@ export class Repository {
     };
   }
 
+  getDefaultWorkspace(): WorkspaceSummary {
+    this.ensureDefaultWorkspaceBackfill();
+    const workspace = this.getWorkspace(DEFAULT_WORKSPACE_ID);
+    if (!workspace) {
+      throw new Error("Default workspace could not be created.");
+    }
+    return workspace;
+  }
+
+  getWorkspaceForTeam(teamId: string): WorkspaceSummary | null {
+    const workspaceId = this.getWorkspaceIdForTeam(teamId);
+    return workspaceId ? this.getWorkspace(workspaceId) : null;
+  }
+
+  getWorkspaceMembershipRole(userId: string, workspaceId: string): WorkspaceUserRole {
+    const row = this.db
+      .prepare("SELECT role FROM workspace_memberships WHERE workspace_id = ? AND user_id = ?")
+      .get(workspaceId, userId) as { role: WorkspaceUserRole } | undefined;
+
+    return row?.role ?? "none";
+  }
+
+  recordPlatformAudit(kind: string, title: string, message: string, actorUserId: string | null = null): void {
+    this.createActionHistory({
+      scope: "platform",
+      kind,
+      title,
+      message,
+      teamId: null,
+      actorUserId
+    });
+  }
+
+  getPublicTrialTermsVersion(): string {
+    return PUBLIC_TRIAL_TERMS_VERSION;
+  }
+
+  userHasPublicTrialWorkspace(userId: string): boolean {
+    return Boolean(
+      this.db
+        .prepare(
+          `
+          SELECT 1
+          FROM workspace_memberships wm
+          JOIN workspaces w ON w.id = wm.workspace_id
+          WHERE wm.user_id = ? AND w.kind = 'public_trial'
+          LIMIT 1
+        `
+        )
+        .get(userId)
+    );
+  }
+
+  completePublicTrialSignup(input: {
+    email: string;
+    code: string;
+    displayName?: string;
+    avatarIconKey?: string;
+    avatarColorKey?: string;
+    avatarKey?: string;
+    password: string;
+    acceptedTermsVersion: string;
+  }): PublicTrialSignupResult | null {
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const existingUser = this.getUserByEmail(normalizedEmail);
+    if (existingUser && this.userHasPublicTrialWorkspace(existingUser.id)) {
+      throw new Error("This email already belongs to a public trial workspace.");
+    }
+
+    if (input.acceptedTermsVersion !== PUBLIC_TRIAL_TERMS_VERSION) {
+      throw new Error("The current public trial terms must be accepted before signup.");
+    }
+
+    const user = this.verifyLoginCode(
+      normalizedEmail,
+      input.code,
+      input.displayName,
+      input.avatarIconKey,
+      input.avatarColorKey,
+      input.avatarKey,
+      input.password
+    );
+
+    if (!user) {
+      return null;
+    }
+
+    if (this.userHasPublicTrialWorkspace(user.id)) {
+      throw new Error("This email already belongs to a public trial workspace.");
+    }
+
+    const createdAt = nowIso();
+    const workspaceId = nanoid();
+    this.db
+      .prepare(
+        `
+        INSERT INTO workspaces(id, name, kind, created_by, created_at, updated_at, last_activity_at)
+        VALUES(?, ?, 'public_trial', ?, ?, ?, ?)
+      `
+      )
+      .run(workspaceId, PUBLIC_TRIAL_WORKSPACE_NAME, user.id, createdAt, createdAt, createdAt);
+    this.ensureWorkspaceMembership(workspaceId, user.id, "owner", createdAt);
+    this.db
+      .prepare("UPDATE users SET terms_version = ?, terms_accepted_at = ?, updated_at = ?, last_active_at = ? WHERE id = ?")
+      .run(input.acceptedTermsVersion, createdAt, createdAt, createdAt, user.id);
+    this.createActionHistory({
+      scope: "platform",
+      kind: "public_trial_workspace_created",
+      title: "Public trial workspace created",
+      message: `${normalizedEmail} created a public trial workspace.`,
+      teamId: null,
+      actorUserId: user.id,
+      createdAt
+    });
+
+    const team = this.createTeam(user.id, PUBLIC_TRIAL_STARTER_TEAM_NAME);
+    const workspace = this.getWorkspace(workspaceId);
+    if (!workspace) {
+      throw new Error("Public trial workspace could not be created.");
+    }
+
+    return { user, workspace, team };
+  }
+
   createTeam(userId: string, name: string): TeamSummary {
     const trimmedName = name.trim();
-    if (this.findTeamByName(trimmedName)) {
-      throw new Error("A team with this name already exists.");
+    const workspaceId = this.getPrimaryWorkspaceIdForUser(userId) ?? DEFAULT_WORKSPACE_ID;
+    if (this.findTeamByName(trimmedName, workspaceId)) {
+      throw new Error("A team with this name already exists in this workspace.");
     }
+    if (this.getWorkspaceKind(workspaceId) === "public_trial" && this.countWorkspaceTeams(workspaceId) >= this.config.publicTrial.maxTeamsPerWorkspace) {
+      throw new Error(`Public trial workspaces can have at most ${this.config.publicTrial.maxTeamsPerWorkspace} teams.`);
+    }
+    this.ensureWorkspaceMembership(workspaceId, userId, "admin");
 
     const baseSlug = slugify(name);
     let slug = baseSlug || `team-${nanoid(6).toLowerCase()}`;
@@ -978,6 +1139,7 @@ export class Repository {
         `
         INSERT INTO teams(
           id,
+          workspace_id,
           name,
           slug,
           demo,
@@ -996,11 +1158,12 @@ export class Repository {
           created_by,
           created_at
         )
-        VALUES(?, ?, ?, 0, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)
+        VALUES(?, ?, ?, ?, 0, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)
       `
       )
       .run(
         id,
+        workspaceId,
         trimmedName,
         slug,
         DEFAULT_DECK_KEY,
@@ -1020,7 +1183,8 @@ export class Repository {
   }
 
   ensureTeam(userId: string, name: string, options?: { demo?: boolean }): TeamSummary {
-    const existing = this.findTeamByName(name.trim());
+    const workspaceId = this.getPrimaryWorkspaceIdForUser(userId) ?? DEFAULT_WORKSPACE_ID;
+    const existing = this.findTeamByName(name.trim(), workspaceId);
 
     if (existing) {
       if (options?.demo !== undefined) {
@@ -1039,6 +1203,10 @@ export class Repository {
 
   joinTeam(userId: string, teamId: string, role: Exclude<TeamUserRole, "none"> = "member"): void {
     const currentTime = nowIso();
+    const workspaceId = this.getWorkspaceIdForTeam(teamId);
+    if (workspaceId) {
+      this.ensureWorkspaceMembership(workspaceId, userId, role === "team_admin" ? "admin" : "member", currentTime);
+    }
     this.db
       .prepare(
         `
@@ -1294,6 +1462,8 @@ export class Repository {
     if (normalizedQuery.length < 2) {
       return [];
     }
+    const workspaceId = this.getWorkspaceIdForTeam(teamId);
+    const restrictToWorkspace = Boolean(workspaceId && this.getWorkspaceKind(workspaceId) === "public_trial");
 
     const rows = this.db
       .prepare(
@@ -1306,6 +1476,7 @@ export class Repository {
           u.avatar_icon_key,
           u.avatar_color_key
         FROM users u
+        ${restrictToWorkspace ? "JOIN workspace_memberships wm ON wm.user_id = u.id AND wm.workspace_id = ?" : ""}
         WHERE u.is_super_admin = 0
           AND u.id NOT IN (SELECT tm.user_id FROM team_memberships tm WHERE tm.team_id = ?)
           AND (LOWER(u.display_name) LIKE ? OR LOWER(u.email) LIKE ?)
@@ -1317,7 +1488,14 @@ export class Repository {
         LIMIT 12
       `
       )
-      .all(teamId, `%${normalizedQuery}%`, `%${normalizedQuery}%`, normalizedQuery, normalizedQuery) as Array<{
+      .all(
+        ...(restrictToWorkspace && workspaceId ? [workspaceId] : []),
+        teamId,
+        `%${normalizedQuery}%`,
+        `%${normalizedQuery}%`,
+        normalizedQuery,
+        normalizedQuery
+      ) as Array<{
       id: string;
       email: string;
       display_name: string;
@@ -1513,6 +1691,13 @@ export class Repository {
       throw new Error("That user already belongs to this team.");
     }
 
+    const workspaceId = this.getWorkspaceIdForTeam(teamId);
+    if (!existingUser && workspaceId && this.getWorkspaceKind(workspaceId) === "public_trial") {
+      if (this.countWorkspaceMembers(workspaceId) >= this.config.publicTrial.maxUsersPerWorkspace) {
+        throw new Error(`Public trial workspaces can have at most ${this.config.publicTrial.maxUsersPerWorkspace} users.`);
+      }
+    }
+
     const result =
       existingUser
         ? { user: existingUser, temporaryPassword: null, invitedNewUser: false }
@@ -1676,9 +1861,10 @@ export class Repository {
       const baseSlug = slugify(nextName) || `team-${teamId.slice(0, 6).toLowerCase()}`;
       nextSlug = baseSlug;
       let suffix = 1;
-      const existingTeamWithName = this.findTeamByName(nextName);
+      const workspaceId = this.getWorkspaceIdForTeam(teamId) ?? DEFAULT_WORKSPACE_ID;
+      const existingTeamWithName = this.findTeamByName(nextName, workspaceId);
       if (existingTeamWithName && existingTeamWithName.id !== teamId) {
-        throw new Error("A team with this name already exists.");
+        throw new Error("A team with this name already exists in this workspace.");
       }
 
       while (this.db.prepare("SELECT 1 FROM teams WHERE slug = ? AND id != ?").get(nextSlug, teamId)) {
@@ -1803,8 +1989,10 @@ export class Repository {
       : null;
   }
 
-  private findTeamByName(name: string): { id: string } | undefined {
-    return this.db.prepare("SELECT id FROM teams WHERE name = ? COLLATE NOCASE").get(name.trim()) as { id: string } | undefined;
+  private findTeamByName(name: string, workspaceId: string): { id: string } | undefined {
+    return this.db
+      .prepare("SELECT id FROM teams WHERE workspace_id = ? AND name = ? COLLATE NOCASE")
+      .get(workspaceId, name.trim()) as { id: string } | undefined;
   }
 
   getPendingIssues(teamId: string): TeamPendingIssue[] {
@@ -2068,6 +2256,17 @@ export class Repository {
           )
           .run(votedCount, notVotedCount, roundId);
         return this.getRoundState(roundId)!;
+      }
+
+      const workspaceId = this.getWorkspaceIdForTeam(round.teamId);
+      if (
+        workspaceId &&
+        this.getWorkspaceKind(workspaceId) === "public_trial" &&
+        this.countWorkspaceMonthlyReveals(workspaceId, revealedAt) >= this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth
+      ) {
+        throw new Error(
+          `Public trial workspaces can reveal at most ${this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} rounds per month.`
+        );
       }
 
       const result = this.db
@@ -2801,6 +3000,118 @@ export class Repository {
     };
   }
 
+  private getWorkspace(workspaceId: string): WorkspaceSummary | null {
+    const row = this.db
+      .prepare("SELECT id, name, kind, created_at, updated_at, last_activity_at FROM workspaces WHERE id = ?")
+      .get(workspaceId) as
+      | {
+          id: string;
+          name: string;
+          kind: WorkspaceSummary["kind"];
+          created_at: string;
+          updated_at: string;
+          last_activity_at: string;
+        }
+      | undefined;
+
+    return row
+      ? {
+          id: row.id,
+          name: row.name,
+          kind: row.kind,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          lastActivityAt: row.last_activity_at
+        }
+      : null;
+  }
+
+  private getWorkspaceIdForTeam(teamId: string): string | null {
+    const row = this.db.prepare("SELECT workspace_id FROM teams WHERE id = ?").get(teamId) as { workspace_id: string | null } | undefined;
+    return row?.workspace_id ?? null;
+  }
+
+  private getWorkspaceKind(workspaceId: string): WorkspaceSummary["kind"] | null {
+    const row = this.db.prepare("SELECT kind FROM workspaces WHERE id = ?").get(workspaceId) as { kind: WorkspaceSummary["kind"] } | undefined;
+    return row?.kind ?? null;
+  }
+
+  private countWorkspaceTeams(workspaceId: string): number {
+    const row = this.db.prepare("SELECT COUNT(*) AS count FROM teams WHERE workspace_id = ?").get(workspaceId) as { count: number };
+    return row.count;
+  }
+
+  private countWorkspaceMembers(workspaceId: string): number {
+    const row = this.db
+      .prepare("SELECT COUNT(*) AS count FROM workspace_memberships WHERE workspace_id = ?")
+      .get(workspaceId) as { count: number };
+    return row.count;
+  }
+
+  private countWorkspaceMonthlyReveals(workspaceId: string, referenceTime: string): number {
+    const reference = new Date(referenceTime);
+    const monthStart = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1)).toISOString();
+    const nextMonthStart = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1)).toISOString();
+    const row = this.db
+      .prepare(
+        `
+        SELECT COUNT(*) AS count
+        FROM history_entries he
+        JOIN teams t ON t.id = he.team_id
+        WHERE t.workspace_id = ? AND he.completed_at >= ? AND he.completed_at < ?
+      `
+      )
+      .get(workspaceId, monthStart, nextMonthStart) as { count: number };
+    return row.count;
+  }
+
+  private getPrimaryWorkspaceIdForUser(userId: string): string | null {
+    const row = this.db
+      .prepare(
+        `
+        SELECT workspace_id
+        FROM workspace_memberships
+        WHERE user_id = ?
+        ORDER BY
+          CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END ASC,
+          created_at ASC
+        LIMIT 1
+      `
+      )
+      .get(userId) as { workspace_id: string } | undefined;
+
+    return row?.workspace_id ?? null;
+  }
+
+  private ensureWorkspaceMembership(workspaceId: string, userId: string, role: Exclude<WorkspaceUserRole, "none">, at = nowIso()): void {
+    const existingMembership = this.db
+      .prepare("SELECT role FROM workspace_memberships WHERE workspace_id = ? AND user_id = ?")
+      .get(workspaceId, userId) as { role: WorkspaceUserRole } | undefined;
+    if (!existingMembership && this.getWorkspaceKind(workspaceId) === "public_trial" && !this.isSuperAdmin(userId)) {
+      if (this.userHasPublicTrialWorkspace(userId)) {
+        throw new Error("Free public trial users can belong to only one public trial workspace.");
+      }
+      if (this.countWorkspaceMembers(workspaceId) >= this.config.publicTrial.maxUsersPerWorkspace) {
+        throw new Error(`Public trial workspaces can have at most ${this.config.publicTrial.maxUsersPerWorkspace} users.`);
+      }
+    }
+    this.db
+      .prepare(
+        `
+        INSERT INTO workspace_memberships(workspace_id, user_id, role, created_at, last_active_at)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(workspace_id, user_id) DO UPDATE SET
+          role = CASE
+            WHEN workspace_memberships.role = 'owner' OR excluded.role = 'owner' THEN 'owner'
+            WHEN workspace_memberships.role = 'admin' OR excluded.role = 'admin' THEN 'admin'
+            ELSE 'member'
+          END,
+          last_active_at = excluded.last_active_at
+      `
+      )
+      .run(workspaceId, userId, role, at, at);
+  }
+
   private deletePlatformAccessRequestByEmail(email: string): void {
     this.db.prepare("DELETE FROM platform_access_requests WHERE email = ?").run(email.trim().toLowerCase());
   }
@@ -3027,6 +3338,19 @@ export class Repository {
     }
   }
 
+  private ensureUserTermsColumns(): void {
+    const columns = this.db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+    const columnNames = new Set(columns.map((column) => column.name));
+
+    if (!columnNames.has("terms_version")) {
+      this.db.exec("ALTER TABLE users ADD COLUMN terms_version TEXT");
+    }
+
+    if (!columnNames.has("terms_accepted_at")) {
+      this.db.exec("ALTER TABLE users ADD COLUMN terms_accepted_at TEXT");
+    }
+  }
+
   private ensureUserAdminColumns(): void {
     const columns = this.db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
     const columnNames = new Set(columns.map((column) => column.name));
@@ -3140,6 +3464,60 @@ export class Repository {
     if (!columnNames.has("role")) {
       this.db.exec("ALTER TABLE team_memberships ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
       this.db.exec("UPDATE team_memberships SET role = 'member' WHERE role IS NULL OR role = ''");
+    }
+  }
+
+  private ensureTeamWorkspaceColumn(): void {
+    const columns = this.db.prepare("PRAGMA table_info(teams)").all() as Array<{ name: string }>;
+    const columnNames = new Set(columns.map((column) => column.name));
+
+    if (!columnNames.has("workspace_id")) {
+      this.db.exec("ALTER TABLE teams ADD COLUMN workspace_id TEXT");
+    }
+  }
+
+  private ensureDefaultWorkspaceBackfill(): void {
+    const currentTime = nowIso();
+    this.db
+      .prepare(
+        `
+        INSERT INTO workspaces(id, name, kind, created_by, created_at, updated_at, last_activity_at)
+        VALUES(?, ?, 'default', NULL, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          updated_at = workspaces.updated_at,
+          last_activity_at = COALESCE(workspaces.last_activity_at, excluded.last_activity_at)
+      `
+      )
+      .run(DEFAULT_WORKSPACE_ID, DEFAULT_WORKSPACE_NAME, currentTime, currentTime, currentTime);
+
+    this.db.prepare("UPDATE teams SET workspace_id = ? WHERE workspace_id IS NULL OR workspace_id = ''").run(DEFAULT_WORKSPACE_ID);
+
+    const users = this.db.prepare("SELECT id, is_super_admin FROM users").all() as Array<{ id: string; is_super_admin: number }>;
+    for (const user of users) {
+      this.ensureWorkspaceMembership(DEFAULT_WORKSPACE_ID, user.id, user.is_super_admin === 1 ? "owner" : "member", currentTime);
+    }
+
+    const teamMemberships = this.db
+      .prepare(
+        `
+        SELECT DISTINCT
+          COALESCE(t.workspace_id, ?) AS workspace_id,
+          tm.user_id,
+          tm.role
+        FROM team_memberships tm
+        JOIN teams t ON t.id = tm.team_id
+      `
+      )
+      .all(DEFAULT_WORKSPACE_ID) as Array<{ workspace_id: string; user_id: string; role: TeamUserRole }>;
+
+    for (const membership of teamMemberships) {
+      this.ensureWorkspaceMembership(
+        membership.workspace_id,
+        membership.user_id,
+        membership.role === "team_admin" ? "admin" : "member",
+        currentTime
+      );
     }
   }
 

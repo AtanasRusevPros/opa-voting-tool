@@ -125,10 +125,13 @@ async function readTeamState(page: Page, token: string, teamId: string, includeH
       status: "active" | "revealed";
       revealAverage: string | number | null;
       votes: Array<{ userId: string; value: string }>;
+      votedCount: number;
+      notVotedCount: number;
     } | null;
     history: Array<{
       title: string;
       averageScore: string | number | null;
+      participantCount: number;
       votes: Array<{ userId: string; value: string }>;
     }>;
   };
@@ -403,5 +406,71 @@ test.describe("simulator-backed frontend performance", () => {
     expect(revealedState.activeRound?.revealAverage).toBe(revealPayload.round.revealAverage);
     expect(revealedState.history[0]?.title).toBe(title);
     expect(revealedState.history[0]?.averageScore).toBe(revealPayload.round.revealAverage);
+  });
+
+  test("repeated Sim Team 400 reveals keep history voter counts bounded to seeded participants", async ({ browser }) => {
+    test.slow();
+
+    const context = await browser.newContext({
+      viewport: { width: 1880, height: 980 }
+    });
+    const page = await context.newPage();
+
+    const token = await loginAsSimulatorOwner(page);
+    const teamName = "Sim Team 400";
+    const seededParticipantCount = 400;
+    await waitForTeamReady(page, token, teamName, 360);
+    const teamId = await getTeamId(page, token, teamName);
+    await openSimTeam(page, teamName, 360);
+
+    for (let roundIndex = 0; roundIndex < 3; roundIndex += 1) {
+      const title = `BOUND-400-${Date.now()}-${roundIndex}`;
+      const createRoundResponse = await page.request.post(`/api/teams/${teamId}/rounds`, {
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json"
+        },
+        data: { title }
+      });
+      expect(createRoundResponse.ok()).toBe(true);
+      await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 30000 });
+
+      await expect
+        .poll(
+          async () => {
+            const state = await readTeamState(page, token, teamId);
+            return state.activeRound?.votes.length ?? 0;
+          },
+          { timeout: 45000, intervals: [500, 750, 1000] }
+        )
+        .toBeGreaterThanOrEqual(120);
+
+      const activeState = await readTeamState(page, token, teamId);
+      expect(activeState.activeRound).not.toBeNull();
+      expect(activeState.activeRound!.votes.length).toBeLessThanOrEqual(seededParticipantCount);
+      expect(activeState.activeRound!.votedCount).toBeLessThanOrEqual(seededParticipantCount);
+      expect(
+        new Set(activeState.activeRound!.votes.map((vote) => vote.userId)).size,
+        "active round should contain at most one vote per simulator participant"
+      ).toBe(activeState.activeRound!.votes.length);
+
+      const roundId = activeState.activeRound!.id;
+      const revealResponse = await page.request.post(`/api/teams/${teamId}/rounds/${roundId}/reveal`, {
+        headers: {
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(revealResponse.ok()).toBe(true);
+
+      const revealedState = await readTeamState(page, token, teamId, true);
+      const historyEntry = revealedState.history.find((entry) => entry.title === title);
+      expect(historyEntry).toBeTruthy();
+      expect(historyEntry!.participantCount).toBeLessThanOrEqual(seededParticipantCount);
+      expect(historyEntry!.votes.length).toBe(historyEntry!.participantCount);
+      expect(
+        new Set(historyEntry!.votes.map((vote) => vote.userId)).size,
+        "revealed history should contain at most one vote per simulator participant"
+      ).toBe(historyEntry!.votes.length);
+    }
   });
 });

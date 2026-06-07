@@ -169,6 +169,6 @@ Pair this guide with:
 1. `project_docs/RnD_docs/ARCHITECTURE.md`
 2. `project_docs/RnD_docs/USAGE.md`
 3. `project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md`
-4. When available locally, owner-private planning notes for historical performance plans and phase evidence
+4. Historical benchmark and performance evidence when available
 
-Historical performance phase plans are private development context. For any future significant frontend optimization pass, keep public guidance concise and use private phase evidence only as local owner/agent context.
+For any future significant frontend optimization pass, keep guidance concise and use measured historical evidence to validate improvements.

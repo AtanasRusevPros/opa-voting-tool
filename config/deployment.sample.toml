@@ -53,5 +53,19 @@ text_emphasis = "#203047"
 [demo]
 enabled = false
 
+[public_trial]
+# Optional hosted public-trial mode. Keep disabled for normal self-hosted
+# deployments unless you intentionally operate a public test server.
+enabled = false
+mode = "disabled"
+max_teams_per_workspace = 2
+max_users_per_workspace = 10
+max_revealed_rounds_per_workspace_per_month = 40
+max_signup_requests_per_ip_per_hour = 3
+max_code_requests_per_email_per_day = 5
+max_invites_per_workspace_per_day = 10
+max_workspace_creations_per_ip_per_day = 2
+max_login_attempts_per_email_per_hour = 10
+
 [history_popup]
 timezone_keys = "[\"gmt\",\"usa-davidson\",\"bulgaria-sofia\"]"

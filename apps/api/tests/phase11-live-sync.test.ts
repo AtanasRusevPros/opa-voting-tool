@@ -31,6 +31,18 @@ function createTestConfig(): AppConfig {
     simulatorModeEnabled: false,
     simulatorSharedSecret: "test-secret",
     demoModeEnabled: false,
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
     superAdminUsername: "platform-admin",
     superAdminPassword: "PlatformAdmin123!",
     superAdminDisplayName: "Platform Admin",

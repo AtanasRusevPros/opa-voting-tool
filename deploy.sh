@@ -14,6 +14,7 @@ local_deployment_config="config/deployment.local.toml"
 backup_dir="${BACKUP_DIR:-$repo_root/../backups}"
 data_volume_name="${DATA_VOLUME_NAME:-containers_planning_poker_data}"
 tail_lines="${TAIL:-200}"
+backup_prune_keep="${BACKUP_PRUNE_KEEP:-20}"
 
 cd "$repo_root"
 
@@ -227,6 +228,8 @@ Environment overrides:
   LOCAL_HEALTH_URL=url        Local app health URL. Default: $local_health_url
   BACKUP_DIR=path             Backup output directory. Default: $backup_dir
   DATA_VOLUME_NAME=name       Podman volume restored by restore. Default: $data_volume_name
+  BACKUP_PRUNE_KEEP=count     Backups kept by backup:prune. Default: $backup_prune_keep
+  BACKUP_PRUNE_DRY_RUN=1      Preview backup:prune without deleting files.
   TAIL=lines                  Log tail line count. Default: $tail_lines
 
 Stack:
@@ -244,6 +247,10 @@ Health and diagnostics:
   ./deploy.sh diagnose        Print app, Caddy, disk, firewall, and recent log diagnostics
   ./deploy.sh logs            Show recent app logs
   ./deploy.sh logs:follow     Follow app logs
+  ./deploy.sh usage           Show public-trial/operator usage summary
+  ./deploy.sh usage:json      Show usage summary as JSON
+  ./deploy.sh users:export    Export registered-user summary JSON
+  ./deploy.sh workspaces:export Export workspace summary JSON
 
 Caddy:
   ./deploy.sh caddy:validate  Validate /etc/caddy/Caddyfile
@@ -257,8 +264,21 @@ Config and backups:
   ./deploy.sh domains:edit    Edit config/allowed-domains.txt
   ./deploy.sh backup          Archive app data plus deployment config/branding files
   ./deploy.sh backup:list     List recent backups
+  ./deploy.sh backup:prune    Delete older backups beyond BACKUP_PRUNE_KEEP
   ./deploy.sh restore <file>  Stop the app, restore a backup archive, restart, and health-check
 EOF
+}
+
+run_usage_report() {
+  local report_cmd="$1"
+  local container_id
+  container_id="$(service_container_id)"
+  if [[ -z "$container_id" ]]; then
+    echo "No app container found. Start the app first with ./deploy.sh up." >&2
+    exit 1
+  fi
+
+  podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/usageReportCli.ts "$report_cmd"
 }
 
 make_backup() {
@@ -288,6 +308,54 @@ make_backup() {
   tar -C "$tmp_dir" -czf "$archive" .
   rm -rf "$tmp_dir"
   echo "Backup written: $archive"
+}
+
+list_backup_archives() {
+  if [[ ! -d "$backup_dir" ]]; then
+    return
+  fi
+
+  find "$backup_dir" -maxdepth 1 -type f -name 'planning-poker-backup-*.tar.gz' -printf '%T@ %p\n' |
+    sort -rn |
+    awk '{ $1=""; sub(/^ /, ""); print }'
+}
+
+prune_backups() {
+  local keep="$backup_prune_keep"
+  if [[ ! "$keep" =~ ^[0-9]+$ || "$keep" -lt 1 ]]; then
+    echo "BACKUP_PRUNE_KEEP must be a positive integer." >&2
+    exit 1
+  fi
+
+  if [[ ! -d "$backup_dir" ]]; then
+    echo "No backup directory yet: $backup_dir"
+    return
+  fi
+
+  local index=0
+  local pruned=0
+  while IFS= read -r archive; do
+    index=$((index + 1))
+    if [[ "$index" -le "$keep" ]]; then
+      continue
+    fi
+
+    if [[ "${BACKUP_PRUNE_DRY_RUN:-0}" == "1" ]]; then
+      echo "Would delete: $archive"
+    else
+      rm -f -- "$archive"
+      echo "Deleted: $archive"
+    fi
+    pruned=$((pruned + 1))
+  done < <(list_backup_archives)
+
+  if [[ "$pruned" -eq 0 ]]; then
+    echo "No backups pruned. Keeping newest $keep backup(s)."
+  elif [[ "${BACKUP_PRUNE_DRY_RUN:-0}" == "1" ]]; then
+    echo "Dry run complete. $pruned backup(s) would be pruned; keeping newest $keep backup(s)."
+  else
+    echo "Pruned $pruned backup(s); kept newest $keep backup(s)."
+  fi
 }
 
 confirm_restore() {
@@ -450,6 +518,18 @@ case "$cmd" in
   logs:follow)
     run_podman_compose logs --tail="$tail_lines" -f "$service_name"
     ;;
+  usage)
+    run_usage_report usage
+    ;;
+  usage:json)
+    run_usage_report usage:json
+    ;;
+  users:export)
+    run_usage_report users:export
+    ;;
+  workspaces:export)
+    run_usage_report workspaces:export
+    ;;
   diagnose)
     echo "== Local health =="
     curl --max-time 10 -fsS "$local_health_url" || true
@@ -517,6 +597,9 @@ case "$cmd" in
     else
       echo "No backup directory yet: $backup_dir"
     fi
+    ;;
+  backup:prune)
+    prune_backups
     ;;
   restore)
     restore_backup "${2:-}"

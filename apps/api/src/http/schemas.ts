@@ -42,6 +42,22 @@ export const requestAccessSchema = z.object({
   email: z.string().email()
 });
 
+export const publicTrialRequestCodeSchema = z.object({
+  email: z.string().email()
+});
+
+export const publicTrialSignupSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{16}$/),
+  displayName: z.string().trim().min(2).max(40),
+  password: z.string().trim().min(8).max(128),
+  avatarIconKey: z.string().optional(),
+  avatarColorKey: z.string().optional(),
+  avatarKey: z.string().optional(),
+  acceptedTerms: z.literal(true),
+  acceptedTermsVersion: z.string().trim().min(1).max(80)
+});
+
 export const createTeamSchema = z.object({
   name: z.string().trim().min(2).max(64)
 });
@@ -239,6 +255,20 @@ export const adminConfigPatchSchema = z.object({
   demo: z
     .object({
       enabled: z.boolean().optional()
+    })
+    .optional(),
+  publicTrial: z
+    .object({
+      enabled: z.boolean().optional(),
+      mode: z.enum(["disabled", "open_signup", "invite_only", "operator_approved"]).optional(),
+      maxTeamsPerWorkspace: z.number().int().min(1).max(100).optional(),
+      maxUsersPerWorkspace: z.number().int().min(1).max(1000).optional(),
+      maxRevealedRoundsPerWorkspacePerMonth: z.number().int().min(1).max(10000).optional(),
+      maxSignupRequestsPerIpPerHour: z.number().int().min(1).max(1000).optional(),
+      maxCodeRequestsPerEmailPerDay: z.number().int().min(1).max(1000).optional(),
+      maxInvitesPerWorkspacePerDay: z.number().int().min(1).max(1000).optional(),
+      maxWorkspaceCreationsPerIpPerDay: z.number().int().min(1).max(1000).optional(),
+      maxLoginAttemptsPerEmailPerHour: z.number().int().min(1).max(1000).optional()
     })
     .optional()
 });

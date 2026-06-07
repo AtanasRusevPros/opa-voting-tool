@@ -1430,7 +1430,7 @@ test("offline stale tabs recover on focus and pageshow after live round updates"
   }
 });
 
-test("team timer auto-reveals the round for every connected client", async ({ browser }) => {
+test("team timer auto-reveals across reconnects and resets for vote again", async ({ browser }) => {
   const ownerContext = await browser.newContext();
   const memberContext = await browser.newContext();
   const ownerPage = await ownerContext.newPage();
@@ -1457,9 +1457,27 @@ test("team timer auto-reveals the round for every connected client", async ({ br
     await expect(memberPage.locator(".board-timer-active")).toBeVisible();
     await expect(ownerPage.locator(".board-timer-active")).not.toContainText("Timer 10s");
 
+    await memberPage.reload();
+    await expect(memberPage.getByRole("heading", { name: teamName })).toBeVisible({ timeout: 15000 });
+    await expect(memberPage.locator(".board-timer-active")).toBeVisible();
+
     await expectRevealedAverage(ownerPage, "4");
     await expectRevealedAverage(memberPage, "4");
     await expect(ownerPage.getByRole("button", { name: "Reveal score" })).toHaveCount(0);
+    await expect(ownerPage.locator(".board-timer-idle")).toContainText("Timer 10s");
+    await expect(memberPage.locator(".board-timer-idle")).toContainText("Timer 10s");
+
+    ownerPage.once("dialog", (dialog) => dialog.accept());
+    await ownerPage.getByRole("button", { name: "Vote AGAIN", exact: true }).click();
+    await expect(ownerPage.getByRole("heading", { name: "TIMER-101" })).toBeVisible();
+    await expect(ownerPage.locator(".board-timer-active")).toBeVisible();
+    await expect(memberPage.locator(".board-timer-active")).toBeVisible();
+
+    await ownerPage.getByRole("button", { name: "8", exact: true }).click();
+    await memberPage.getByRole("button", { name: "8", exact: true }).click();
+
+    await expectRevealedAverage(ownerPage, "8");
+    await expectRevealedAverage(memberPage, "8");
     await expect(ownerPage.locator(".board-timer-idle")).toContainText("Timer 10s");
     await expect(memberPage.locator(".board-timer-idle")).toContainText("Timer 10s");
   } finally {

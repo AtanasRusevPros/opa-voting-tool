@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 Status: Reusable release-readiness checklist
 
-Use this as the compact execution checklist for the open-source release pass. Detailed owner decisions and private release-prep notes may exist separately in the local development environment, but this checklist must remain safe to publish.
+Use this as the compact execution checklist for an open-source release pass.
 
 ## 1. Sanitize
 
@@ -15,7 +15,7 @@ Use this as the compact execution checklist for the open-source release pass. De
 - Replace public examples with generic values such as `ISSUE-12345`, `vote.example.com`, and `example-company.com`.
 - Inspect logs, generated files, screenshots, SQLite files, simulator outputs, and local deployment artifacts.
 - Keep local research/checkout folders untracked unless explicitly adopted.
-- Keep owner-private planning folders untracked; they are local owner/agent context, not part of the public release artifact.
+- Keep local planning folders, worklogs, and release-preparation artifacts untracked unless they are intentionally reviewed for publication.
 - Review remaining `project_docs/` content for publication value and remove public-doc bloat before launch. Presentation drafts should be consolidated; if a presentation is kept, prefer one updated HTML version rather than multiple stale draft formats.
 - Keep real deployment settings in ignored `config/deployment.local.toml`; tracked templates must not contain usable super-admin credentials.
 
@@ -62,6 +62,6 @@ Use this as the compact execution checklist for the open-source release pass. De
 - Screenshots/GIFs are deferred to Phase 19.1/20 until demo data/media rules and launch branding are ready.
 - Repo/package renaming needs a dedicated technical pass.
 - Backup/restore has been smoke-tested with `./deploy.sh backup`, `./deploy.sh backup:list`, and `./deploy.sh restore <file>`; re-run the rehearsal before a release if backup behavior changes.
-- The first clean public repo tag is `v0.1.0`; future release tags should follow the documented versioning policy.
+- The first public tag is `v0.1.0`; future release tags should follow the documented versioning policy.
 - Search discoverability should be revisited after launch using real search/referral signals rather than guessed keyword density.
 - Automatic update checks, backup pruning, release-channel selection, and major/minor/patch update policy belong to the later post-launch operations phase.

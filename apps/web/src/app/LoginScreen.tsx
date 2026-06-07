@@ -25,9 +25,14 @@ export function LoginScreen(props: {
   setAvatarColorKey: (value: string) => void;
   authStep: AuthStep;
   canUseEmailCode: boolean;
+  publicTrialOpenSignup: boolean;
+  isPublicTrialCodeStep: boolean;
+  trialTermsAccepted: boolean;
+  setTrialTermsAccepted: (value: boolean) => void;
   code: string;
   setCode: (value: string) => void;
   onRequestCode: () => Promise<void>;
+  onStartPublicTrial: () => Promise<void>;
   onRequestAccess: () => Promise<void>;
   onForgotPassword: () => Promise<void>;
   onOpenAdminSignIn: () => void;
@@ -47,7 +52,8 @@ export function LoginScreen(props: {
     props.code.trim().length === 16 &&
     props.displayName.trim().length >= 2 &&
     props.password.trim().length >= 8 &&
-    props.password === props.confirmPassword;
+    props.password === props.confirmPassword &&
+    (!props.isPublicTrialCodeStep || props.trialTermsAccepted);
 
   return (
     <div className="login-shell">
@@ -156,6 +162,11 @@ export function LoginScreen(props: {
 
           {props.authStep === "code" ? (
             <>
+              {props.isPublicTrialCodeStep ? (
+                <div className="info-banner">
+                  You are creating a limited free public-trial workspace. Use it for evaluation, avoid confidential data, and export anything important before cleanup notices expire.
+                </div>
+              ) : null}
               <label>
                 16-digit code
                 <input value={props.code} onChange={(event) => props.setCode(event.target.value)} placeholder="0000000000000000" autoComplete="one-time-code" />
@@ -219,6 +230,34 @@ export function LoginScreen(props: {
                   ))}
                 </div>
               </div>
+              {props.isPublicTrialCodeStep ? (
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={props.trialTermsAccepted}
+                    onChange={(event) => props.setTrialTermsAccepted(event.target.checked)}
+                  />
+                  <span>
+                    I accept the{" "}
+                    <a href="/public-trial/terms" target="_blank" rel="noreferrer">
+                      public trial terms
+                    </a>
+                    ,{" "}
+                    <a href="/public-trial/privacy" target="_blank" rel="noreferrer">
+                      privacy notice
+                    </a>
+                    ,{" "}
+                    <a href="/public-trial/acceptable-use" target="_blank" rel="noreferrer">
+                      acceptable-use rules
+                    </a>
+                    , and{" "}
+                    <a href="/public-trial/export-cleanup" target="_blank" rel="noreferrer">
+                      cleanup/export policy
+                    </a>
+                    .
+                  </span>
+                </label>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -277,10 +316,20 @@ export function LoginScreen(props: {
               <button className="secondary-button" type="button" disabled={!canSubmitEmail} onClick={() => void props.onRequestAccess()}>
                 Request access
               </button>
+              {props.publicTrialOpenSignup ? (
+                <button className="secondary-button" type="button" disabled={!canSubmitEmail} onClick={() => void props.onStartPublicTrial()}>
+                  Start free public trial
+                </button>
+              ) : null}
               <button className="secondary-button" type="button" onClick={props.onOpenAdminSignIn}>
                 Admin
               </button>
             </div>
+            {props.publicTrialOpenSignup ? (
+              <div className="field-hint">
+                Public trial creates a private starter workspace with limited free usage. Self-hosting remains the main OSS path.
+              </div>
+            ) : null}
           </div>
         ) : null}
         <BrandFooter branding={branding} />

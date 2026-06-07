@@ -48,7 +48,22 @@ The system is a structured full-stack repository with:
 19. Super-admins can edit deployment, branding, SMTP, demo-mode, and Jira Cloud connection settings from the in-app `Platform settings` surface backed by the deployment TOML file; the People list supports paged search plus recent/oldest and A-Z/Z-A sorting.
 20. Team-admins and super-admins can save a team Jira source (`Project key + optional JQL`) from the team `Import/export` tab, import Jira issues into a team-scoped pending queue, and load a pending Jira issue into a round using both the issue key and title.
 21. Minimum participation is evaluated against the current live board participants at reveal/re-evaluation time rather than all team members, so offline members do not block active-room decisions.
-21. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
+22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
+
+## Optional Public-Trial Workspace Flow
+
+Public-trial mode is an advanced hosted-test-server mode and is disabled by default. Normal self-hosted deployments continue to behave as one default workspace unless the operator explicitly enables `[public_trial]`.
+
+When public trial mode is enabled:
+- a visitor can request a public-trial code only through SMTP-backed delivery
+- signup requires accepting the hosted-trial terms
+- the API creates a global user, one isolated public-trial workspace, workspace membership, and a starter team
+- public-trial users only see teams and autocomplete candidates inside their workspace
+- public-trial collaborator invites are SMTP-only and join the inviter's workspace
+- configurable limits cap public-trial teams, users, revealed rounds per month, signup/code/invite attempts, workspace creation, and public-trial password sign-in attempts
+- policy pages are served at `/public-trial/terms`, `/public-trial/privacy`, `/public-trial/acceptable-use`, and `/public-trial/export-cleanup`
+
+This mode is not the normal OSS/self-hosted path and should not be publicly promoted until the Phase 19.1 VPS go/no-go checks pass.
 
 ## SMTP-Free Onboarding Flow
 
@@ -99,8 +114,15 @@ SQLite tables:
 - `users`
 - `login_codes`
 - `sessions`
+- `workspaces`
+- `workspace_memberships`
 - `teams`
 - `team_memberships`
+- `user_team_preferences`
+- `team_join_requests`
+- `platform_access_requests`
+- `notifications`
+- `action_history`
 - `rounds`
 - `votes`
 - `history_entries`
@@ -114,7 +136,9 @@ Behavior choices:
 - users persist a password hash for returning email + password sign-in
 - team deck selection is stored at team level
 - new teams receive their default history-time-popup timezone list from `[history_popup].timezone_keys` in the deployment config, and teams persist that default so team-admin changes are inherited by users without a personal override
-- team names are treated as globally unique after trim/case normalization, including archived teams, so restore/import/create paths do not create ambiguous board names
+- team names are treated as unique within their workspace after trim/case normalization, including archived teams, while public slugs remain unique enough for direct board links
+- self-hosted/default deployments use a default workspace, while public-trial deployments create isolated public-trial workspaces for first-time trial users
+- public-trial users store accepted terms version and timestamp, and public-trial workspace limits are enforced from deployment config
 - teams now persist `minimumVotePercentEnabled` and `minimumVotePercent` as part of their settings
 - a new round archives the previous live round for the same team
 - history comments store a persistent `author_signature` in `Name (email)` format so exported/imported history does not depend on the original live user row
@@ -130,6 +154,7 @@ Behavior choices:
 - Allowed login domains come from [`config/allowed-domains.txt`](../../config/allowed-domains.txt).
 - Runtime deployment config prefers ignored `config/deployment.local.toml` when present, then falls back to tracked [`config/deployment.toml`](../../config/deployment.toml).
 - `[history_popup].timezone_keys` in that config is parsed as the global default timezone list for newly created teams.
+- `[public_trial]` is disabled by default; when explicitly enabled for a hosted test server, it controls public-trial mode, signup/invite/login rate limits, workspace user/team limits, and monthly revealed-round limits.
 - Super-admin-managed branding uploads live in [`config/managed-branding`](../../config/managed-branding).
 - The shipped fallback branding assets still live under [`apps/web/public/branding`](../../apps/web/public/branding).
 - The in-app `Platform settings` surface edits admin, SMTP, branding, palette, footer, and demo-mode settings against that deployment config.

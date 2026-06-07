@@ -49,6 +49,18 @@ export function getConfig(): AppConfig {
     simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
     simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
     demoModeEnabled: false,
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
     superAdminUsername: process.env.SUPER_ADMIN_USERNAME ?? "",
     superAdminPassword: process.env.SUPER_ADMIN_PASSWORD ?? "",
     superAdminDisplayName: process.env.SUPER_ADMIN_DISPLAY_NAME ?? "Super Admin",

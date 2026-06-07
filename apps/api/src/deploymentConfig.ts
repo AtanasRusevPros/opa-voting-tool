@@ -54,6 +54,18 @@ type RawDeploymentConfig = {
   demo: {
     enabled: boolean;
   };
+  publicTrial: {
+    enabled: boolean;
+    mode: AppConfig["publicTrial"]["mode"];
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
+  };
   historyPopup: {
     timezoneKeys: HistoryTimeZoneKey[];
   };
@@ -99,6 +111,18 @@ export type DeploymentConfigView = {
   demo: {
     enabled: boolean;
   };
+  publicTrial: {
+    enabled: boolean;
+    mode: AppConfig["publicTrial"]["mode"];
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
+  };
   historyPopup: {
     timezoneKeys: HistoryTimeZoneKey[];
   };
@@ -136,6 +160,18 @@ export type DeploymentConfigPatch = {
   demo?: {
     enabled?: boolean;
   };
+  publicTrial?: {
+    enabled?: boolean;
+    mode?: AppConfig["publicTrial"]["mode"];
+    maxTeamsPerWorkspace?: number;
+    maxUsersPerWorkspace?: number;
+    maxRevealedRoundsPerWorkspacePerMonth?: number;
+    maxSignupRequestsPerIpPerHour?: number;
+    maxCodeRequestsPerEmailPerDay?: number;
+    maxInvitesPerWorkspacePerDay?: number;
+    maxWorkspaceCreationsPerIpPerDay?: number;
+    maxLoginAttemptsPerEmailPerHour?: number;
+  };
   historyPopup?: {
     timezoneKeys?: HistoryTimeZoneKey[];
   };
@@ -159,6 +195,14 @@ export type DeploymentConfigSaveResult = {
 function parseNumber(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parsePositiveInt(value: boolean | number | string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(1, Math.floor(parsed));
 }
 
 function quoteToml(value: string): string {
@@ -248,6 +292,18 @@ function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: st
     demo: {
       enabled: false
     },
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
     historyPopup: {
       timezoneKeys: [...DEFAULT_HISTORY_TIME_ZONE_KEYS]
     }
@@ -305,6 +361,18 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
     "[demo]",
     `enabled = ${config.demo.enabled ? "true" : "false"}`,
     "",
+    "[public_trial]",
+    `enabled = ${config.publicTrial.enabled ? "true" : "false"}`,
+    `mode = ${quoteToml(config.publicTrial.mode)}`,
+    `max_teams_per_workspace = ${config.publicTrial.maxTeamsPerWorkspace}`,
+    `max_users_per_workspace = ${config.publicTrial.maxUsersPerWorkspace}`,
+    `max_revealed_rounds_per_workspace_per_month = ${config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth}`,
+    `max_signup_requests_per_ip_per_hour = ${config.publicTrial.maxSignupRequestsPerIpPerHour}`,
+    `max_code_requests_per_email_per_day = ${config.publicTrial.maxCodeRequestsPerEmailPerDay}`,
+    `max_invites_per_workspace_per_day = ${config.publicTrial.maxInvitesPerWorkspacePerDay}`,
+    `max_workspace_creations_per_ip_per_day = ${config.publicTrial.maxWorkspaceCreationsPerIpPerDay}`,
+    `max_login_attempts_per_email_per_hour = ${config.publicTrial.maxLoginAttemptsPerEmailPerHour}`,
+    "",
     "[history_popup]",
     `timezone_keys = ${quoteToml(JSON.stringify(config.historyPopup.timezoneKeys))}`,
     ""
@@ -331,6 +399,13 @@ function parseHistoryPopupTimezoneKeys(value: boolean | number | string | undefi
     );
     return normalized.length ? normalized : [...fallback];
   }
+}
+
+function parsePublicTrialMode(value: boolean | number | string | undefined, fallback: AppConfig["publicTrial"]["mode"]): AppConfig["publicTrial"]["mode"] {
+  if (value === "open_signup" || value === "invite_only" || value === "operator_approved" || value === "disabled") {
+    return value;
+  }
+  return fallback;
 }
 
 function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawDeploymentConfig {
@@ -379,6 +454,36 @@ function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawD
     },
     demo: {
       enabled: Boolean(sections.demo?.enabled ?? defaults.demo.enabled)
+    },
+    publicTrial: {
+      enabled: Boolean(sections.public_trial?.enabled ?? defaults.publicTrial.enabled),
+      mode: parsePublicTrialMode(sections.public_trial?.mode, defaults.publicTrial.mode),
+      maxTeamsPerWorkspace: parsePositiveInt(sections.public_trial?.max_teams_per_workspace, defaults.publicTrial.maxTeamsPerWorkspace),
+      maxUsersPerWorkspace: parsePositiveInt(sections.public_trial?.max_users_per_workspace, defaults.publicTrial.maxUsersPerWorkspace),
+      maxRevealedRoundsPerWorkspacePerMonth: parsePositiveInt(
+        sections.public_trial?.max_revealed_rounds_per_workspace_per_month,
+        defaults.publicTrial.maxRevealedRoundsPerWorkspacePerMonth
+      ),
+      maxSignupRequestsPerIpPerHour: parsePositiveInt(
+        sections.public_trial?.max_signup_requests_per_ip_per_hour,
+        defaults.publicTrial.maxSignupRequestsPerIpPerHour
+      ),
+      maxCodeRequestsPerEmailPerDay: parsePositiveInt(
+        sections.public_trial?.max_code_requests_per_email_per_day,
+        defaults.publicTrial.maxCodeRequestsPerEmailPerDay
+      ),
+      maxInvitesPerWorkspacePerDay: parsePositiveInt(
+        sections.public_trial?.max_invites_per_workspace_per_day,
+        defaults.publicTrial.maxInvitesPerWorkspacePerDay
+      ),
+      maxWorkspaceCreationsPerIpPerDay: parsePositiveInt(
+        sections.public_trial?.max_workspace_creations_per_ip_per_day,
+        defaults.publicTrial.maxWorkspaceCreationsPerIpPerDay
+      ),
+      maxLoginAttemptsPerEmailPerHour: parsePositiveInt(
+        sections.public_trial?.max_login_attempts_per_email_per_hour,
+        defaults.publicTrial.maxLoginAttemptsPerEmailPerHour
+      )
     },
     historyPopup: {
       timezoneKeys: parseHistoryPopupTimezoneKeys(sections.history_popup?.timezone_keys, defaults.historyPopup.timezoneKeys)
@@ -503,6 +608,7 @@ export class DeploymentConfigManager {
       simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
       simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
       demoModeEnabled: this.rawConfig.demo.enabled,
+      publicTrial: { ...this.rawConfig.publicTrial },
       defaultHistoryTimezoneKeys: [...this.rawConfig.historyPopup.timezoneKeys],
       superAdminUsername: this.rawConfig.admin.username,
       superAdminPassword: this.rawConfig.admin.password,
@@ -565,6 +671,7 @@ export class DeploymentConfigManager {
       demo: {
         enabled: this.currentConfig.demoModeEnabled
       },
+      publicTrial: { ...this.currentConfig.publicTrial },
       historyPopup: {
         timezoneKeys: [...this.currentConfig.defaultHistoryTimezoneKeys]
       }
@@ -676,6 +783,39 @@ export class DeploymentConfigManager {
     if (patch.demo?.enabled !== undefined) {
       this.rawConfig.demo.enabled = patch.demo.enabled;
     }
+    if (patch.publicTrial?.enabled !== undefined) {
+      this.rawConfig.publicTrial.enabled = patch.publicTrial.enabled;
+    }
+    if (patch.publicTrial?.mode !== undefined) {
+      this.rawConfig.publicTrial.mode = patch.publicTrial.mode;
+    }
+    if (patch.publicTrial?.maxTeamsPerWorkspace !== undefined) {
+      this.rawConfig.publicTrial.maxTeamsPerWorkspace = Math.max(1, Math.floor(patch.publicTrial.maxTeamsPerWorkspace));
+    }
+    if (patch.publicTrial?.maxUsersPerWorkspace !== undefined) {
+      this.rawConfig.publicTrial.maxUsersPerWorkspace = Math.max(1, Math.floor(patch.publicTrial.maxUsersPerWorkspace));
+    }
+    if (patch.publicTrial?.maxRevealedRoundsPerWorkspacePerMonth !== undefined) {
+      this.rawConfig.publicTrial.maxRevealedRoundsPerWorkspacePerMonth = Math.max(
+        1,
+        Math.floor(patch.publicTrial.maxRevealedRoundsPerWorkspacePerMonth)
+      );
+    }
+    if (patch.publicTrial?.maxSignupRequestsPerIpPerHour !== undefined) {
+      this.rawConfig.publicTrial.maxSignupRequestsPerIpPerHour = Math.max(1, Math.floor(patch.publicTrial.maxSignupRequestsPerIpPerHour));
+    }
+    if (patch.publicTrial?.maxCodeRequestsPerEmailPerDay !== undefined) {
+      this.rawConfig.publicTrial.maxCodeRequestsPerEmailPerDay = Math.max(1, Math.floor(patch.publicTrial.maxCodeRequestsPerEmailPerDay));
+    }
+    if (patch.publicTrial?.maxInvitesPerWorkspacePerDay !== undefined) {
+      this.rawConfig.publicTrial.maxInvitesPerWorkspacePerDay = Math.max(1, Math.floor(patch.publicTrial.maxInvitesPerWorkspacePerDay));
+    }
+    if (patch.publicTrial?.maxWorkspaceCreationsPerIpPerDay !== undefined) {
+      this.rawConfig.publicTrial.maxWorkspaceCreationsPerIpPerDay = Math.max(1, Math.floor(patch.publicTrial.maxWorkspaceCreationsPerIpPerDay));
+    }
+    if (patch.publicTrial?.maxLoginAttemptsPerEmailPerHour !== undefined) {
+      this.rawConfig.publicTrial.maxLoginAttemptsPerEmailPerHour = Math.max(1, Math.floor(patch.publicTrial.maxLoginAttemptsPerEmailPerHour));
+    }
     if (patch.historyPopup?.timezoneKeys !== undefined) {
       const normalized = normalizeHistoryTimeZoneKeys(patch.historyPopup.timezoneKeys);
       this.rawConfig.historyPopup.timezoneKeys = normalized.length ? normalized : [...DEFAULT_HISTORY_TIME_ZONE_KEYS];
@@ -750,6 +890,7 @@ export class DeploymentConfigManager {
     this.currentConfig.jiraRefreshToken = this.rawConfig.jira.refreshToken || undefined;
     this.currentConfig.jiraAccessTokenExpiresAt = this.rawConfig.jira.accessTokenExpiresAt || undefined;
     this.currentConfig.demoModeEnabled = this.rawConfig.demo.enabled;
+    this.currentConfig.publicTrial = { ...this.rawConfig.publicTrial };
     this.currentConfig.defaultHistoryTimezoneKeys = [...this.rawConfig.historyPopup.timezoneKeys];
     this.currentConfig.branding = {
       ...this.currentConfig.branding,
@@ -838,6 +979,36 @@ function collectPatchFields(patch: DeploymentConfigPatch): string[] {
   }
   if (patch.demo?.enabled !== undefined) {
     fields.push("demo.enabled");
+  }
+  if (patch.publicTrial?.enabled !== undefined) {
+    fields.push("publicTrial.enabled");
+  }
+  if (patch.publicTrial?.mode !== undefined) {
+    fields.push("publicTrial.mode");
+  }
+  if (patch.publicTrial?.maxTeamsPerWorkspace !== undefined) {
+    fields.push("publicTrial.maxTeamsPerWorkspace");
+  }
+  if (patch.publicTrial?.maxUsersPerWorkspace !== undefined) {
+    fields.push("publicTrial.maxUsersPerWorkspace");
+  }
+  if (patch.publicTrial?.maxRevealedRoundsPerWorkspacePerMonth !== undefined) {
+    fields.push("publicTrial.maxRevealedRoundsPerWorkspacePerMonth");
+  }
+  if (patch.publicTrial?.maxSignupRequestsPerIpPerHour !== undefined) {
+    fields.push("publicTrial.maxSignupRequestsPerIpPerHour");
+  }
+  if (patch.publicTrial?.maxCodeRequestsPerEmailPerDay !== undefined) {
+    fields.push("publicTrial.maxCodeRequestsPerEmailPerDay");
+  }
+  if (patch.publicTrial?.maxInvitesPerWorkspacePerDay !== undefined) {
+    fields.push("publicTrial.maxInvitesPerWorkspacePerDay");
+  }
+  if (patch.publicTrial?.maxWorkspaceCreationsPerIpPerDay !== undefined) {
+    fields.push("publicTrial.maxWorkspaceCreationsPerIpPerDay");
+  }
+  if (patch.publicTrial?.maxLoginAttemptsPerEmailPerHour !== undefined) {
+    fields.push("publicTrial.maxLoginAttemptsPerEmailPerHour");
   }
   if (patch.historyPopup?.timezoneKeys !== undefined) {
     fields.push("historyPopup.timezoneKeys");

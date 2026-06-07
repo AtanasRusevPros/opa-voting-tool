@@ -43,6 +43,18 @@ export interface AppConfig {
   simulatorModeEnabled: boolean;
   simulatorSharedSecret: string;
   demoModeEnabled: boolean;
+  publicTrial: {
+    enabled: boolean;
+    mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
+  };
   superAdminUsername: string;
   superAdminPassword: string;
   superAdminDisplayName: string;

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, describe, vi } from "vitest";
 import App, {
   HistoryTimestamp,
   TeamBoard,
+  applyOptimisticVoteToTeamState,
   applyTeamRoundUpdateToState,
   applyTeamRoundVoteUpdateToState,
   calculateBoardLayout,
@@ -1773,6 +1774,53 @@ describe("App", () => {
     expect(next.activeRound?.votes).toHaveLength(2);
     expect(next.activeRound?.votes[0]?.value).toBe("5");
     expect(next.activeRound?.votes[1]?.value).toBe("hidden");
+  });
+
+  it("lets authoritative vote deltas reduce stale inflated voted counts", () => {
+    const current = buildBoardState({
+      activeRound: {
+        ...buildBoardState().activeRound!,
+        votedCount: 9,
+        notVotedCount: 0,
+        votes: []
+      }
+    });
+    const next = applyTeamRoundVoteUpdateToState(current, {
+      teamId: "team-1",
+      roundId: current.activeRound!.id,
+      changedMemberIndexes: [0, 1],
+      fromVoteVersion: 0,
+      votedCount: 2,
+      notVotedCount: 1,
+      viewerVoteValue: "5",
+      liveSync: {
+        teamId: "team-1",
+        roundId: current.activeRound!.id,
+        roundVersion: 1,
+        voteVersion: 2
+      }
+    });
+
+    expect(next.activeRound?.votes).toHaveLength(2);
+    expect(next.activeRound?.votedCount).toBe(2);
+    expect(next.activeRound?.notVotedCount).toBe(1);
+  });
+
+  it("keeps optimistic voted counts aligned with the actual visible vote records", () => {
+    const current = buildBoardState({
+      activeRound: {
+        ...buildBoardState().activeRound!,
+        votedCount: 9,
+        notVotedCount: 0,
+        votes: []
+      }
+    });
+
+    const next = applyOptimisticVoteToTeamState(current, "team-1", current.activeRound!.id, current.currentUser, "8");
+
+    expect(next.activeRound?.votes).toHaveLength(1);
+    expect(next.activeRound?.votedCount).toBe(1);
+    expect(next.activeRound?.notVotedCount).toBe(2);
   });
 
   it("runs a one-shot room-entry resync so a stale first board snapshot can converge to the latest round", async () => {

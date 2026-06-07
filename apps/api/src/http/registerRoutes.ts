@@ -20,6 +20,8 @@ import {
   passwordResetRequestSchema,
   passwordSignInSchema,
   profileSchema,
+  publicTrialRequestCodeSchema,
+  publicTrialSignupSchema,
   requestAccessSchema,
   requestCodeSchema,
   userPreferencesSchema,
@@ -53,6 +55,18 @@ type RegisterRoutesDeps = {
     smtpFrom?: string;
     simulatorModeEnabled: boolean;
     demoModeEnabled: boolean;
+    publicTrial: {
+      enabled: boolean;
+      mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+      maxTeamsPerWorkspace: number;
+      maxUsersPerWorkspace: number;
+      maxRevealedRoundsPerWorkspacePerMonth: number;
+      maxSignupRequestsPerIpPerHour: number;
+      maxCodeRequestsPerEmailPerDay: number;
+      maxInvitesPerWorkspacePerDay: number;
+      maxWorkspaceCreationsPerIpPerDay: number;
+      maxLoginAttemptsPerEmailPerHour: number;
+    };
     allowedDomainsPath: string;
   };
   shouldExposeDebugCodes: boolean;
@@ -83,6 +97,38 @@ type RegisterRoutesDeps = {
   noteTeamVoteChanged(teamId: string, roundId: string, userId: string, value: string): void;
 };
 
+type RateBucket = {
+  count: number;
+  resetAt: number;
+};
+
+const rateBuckets = new Map<string, RateBucket>();
+
+function publicTrialRateLimit(key: string, limit: number, windowMs: number, now = Date.now()): { allowed: boolean; remaining: number; resetAt: number } {
+  const existing = rateBuckets.get(key);
+  if (!existing || existing.resetAt <= now) {
+    const resetAt = now + windowMs;
+    rateBuckets.set(key, { count: 1, resetAt });
+    return { allowed: true, remaining: Math.max(0, limit - 1), resetAt };
+  }
+  if (existing.count >= limit) {
+    return { allowed: false, remaining: 0, resetAt: existing.resetAt };
+  }
+  existing.count += 1;
+  return { allowed: true, remaining: Math.max(0, limit - existing.count), resetAt: existing.resetAt };
+}
+
+function getClientRateIdentity(req: express.Request): string {
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function writeRateLimitResponse(res: express.Response, resetAt: number): void {
+  res.status(429).json({
+    error: "Too many public trial requests. Please wait and try again.",
+    retryAfterSeconds: Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
+  });
+}
+
 function renderJiraOauthResultPage(message: string): string {
   const escaped = JSON.stringify(message);
   return `<!doctype html>
@@ -101,6 +147,39 @@ function renderJiraOauthResultPage(message: string): string {
       }
       window.setTimeout(() => window.close(), 200);
     </script>
+  </body>
+</html>`;
+}
+
+function renderPublicTrialInfoPage(title: string, sections: Array<{ heading: string; body: string }>): string {
+  const escapedTitle = title.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]!);
+  const sectionMarkup = sections
+    .map(
+      (section) => `
+        <section>
+          <h2>${section.heading.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]!)}</h2>
+          <p>${section.body.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]!)}</p>
+        </section>`
+    )
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapedTitle}</title>
+    <style>
+      body { max-width: 780px; margin: 0 auto; padding: 32px 20px; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6; color: #203047; background: #f7fbff; }
+      a { color: #1e63c6; }
+      h1 { line-height: 1.2; }
+      section { margin-top: 24px; padding: 18px 20px; border: 1px solid #dbe8f7; border-radius: 16px; background: white; }
+    </style>
+  </head>
+  <body>
+    <p><a href="/">Back to OpaVoting</a></p>
+    <h1>${escapedTitle}</h1>
+    ${sectionMarkup}
   </body>
 </html>`;
 }
@@ -140,6 +219,92 @@ export function registerRoutes({
     res.json({ ok: true, time: new Date().toISOString() });
   });
 
+  app.get("/public-trial/terms", (_req, res) => {
+    res
+      .type("html")
+      .send(
+        renderPublicTrialInfoPage("OpaVoting Public Trial Terms", [
+          {
+            heading: "Limited Free Public Trial",
+            body:
+              "The hosted OpaVoting public trial is an alpha evaluation service for trying the app before deciding whether to self-host it. Access may be limited, paused, or discontinued if abuse, maintenance, or hosting constraints require it."
+          },
+          {
+            heading: "Use Limits",
+            body:
+              "Trial workspaces are limited by deployment configuration, initially two teams, ten users, and a monthly revealed-round cap. Bigger or long-term usage should use self-hosting or a future hosted-service arrangement."
+          },
+          {
+            heading: "No Confidential Data",
+            body:
+              "The operator intends to keep trial data private and not sell or misuse email addresses, but this is still a public alpha test service. Do not enter confidential, regulated, or sensitive production data."
+          }
+        ])
+      );
+  });
+
+  app.get("/public-trial/privacy", (_req, res) => {
+    res
+      .type("html")
+      .send(
+        renderPublicTrialInfoPage("OpaVoting Public Trial Privacy Notice", [
+          {
+            heading: "Data Collected",
+            body:
+              "The app stores account email, display name, workspace/team membership, votes, comments, history, sessions, and operational timestamps needed to run the service."
+          },
+          {
+            heading: "Operational Use",
+            body:
+              "Data is used to provide the public trial, prevent abuse, diagnose reliability issues, and decide whether the test server is useful enough to keep online."
+          },
+          {
+            heading: "Email And Third Parties",
+            body:
+              "Email delivery may use a transactional SMTP provider. Public-trial emails are for access, reset, invite, cleanup, and important service notices."
+          }
+        ])
+      );
+  });
+
+  app.get("/public-trial/acceptable-use", (_req, res) => {
+    res
+      .type("html")
+      .send(
+        renderPublicTrialInfoPage("OpaVoting Public Trial Acceptable Use", [
+          {
+            heading: "Respectful Evaluation",
+            body:
+              "Use the public trial to evaluate realtime voting and planning workflows. Do not harass others, attempt unauthorized access, spam invitations, overload the server, or bypass workspace limits."
+          },
+          {
+            heading: "Abuse Controls",
+            body:
+              "The operator may rate-limit, block, remove, archive, or disable trial access to protect the service, other testers, and infrastructure."
+          }
+        ])
+      );
+  });
+
+  app.get("/public-trial/export-cleanup", (_req, res) => {
+    res
+      .type("html")
+      .send(
+        renderPublicTrialInfoPage("OpaVoting Public Trial Export And Cleanup", [
+          {
+            heading: "Trial Lifecycle",
+            body:
+              "Inactive trial workspaces may be cleaned up after the configured inactivity window. The intended first policy is sixty inactive days with warning emails roughly fourteen and seven days before cleanup."
+          },
+          {
+            heading: "Export",
+            body:
+              "Before cleanup or shutdown, the operator should provide a practical export path when feasible. Public-trial exports must avoid passwords, tokens, SMTP secrets, Jira secrets, and other operational credentials."
+          }
+        ])
+      );
+  });
+
   app.get("/api/bootstrap", (_req, res) => {
     res.json({
       decks: DECKS,
@@ -149,6 +314,7 @@ export function registerRoutes({
       smtpConfigured: Boolean(config.smtpHost && config.smtpPort && config.smtpFrom),
       simulatorModeEnabled: config.simulatorModeEnabled,
       demoModeEnabled: config.demoModeEnabled,
+      publicTrial: config.publicTrial,
       allowedDomainsFile: path.relative(process.cwd(), config.allowedDomainsPath)
     });
   });
@@ -393,6 +559,141 @@ export function registerRoutes({
     }
   });
 
+  app.post("/api/auth/public-trial/request-code", async (req, res) => {
+    if (!config.publicTrial.enabled || config.publicTrial.mode !== "open_signup") {
+      res.status(403).json({ error: "Public trial signup is not enabled." });
+      return;
+    }
+
+    const smtpConfigured = Boolean(config.smtpHost && config.smtpPort && config.smtpFrom);
+    if (!smtpConfigured && !shouldExposeDebugCodes) {
+      res.status(503).json({ error: "Public trial signup requires SMTP email delivery." });
+      return;
+    }
+
+    const payload = publicTrialRequestCodeSchema.safeParse(req.body);
+    if (!payload.success) {
+      res.status(400).json({ error: "Invalid email" });
+      return;
+    }
+
+    const email = payload.data.email.toLowerCase();
+    const clientIdentity = getClientRateIdentity(req);
+    const ipLimit = publicTrialRateLimit(
+      `public-trial:signup-ip:${clientIdentity}`,
+      config.publicTrial.maxSignupRequestsPerIpPerHour,
+      60 * 60 * 1000
+    );
+    if (!ipLimit.allowed) {
+      repository.recordPlatformAudit(
+        "public_trial_rate_limited",
+        "Public trial signup rate limit",
+        `Public trial signup request-code rate limit hit for IP ${clientIdentity}.`
+      );
+      writeRateLimitResponse(res, ipLimit.resetAt);
+      return;
+    }
+    const emailLimit = publicTrialRateLimit(
+      `public-trial:code-email:${email}`,
+      config.publicTrial.maxCodeRequestsPerEmailPerDay,
+      24 * 60 * 60 * 1000
+    );
+    if (!emailLimit.allowed) {
+      repository.recordPlatformAudit(
+        "public_trial_rate_limited",
+        "Public trial email-code rate limit",
+        `Public trial email-code rate limit hit for ${email}.`
+      );
+      writeRateLimitResponse(res, emailLimit.resetAt);
+      return;
+    }
+
+    const existingUser = repository.getUserByEmail(email);
+    if (existingUser && repository.userHasPublicTrialWorkspace(existingUser.id)) {
+      res.status(409).json({ error: "This email already belongs to a public trial workspace." });
+      return;
+    }
+
+    const { code } = repository.requestLoginCode(email);
+    const delivery = await emailSender.sendLoginCode(email, code);
+    res.json({
+      ok: true,
+      delivery: delivery.mode,
+      termsVersion: repository.getPublicTrialTermsVersion(),
+      debugCode: shouldExposeDebugCodes ? code : undefined
+    });
+  });
+
+  app.post("/api/auth/public-trial/signup", (req, res) => {
+    if (!config.publicTrial.enabled || config.publicTrial.mode !== "open_signup") {
+      res.status(403).json({ error: "Public trial signup is not enabled." });
+      return;
+    }
+
+    const payload = publicTrialSignupSchema.safeParse(req.body);
+    if (!payload.success) {
+      res.status(400).json({ error: "Invalid public trial signup payload" });
+      return;
+    }
+
+    const clientIdentity = getClientRateIdentity(req);
+    const workspaceLimit = publicTrialRateLimit(
+      `public-trial:workspace-ip:${clientIdentity}`,
+      config.publicTrial.maxWorkspaceCreationsPerIpPerDay,
+      24 * 60 * 60 * 1000
+    );
+    if (!workspaceLimit.allowed) {
+      repository.recordPlatformAudit(
+        "public_trial_rate_limited",
+        "Public trial workspace creation rate limit",
+        `Public trial workspace creation rate limit hit for IP ${clientIdentity}.`
+      );
+      writeRateLimitResponse(res, workspaceLimit.resetAt);
+      return;
+    }
+
+    try {
+      const result = repository.completePublicTrialSignup({
+        email: payload.data.email.toLowerCase(),
+        code: payload.data.code,
+        displayName: payload.data.displayName,
+        avatarIconKey: payload.data.avatarIconKey,
+        avatarColorKey: payload.data.avatarColorKey,
+        avatarKey: payload.data.avatarKey,
+        password: payload.data.password,
+        acceptedTermsVersion: payload.data.acceptedTermsVersion
+      });
+      if (!result) {
+        res.status(401).json({ error: "Invalid or expired code, or password does not meet requirements" });
+        return;
+      }
+
+      attachSessionCookie(res, result.user.sessionToken);
+      res.status(201).json({
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          avatarIconKey: result.user.avatarIconKey,
+          avatarColorKey: result.user.avatarColorKey,
+          isSuperAdmin: result.user.isSuperAdmin,
+          loginName: result.user.loginName,
+          boardShortcutsEnabled: result.user.boardShortcutsEnabled,
+          historyTimezonePopupEnabled: result.user.historyTimezonePopupEnabled,
+          historyTimezoneKeys: result.user.historyTimezoneKeys ?? null
+        },
+        token: result.user.sessionToken,
+        workspace: result.workspace,
+        team: result.team,
+        termsVersion: repository.getPublicTrialTermsVersion()
+      });
+      broadcastSoon(result.team.id);
+      broadcastChooserSoon();
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
   app.post("/api/auth/verify-code", (req, res) => {
     const payload = verifyCodeSchema.safeParse(req.body);
     if (!payload.success) {
@@ -440,7 +741,22 @@ export function registerRoutes({
       return;
     }
 
-    const user = repository.verifyPasswordLogin(payload.data.email.toLowerCase(), payload.data.password);
+    const email = payload.data.email.toLowerCase();
+    const existingUser = repository.getUserByEmail(email);
+    if (existingUser && repository.userHasPublicTrialWorkspace(existingUser.id)) {
+      const loginLimit = publicTrialRateLimit(
+        `public-trial:login-email:${email}`,
+        config.publicTrial.maxLoginAttemptsPerEmailPerHour,
+        60 * 60 * 1000
+      );
+      if (!loginLimit.allowed) {
+        repository.recordPlatformAudit("public_trial_rate_limited", "Public trial login rate limit", `Public trial login rate limit hit for ${email}.`);
+        writeRateLimitResponse(res, loginLimit.resetAt);
+        return;
+      }
+    }
+
+    const user = repository.verifyPasswordLogin(email, payload.data.password);
     if (!user) {
       res.status(401).json({ error: "Invalid email or password" });
       return;
@@ -719,7 +1035,8 @@ export function registerRoutes({
               palette: payload.data.branding.palette
             }
           : undefined,
-        demo: payload.data.demo
+        demo: payload.data.demo,
+        publicTrial: payload.data.publicTrial
       });
       if (payload.data.admin) {
         repository.syncSuperAdminAccount();
@@ -1283,26 +1600,53 @@ export function registerRoutes({
     if (!requireTeamAdmin(req, res)) {
       return;
     }
+    const teamId = String(req.params.teamId);
     const payload = teamMemberEmailSchema.safeParse(req.body);
     if (!payload.success) {
       res.status(400).json({ error: "Invalid team member email" });
       return;
     }
     const email = payload.data.email.toLowerCase();
-    if (!domainAllowed(email)) {
+    const workspace = repository.getWorkspaceForTeam(teamId);
+    const isPublicTrialTeam = workspace?.kind === "public_trial";
+    if (!isPublicTrialTeam && !domainAllowed(email)) {
       res.status(403).json({ error: "Email domain is not allowed" });
       return;
     }
+    const smtpConfigured = Boolean(config.smtpHost && config.smtpPort && config.smtpFrom);
+    if (isPublicTrialTeam && !smtpConfigured) {
+      res.status(503).json({ error: "Public trial collaborator invites require SMTP email delivery." });
+      return;
+    }
+    if (isPublicTrialTeam && workspace) {
+      const inviteLimit = publicTrialRateLimit(
+        `public-trial:invite-workspace:${workspace.id}`,
+        config.publicTrial.maxInvitesPerWorkspacePerDay,
+        24 * 60 * 60 * 1000
+      );
+      if (!inviteLimit.allowed) {
+        repository.recordPlatformAudit(
+          "public_trial_rate_limited",
+          "Public trial invite rate limit",
+          `Public trial invite rate limit hit for workspace ${workspace.id} (${workspace.name}).`,
+          (req as AuthedRequest).user.id
+        );
+        writeRateLimitResponse(res, inviteLimit.resetAt);
+        return;
+      }
+    }
     try {
-      const result = repository.addTeamMemberByEmail((req as AuthedRequest).user.id, String(req.params.teamId), email);
+      const result = repository.addTeamMemberByEmail((req as AuthedRequest).user.id, teamId, email);
       if (result.invitedNewUser) {
-        const delivery = await emailSender.sendTeamInvitation(email, repository.getTeam(String(req.params.teamId))!.name, result.temporaryPassword!);
+        const delivery = await emailSender.sendTeamInvitation(email, repository.getTeam(teamId)!.name, result.temporaryPassword!);
         res.status(201).json({
           user: result.user,
           invitedNewUser: true,
           invitationDelivery: delivery.mode === "smtp" ? "smtp" : "manual-share",
-          temporaryPassword: result.temporaryPassword,
-          secureSaveReminder: "Save this generated password somewhere secure before closing this message, then send it to the invited person through your preferred channel."
+          temporaryPassword: isPublicTrialTeam ? null : result.temporaryPassword,
+          secureSaveReminder: isPublicTrialTeam
+            ? null
+            : "Save this generated password somewhere secure before closing this message, then send it to the invited person through your preferred channel."
         });
       } else {
         res.status(201).json({
@@ -1313,7 +1657,7 @@ export function registerRoutes({
           secureSaveReminder: null
         });
       }
-      broadcastSoon(String(req.params.teamId));
+      broadcastSoon(teamId);
       broadcastChooserSoon();
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });

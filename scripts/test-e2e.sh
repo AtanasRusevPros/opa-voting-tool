@@ -5,7 +5,9 @@
 set -euo pipefail
 
 compose_file="infra/containers/compose.yaml"
+compose_host_network_file="infra/containers/compose.host-network.yaml"
 isolated_stack_data_dir="/tmp/planning-poker-packaged-test-data"
+isolated_config_dir=""
 
 is_macos() {
   [[ "$(uname -s)" == "Darwin" ]]
@@ -67,14 +69,20 @@ EOF
 }
 
 run_podman_compose() {
+  local active_compose_file="$compose_file"
+
+  if [[ "${PACKAGED_STACK_NETWORK_MODE:-auto}" == "host" ]]; then
+    active_compose_file="$compose_host_network_file"
+  fi
+
   if command -v podman >/dev/null 2>&1; then
     ensure_macos_podman_machine
-    podman compose -f "$compose_file" "$@"
+    podman compose -f "$active_compose_file" "$@"
     return
   fi
 
   if command -v podman-compose >/dev/null 2>&1; then
-    podman-compose -f "$compose_file" "$@"
+    podman-compose -f "$active_compose_file" "$@"
     return
   fi
 
@@ -82,14 +90,77 @@ run_podman_compose() {
   exit 1
 }
 
+run_podman_compose_with_network_fallback() {
+  local requested_mode="${PACKAGED_STACK_NETWORK_MODE:-auto}"
+  local status
+
+  if [[ "$requested_mode" == "host" || "$requested_mode" == "bridge" ]]; then
+    PACKAGED_STACK_NETWORK_MODE="$requested_mode" run_podman_compose "$@"
+    return
+  fi
+
+  if PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose "$@"; then
+    return
+  fi
+  status=$?
+
+  cat >&2 <<'EOF'
+The packaged e2e stack could not start with the default Podman bridge network.
+Retrying with host networking for this local test run.
+
+This fallback is intended for restricted local Linux environments where rootless
+Podman cannot create a netavark bridge. The deployed VPS compose file still uses
+the normal localhost port binding.
+EOF
+
+  PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose down -v >/dev/null 2>&1 || true
+  if PACKAGED_STACK_NETWORK_MODE=host run_podman_compose "$@"; then
+    return
+  fi
+
+  return "$status"
+}
+
+run_packaged_stack_down() {
+  local requested_mode="${PACKAGED_STACK_NETWORK_MODE:-auto}"
+
+  if [[ "$requested_mode" == "host" || "$requested_mode" == "bridge" ]]; then
+    PACKAGED_STACK_NETWORK_MODE="$requested_mode" run_podman_compose down "$@"
+    return
+  fi
+
+  PACKAGED_STACK_NETWORK_MODE=host run_podman_compose down "$@" >/dev/null 2>&1 || true
+  PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose down "$@"
+}
+
 cleanup() {
-  run_podman_compose down -v >/dev/null 2>&1 || true
+  run_packaged_stack_down -v >/dev/null 2>&1 || true
+  if [[ -n "$isolated_config_dir" && -d "$isolated_config_dir" ]]; then
+    rm -rf "$isolated_config_dir"
+  fi
 }
 
 trap cleanup EXIT
 
+prepare_isolated_config() {
+  isolated_config_dir="$(mktemp -d)"
+  cp config/allowed-domains.txt "$isolated_config_dir/allowed-domains.txt"
+  mkdir -p "$isolated_config_dir/managed-branding"
+  cat >"$isolated_config_dir/deployment.local.toml" <<'EOF'
+[app]
+base_url = "http://127.0.0.1:3001"
+allowed_domains_path = "/app/config/allowed-domains.txt"
+
+[admin]
+username = "platform-admin"
+password = "PlatformAdmin123!"
+EOF
+  export APP_CONFIG_DIR="$isolated_config_dir"
+}
+
 cleanup
-DATA_DIR="$isolated_stack_data_dir" E2E_DEBUG_CODES=1 run_podman_compose up -d --build
+prepare_isolated_config
+DATA_DIR="$isolated_stack_data_dir" E2E_DEBUG_CODES=1 run_podman_compose_with_network_fallback up -d --build
 
 for _ in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:3001/health >/dev/null 2>&1; then

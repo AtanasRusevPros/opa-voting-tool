@@ -2195,6 +2195,20 @@ textarea {
   line-height: 1.35;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #3c4e64;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.checkbox-row input {
+  margin-top: 2px;
+  accent-color: var(--brand-primary-action);
+}
+
 .history-comment-list {
   display: grid;
   gap: 8px;

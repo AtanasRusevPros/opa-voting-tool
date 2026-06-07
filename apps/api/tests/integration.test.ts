@@ -11,7 +11,7 @@ import type { AppConfig } from "../src/types.js";
 
 const tempDirs: string[] = [];
 
-function createTestConfig(): AppConfig {
+function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "planning-poker-"));
   tempDirs.push(dir);
   return {
@@ -30,11 +30,24 @@ function createTestConfig(): AppConfig {
     simulatorModeEnabled: false,
     simulatorSharedSecret: "test-secret",
     demoModeEnabled: false,
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
     superAdminUsername: "platform-admin",
     superAdminPassword: "PlatformAdmin123!",
     superAdminDisplayName: "Platform Admin",
     branding: BRANDING_MANIFEST,
-    defaultHistoryTimezoneKeys: [...DEFAULT_HISTORY_TIME_ZONE_KEYS]
+    defaultHistoryTimezoneKeys: [...DEFAULT_HISTORY_TIME_ZONE_KEYS],
+    ...overrides
   };
 }
 
@@ -384,6 +397,31 @@ describe("Repository integration", () => {
     expect(repo.getHistory(team.id)[0]?.title).toBe("EXP-101");
   });
 
+  it("starts a fresh timer when voting again from revealed timed history", () => {
+    const repo = new Repository(createTestConfig());
+    const owner = repo.verifyLoginCode("timed-again-owner@example-company.com", repo.requestLoginCode("timed-again-owner@example-company.com").code, "Timed Again Owner", "fox", "teal", undefined, "Password123!")!;
+    const team = repo.createTeam(owner.id, "Timed Again Team");
+    repo.updateTeamSettings(team.id, { timerSeconds: 30 });
+
+    const round = repo.createRound(team.id, "TIMER-AGAIN");
+    repo.castVote(round.id, owner.id, "5");
+    const revealed = repo.revealRound(round.id);
+    const historyEntry = repo.getHistory(team.id)[0]!;
+
+    expect(revealed.timerStartedAt).not.toBeNull();
+    expect(revealed.timerExpiresAt).toBeNull();
+
+    const again = repo.createRound(team.id, historyEntry.title, historyEntry.id);
+
+    expect(again.id).not.toBe(round.id);
+    expect(again.status).toBe("active");
+    expect(again.revoteHistoryEntryId).toBe(historyEntry.id);
+    expect(again.timerStartedAt).not.toBeNull();
+    expect(again.timerExpiresAt).not.toBeNull();
+    expect(new Date(again.timerExpiresAt!).getTime()).toBeGreaterThan(new Date(again.timerStartedAt!).getTime());
+    expect(again.votes).toHaveLength(0);
+  });
+
   it("rejects late votes after reveal and keeps the revealed round plus history immutable", () => {
     const repo = new Repository(createTestConfig());
     const alice = repo.verifyLoginCode("late-alice@example-company.com", repo.requestLoginCode("late-alice@example-company.com").code, "Late Alice", "bear", "azure", undefined, "Password123!")!;
@@ -526,7 +564,7 @@ describe("Repository integration", () => {
     const firstTeam = repo.createTeam(owner.id, "Unique Team");
     repo.setTeamArchived(owner.id, firstTeam.id, true);
 
-    expect(() => repo.createTeam(owner.id, " unique team ")).toThrowError("A team with this name already exists.");
+    expect(() => repo.createTeam(owner.id, " unique team ")).toThrowError("A team with this name already exists in this workspace.");
   });
 
 
@@ -544,6 +582,113 @@ describe("Repository integration", () => {
     expect(repo.getTeamsForUser(superAdmin.id).memberships.map((team) => team.id).sort()).toEqual([firstTeam.id, secondTeam.id].sort());
     expect(() => repo.leaveTeam(superAdmin.id, firstTeam.id)).toThrowError("The super-admin always remains a member of every team.");
     expect(() => repo.removeTeamMember(owner.id, firstTeam.id, superAdmin.id)).toThrowError("The super-admin always remains a member of every team.");
+  });
+
+  it("creates a default workspace and assigns newly created teams to it without changing current team behavior", () => {
+    const config = createTestConfig();
+    const repo = new Repository(config);
+    const superAdmin = repo.verifySuperAdminLogin(config.superAdminUsername, config.superAdminPassword)!;
+    const owner = repo.verifyLoginCode("workspace-owner@example-company.com", repo.requestLoginCode("workspace-owner@example-company.com").code, "Owner", "fox", "teal", undefined, "Password123!")!;
+
+    const defaultWorkspace = repo.getDefaultWorkspace();
+    const team = repo.createTeam(owner.id, "Workspace Team");
+
+    expect(defaultWorkspace.id).toBe("default-workspace");
+    expect(defaultWorkspace.name).toBe("Default Workspace");
+    expect(repo.getWorkspaceForTeam(team.id)).toEqual(expect.objectContaining({ id: defaultWorkspace.id }));
+    expect(repo.getWorkspaceMembershipRole(owner.id, defaultWorkspace.id)).toBe("admin");
+    expect(repo.getWorkspaceMembershipRole(superAdmin.id, defaultWorkspace.id)).toBe("owner");
+    expect(repo.getTeamsForUser(owner.id).memberships.map((membership) => membership.id)).toContain(team.id);
+  });
+
+  it("enforces public trial workspace team, user, and monthly reveal limits", () => {
+    const repo = new Repository(
+      createTestConfig({
+        publicTrial: {
+          enabled: true,
+          mode: "open_signup",
+          maxTeamsPerWorkspace: 2,
+          maxUsersPerWorkspace: 2,
+          maxRevealedRoundsPerWorkspacePerMonth: 1,
+          maxSignupRequestsPerIpPerHour: 3,
+          maxCodeRequestsPerEmailPerDay: 5,
+          maxInvitesPerWorkspacePerDay: 10,
+          maxWorkspaceCreationsPerIpPerDay: 2,
+          maxLoginAttemptsPerEmailPerHour: 10
+        }
+      })
+    );
+    const email = "trial-limits@gmail.com";
+    const signup = repo.completePublicTrialSignup({
+      email,
+      code: repo.requestLoginCode(email).code,
+      displayName: "Trial Limits",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+
+    expect(repo.createTeam(signup.user.id, "Second Trial Team").name).toBe("Second Trial Team");
+    expect(() => repo.createTeam(signup.user.id, "Third Trial Team")).toThrowError("Public trial workspaces can have at most 2 teams.");
+
+    const inviteResult = repo.addTeamMemberByEmail(signup.user.id, signup.team.id, "trial-member@gmail.com");
+    expect(inviteResult.invitedNewUser).toBe(true);
+    expect(() => repo.addTeamMemberByEmail(signup.user.id, signup.team.id, "trial-member-two@gmail.com")).toThrowError(
+      "Public trial workspaces can have at most 2 users."
+    );
+
+    const firstRound = repo.createRound(signup.team.id, "Monthly Cap 1");
+    repo.castVote(firstRound.id, signup.user.id, "5");
+    expect(repo.revealRound(firstRound.id).status).toBe("revealed");
+
+    const secondRound = repo.createRound(signup.team.id, "Monthly Cap 2");
+    repo.castVote(secondRound.id, signup.user.id, "8");
+    expect(() => repo.revealRound(secondRound.id)).toThrowError("Public trial workspaces can reveal at most 1 rounds per month.");
+  });
+
+  it("keeps unrelated public trial workspaces out of team lists and member search", () => {
+    const repo = new Repository(
+      createTestConfig({
+        publicTrial: {
+          enabled: true,
+          mode: "open_signup",
+          maxTeamsPerWorkspace: 2,
+          maxUsersPerWorkspace: 10,
+          maxRevealedRoundsPerWorkspacePerMonth: 40,
+          maxSignupRequestsPerIpPerHour: 3,
+          maxCodeRequestsPerEmailPerDay: 5,
+          maxInvitesPerWorkspacePerDay: 10,
+          maxWorkspaceCreationsPerIpPerDay: 2,
+          maxLoginAttemptsPerEmailPerHour: 10
+        }
+      })
+    );
+    const firstEmail = "trial-private-a@gmail.com";
+    const first = repo.completePublicTrialSignup({
+      email: firstEmail,
+      code: repo.requestLoginCode(firstEmail).code,
+      displayName: "Trial Private A",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    const secondEmail = "trial-private-b@gmail.com";
+    const second = repo.completePublicTrialSignup({
+      email: secondEmail,
+      code: repo.requestLoginCode(secondEmail).code,
+      displayName: "Trial Private B",
+      avatarIconKey: "owl",
+      avatarColorKey: "gold",
+      password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+
+    expect(repo.getTeamsForUser(first.user.id).availableTeams.map((team) => team.id)).toEqual([first.team.id]);
+    expect(repo.getTeamsForUser(second.user.id).availableTeams.map((team) => team.id)).toEqual([second.team.id]);
+    expect(repo.searchTeamMemberCandidates(first.team.id, "trial-private-b")).toEqual([]);
+    expect(repo.searchTeamMemberCandidates(second.team.id, "trial-private-a")).toEqual([]);
   });
 
   it("stores pending platform access requests and lets the super-admin admit them into real accounts", () => {
@@ -584,6 +729,7 @@ describe("Repository integration", () => {
     expect(invited.temporaryPassword).toBeTruthy();
     expect(repo.verifyPasswordLogin("brand.new@example-company.com", invited.temporaryPassword!)).not.toBeNull();
     expect(repo.getTeamUserRole(invited.user.id, team.id)).toBe("member");
+    expect(repo.getWorkspaceMembershipRole(invited.user.id, repo.getWorkspaceForTeam(team.id)!.id)).toBe("member");
   });
 
   it("auto-resolves a matching pending platform access request when a team admin directly adds the same email to a team", () => {

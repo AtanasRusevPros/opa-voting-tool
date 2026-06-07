@@ -9,8 +9,13 @@ cd "$repo_root"
 
 local_deployment_config="config/deployment.local.toml"
 saved_local_config=""
+backup_prune_test_dir=""
 
 restore_local_deployment_config() {
+  if [[ -n "$backup_prune_test_dir" && -d "$backup_prune_test_dir" ]]; then
+    rm -rf "$backup_prune_test_dir"
+  fi
+
   if [[ -n "$saved_local_config" && -f "$saved_local_config" ]]; then
     cp "$saved_local_config" "$local_deployment_config"
     rm -f "$saved_local_config"
@@ -65,6 +70,9 @@ bash -n deploy.sh
 
 dev_help="$(./dev.sh help)"
 deploy_help="$(./deploy.sh help)"
+
+assert_contains "$dev_help" "PACKAGED_STACK_NETWORK_MODE=auto|bridge|host" "dev.sh packaged stack network mode help"
+assert_contains "$dev_help" "VPS deployment remains unchanged." "dev.sh packaged stack network mode help"
 
 dev_commands=(
   "help"
@@ -121,6 +129,7 @@ deploy_commands=(
   "domains:edit"
   "backup"
   "backup:list"
+  "backup:prune"
   "restore <file>"
 )
 
@@ -149,6 +158,24 @@ if deploy_restore_output="$(./deploy.sh restore /tmp/opa-voting-tool-missing-bac
 fi
 assert_contains "$deploy_restore_output" "Backup archive not found" "deploy.sh restore missing archive"
 assert_not_contains "$deploy_restore_output" "Unknown command" "deploy.sh restore command dispatch"
+
+backup_prune_test_dir="$(mktemp -d)"
+touch -d '2026-05-01 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-old.tar.gz"
+touch -d '2026-05-02 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-middle.tar.gz"
+touch -d '2026-05-03 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-new.tar.gz"
+deploy_prune_dry_run_output="$(BACKUP_DIR="$backup_prune_test_dir" BACKUP_PRUNE_KEEP=2 BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune)"
+assert_contains "$deploy_prune_dry_run_output" "Would delete:" "deploy.sh backup:prune dry-run"
+assert_contains "$deploy_prune_dry_run_output" "planning-poker-backup-old.tar.gz" "deploy.sh backup:prune dry-run oldest file"
+deploy_prune_output="$(BACKUP_DIR="$backup_prune_test_dir" BACKUP_PRUNE_KEEP=2 ./deploy.sh backup:prune)"
+assert_contains "$deploy_prune_output" "Pruned 1 backup(s); kept newest 2 backup(s)." "deploy.sh backup:prune"
+if [[ -f "$backup_prune_test_dir/planning-poker-backup-old.tar.gz" ]]; then
+  echo "deploy.sh backup:prune kept the oldest backup unexpectedly." >&2
+  exit 1
+fi
+if [[ ! -f "$backup_prune_test_dir/planning-poker-backup-middle.tar.gz" || ! -f "$backup_prune_test_dir/planning-poker-backup-new.tar.gz" ]]; then
+  echo "deploy.sh backup:prune deleted one of the newest backups unexpectedly." >&2
+  exit 1
+fi
 
 rm -f "$local_deployment_config"
 if deploy_missing_credentials_output="$(./deploy.sh up 2>&1)"; then

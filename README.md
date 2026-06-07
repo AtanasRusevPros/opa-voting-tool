@@ -35,6 +35,7 @@ Important public-release notes:
 - Current version: `0.1.0`; check a checkout with `./dev.sh version` or `./deploy.sh version`.
 - Generic public deployment examples use `vote.example.com`.
 - The maintainer test deployment is not a public demo yet.
+- SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider.
 - Do not report security vulnerabilities in public issues; see [`SECURITY.md`](SECURITY.md).
 
 ## Quick Start
@@ -147,10 +148,11 @@ The repository is Podman-first for local stack commands because rootless operati
 
 `./dev.sh` prefers `podman compose` and falls back to `podman-compose` if needed.
 On macOS, packaged stack/e2e commands also check the Podman machine first: if the VM/socket is stale they start or restart the machine, and if no machine exists they initialize and start the default one. Linux Podman remains native and is left unchanged.
+On restricted local Linux environments where rootless Podman cannot create a `netavark` bridge, packaged stack/e2e commands start with the normal bridge mode and then retry with host networking. You can force this with `PACKAGED_STACK_NETWORK_MODE=host`; the deployed VPS compose file and its host-local port binding remain unchanged.
 `./dev.sh stack:up` now takes the stricter freshness path on every run: it first tears down any existing compose-managed stack for this project without deleting the named data volume, then rebuilds the image with `--no-cache`, and finally starts the stack with `--force-recreate` so stale containers and stale image layers are not reused.
 The packaged compose service publishes the app on host-local `127.0.0.1:3001` and uses a container restart policy so local checks and host-level reverse proxies can reach it without exposing the app port to the wider network.
 
-For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh logs`, `./deploy.sh caddy:reload`, `./deploy.sh diagnose`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh restore <file>`, and `./deploy.sh update`.
+For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh logs`, `./deploy.sh caddy:reload`, `./deploy.sh diagnose`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
 
 ## Deployment Edits Before First Use
 
@@ -169,7 +171,7 @@ New release/update on the VPS:
 - run `./deploy.sh public-health`
 - do a short login/team/vote/reveal browser smoke test
 
-If you are moving an existing private-history checkout to the clean public repository, make a backup first and preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and any `config/managed-branding` uploads.
+When migrating or replacing an existing deployment checkout, make a backup first and preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and any `config/managed-branding` uploads.
 
 ### Allowed Domains
 
@@ -205,6 +207,7 @@ Local default behavior:
 - before starting the packaged stack or a real deployment, create ignored `config/deployment.local.toml` with `./deploy.sh config:migrate` or by copying `config/deployment.sample.toml`
 - set `[admin].username` and `[admin].password` in `config/deployment.local.toml`; startup fails with a clear message until those values are configured
 - `[history_popup].timezone_keys` defines the global Issues List date-popup timezone rows used when new teams are created; team-admin changes override that team default later
+- `[public_trial]` is disabled by default; it is an advanced hosted-test-server mode with configurable teams/users/monthly-reveal caps plus signup/invite/login rate limits, and should stay off for normal self-hosted deployments
 - the shipped default is intentionally `no SMTP`, so you can test the manual-share onboarding and reset flows without extra setup
 
 Super-admins can edit the deployment configuration from the in-app `Platform settings` modal, including:
@@ -234,7 +237,7 @@ Avatar icons still live in:
 The shipped avatar set contains 200 stylized animal SVGs. Existing users keep their chosen avatar by key, and you can refresh the generated set with:
 - `node scripts/generate-animal-avatars.mjs`
 
-Production email still requires real SMTP host/port/from/credentials from the target environment. Until those are configured, development/test continues to use the local logging fallback for code delivery, and team-admin onboarding/reset of allowlisted users falls back to one-time generated passwords that are manually shared by the admin.
+Production email still requires real SMTP host/port/from/credentials from the target environment. SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider; until SMTP is configured, development/test continues to use the local logging fallback for code delivery, and team-admin onboarding/reset falls back to manually shared one-time generated passwords.
 
 Local automated SMTP-capable verification is covered without a real mail server by mocked transport tests. For manual local mail validation, point the app at Mailpit or MailHog before doing a safe invite/reset smoke send.
 
@@ -329,6 +332,7 @@ Jira Cloud:
 - `./deploy.sh caddy:reload` validates and reloads the Caddyfile
 - `./deploy.sh backup` creates a timestamped archive of app data plus deployment config and branding files
 - `./deploy.sh backup:list` lists recent backup archives
+- `./deploy.sh backup:prune` deletes older backup archives beyond `BACKUP_PRUNE_KEEP`, which defaults to `20`; set `BACKUP_PRUNE_DRY_RUN=1` to preview first
 - `./deploy.sh restore <file>` stops the app, restores app data plus deployment config/branding from a backup archive, restarts, and waits for local health
 - `./dev.sh sim:seed` seeds the deterministic simulator users and demo teams
 - `./dev.sh sim:up` starts the live bot simulator as a long-running helper

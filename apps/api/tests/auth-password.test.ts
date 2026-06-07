@@ -7,6 +7,22 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
+const { sendMailMock, createTransportMock } = vi.hoisted(() => {
+  const sendMail = vi.fn(async () => undefined);
+  return {
+    sendMailMock: sendMail,
+    createTransportMock: vi.fn(() => ({
+      sendMail
+    }))
+  };
+});
+
+vi.mock("nodemailer", () => ({
+  default: {
+    createTransport: createTransportMock
+  }
+}));
+
 const tempDirs: string[] = [];
 
 function createEnvDir() {
@@ -16,8 +32,29 @@ function createEnvDir() {
   return dir;
 }
 
-async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string }) {
+async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string; publicTrial?: boolean; smtp?: boolean }) {
   const dir = createEnvDir();
+  const deploymentSections: string[] = [];
+  if (options?.smtp) {
+    deploymentSections.push(`
+[smtp]
+host = "smtp.example.com"
+port = 587
+user = "mailer"
+pass = "smtp-secret"
+from = "opa-voting-tool@example.com"
+`);
+  }
+  if (options?.publicTrial) {
+    deploymentSections.push(`
+[public_trial]
+enabled = true
+mode = "open_signup"
+`);
+  }
+  if (deploymentSections.length > 0) {
+    fs.writeFileSync(path.join(dir, "deployment.toml"), deploymentSections.join("\n"));
+  }
   process.env.NODE_ENV = options?.nodeEnv ?? "test";
   process.env.PORT = "0";
   process.env.HOST = "127.0.0.1";
@@ -54,6 +91,8 @@ async function createRegularUser(app: ReturnType<typeof request>, email: string,
 }
 
 afterEach(() => {
+  sendMailMock.mockClear();
+  createTransportMock.mockClear();
   for (const dir of tempDirs.splice(0)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -72,6 +111,221 @@ afterEach(() => {
 });
 
 describe("Password and invite HTTP flows", () => {
+  it("keeps public trial signup disabled by default", async () => {
+    const { app } = await loadTestServer();
+    const client = request(app);
+
+    const response = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-default@gmail.com"
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain("not enabled");
+  });
+
+  it("keeps normal request-access allowlist behavior even when public trial mode is enabled", async () => {
+    const { app } = await loadTestServer({ publicTrial: true, smtp: true });
+    const client = request(app);
+
+    const disallowedNormalRequest = await client.post("/api/auth/request-access").send({
+      email: "outside-normal@gmail.com"
+    });
+    expect(disallowedNormalRequest.status).toBe(403);
+    expect(disallowedNormalRequest.body.error).toContain("domain");
+
+    const allowedNormalRequest = await client.post("/api/auth/request-access").send({
+      email: "inside-normal@example-company.com"
+    });
+    expect(allowedNormalRequest.status).toBe(200);
+  });
+
+  it("creates isolated public trial workspaces only after terms are accepted", async () => {
+    const { app } = await loadTestServer({ publicTrial: true });
+    const client = request(app);
+
+    const firstCodeResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-one@gmail.com"
+    });
+    expect(firstCodeResponse.status).toBe(200);
+    expect(firstCodeResponse.body.termsVersion).toBeTruthy();
+
+    const missingTermsResponse = await client.post("/api/auth/public-trial/signup").send({
+      email: "trial-one@gmail.com",
+      code: firstCodeResponse.body.debugCode,
+      displayName: "Trial One",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTerms: false,
+      acceptedTermsVersion: firstCodeResponse.body.termsVersion
+    });
+    expect(missingTermsResponse.status).toBe(400);
+
+    const firstSignupResponse = await client.post("/api/auth/public-trial/signup").send({
+      email: "trial-one@gmail.com",
+      code: firstCodeResponse.body.debugCode,
+      displayName: "Trial One",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTerms: true,
+      acceptedTermsVersion: firstCodeResponse.body.termsVersion
+    });
+    expect(firstSignupResponse.status).toBe(201);
+    expect(firstSignupResponse.body.workspace).toMatchObject({
+      name: "My First Workspace",
+      kind: "public_trial"
+    });
+    expect(firstSignupResponse.body.team).toMatchObject({ name: "My First Team" });
+
+    const secondCodeResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-two@gmail.com"
+    });
+    expect(secondCodeResponse.status).toBe(200);
+
+    const secondSignupResponse = await client.post("/api/auth/public-trial/signup").send({
+      email: "trial-two@gmail.com",
+      code: secondCodeResponse.body.debugCode,
+      displayName: "Trial Two",
+      avatarIconKey: "owl",
+      avatarColorKey: "gold",
+      password: "Password123!",
+      acceptedTerms: true,
+      acceptedTermsVersion: secondCodeResponse.body.termsVersion
+    });
+    expect(secondSignupResponse.status).toBe(201);
+    expect(secondSignupResponse.body.team).toMatchObject({ name: "My First Team" });
+    expect(secondSignupResponse.body.workspace.id).not.toBe(firstSignupResponse.body.workspace.id);
+    expect(secondSignupResponse.body.team.id).not.toBe(firstSignupResponse.body.team.id);
+
+    const duplicateCodeResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-one@gmail.com"
+    });
+    expect(duplicateCodeResponse.status).toBe(409);
+  });
+
+  it("fails closed for public trial collaborator invites when SMTP is unavailable", async () => {
+    const { app } = await loadTestServer({ publicTrial: true });
+    const client = request(app);
+
+    const codeResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-invite-owner@gmail.com"
+    });
+    expect(codeResponse.status).toBe(200);
+
+    const signupResponse = await client.post("/api/auth/public-trial/signup").send({
+      email: "trial-invite-owner@gmail.com",
+      code: codeResponse.body.debugCode,
+      displayName: "Trial Invite Owner",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTerms: true,
+      acceptedTermsVersion: codeResponse.body.termsVersion
+    });
+    expect(signupResponse.status).toBe(201);
+    const ownerCookie = signupResponse.headers["set-cookie"];
+    const teamId = signupResponse.body.team.id as string;
+
+    const inviteResponse = await client.post(`/api/teams/${teamId}/members`).set("Cookie", ownerCookie).send({
+      email: "trial-collaborator@gmail.com"
+    });
+
+    expect(inviteResponse.status).toBe(503);
+    expect(inviteResponse.body.error).toContain("require SMTP");
+  });
+
+  it("uses SMTP-only public trial invites for external emails without exposing manual-share passwords", async () => {
+    const { app } = await loadTestServer({ publicTrial: true, smtp: true });
+    const client = request(app);
+
+    const codeResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-smtp-owner@gmail.com"
+    });
+    expect(codeResponse.status).toBe(200);
+
+    const signupResponse = await client.post("/api/auth/public-trial/signup").send({
+      email: "trial-smtp-owner@gmail.com",
+      code: codeResponse.body.debugCode,
+      displayName: "Trial SMTP Owner",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTerms: true,
+      acceptedTermsVersion: codeResponse.body.termsVersion
+    });
+    expect(signupResponse.status).toBe(201);
+    const ownerCookie = signupResponse.headers["set-cookie"];
+    const teamId = signupResponse.body.team.id as string;
+
+    const inviteResponse = await client.post(`/api/teams/${teamId}/members`).set("Cookie", ownerCookie).send({
+      email: "external-collaborator@gmail.com"
+    });
+
+    expect(inviteResponse.status).toBe(201);
+    expect(inviteResponse.body.invitedNewUser).toBe(true);
+    expect(inviteResponse.body.invitationDelivery).toBe("smtp");
+    expect(inviteResponse.body.temporaryPassword).toBeNull();
+    expect(inviteResponse.body.secureSaveReminder).toBeNull();
+
+    const invitationMail = (sendMailMock.mock.calls as unknown as Array<unknown[]>).find(
+      ([message]) => (message as { to?: string }).to === "external-collaborator@gmail.com"
+    )?.[0] as { text?: string } | undefined;
+    expect(invitationMail?.text).toContain("Your initial password is:");
+    const password = invitationMail?.text?.match(/Your initial password is: ([^.]+)\./)?.[1];
+    expect(password).toBeTruthy();
+
+    const collaboratorLogin = await client.post("/api/auth/signin-password").send({
+      email: "external-collaborator@gmail.com",
+      password
+    });
+    expect(collaboratorLogin.status).toBe(200);
+    const collaboratorSession = await client.get("/api/auth/session").set("Cookie", collaboratorLogin.headers["set-cookie"]);
+    expect(collaboratorSession.status).toBe(200);
+    expect(collaboratorSession.body.memberships.map((team: { id: string }) => team.id)).toEqual([teamId]);
+  });
+
+  it("keeps normal self-hosted team invites allowlisted even with SMTP and public trial enabled", async () => {
+    const { app } = await loadTestServer({ publicTrial: true, smtp: true });
+    const client = request(app);
+    const ownerCookie = await createRegularUser(client, "normal-owner@example-company.com", "Normal Owner");
+
+    const teamResponse = await client.post("/api/teams").set("Cookie", ownerCookie).send({ name: "Normal Self Hosted Team" });
+    expect(teamResponse.status).toBe(201);
+    const teamId = teamResponse.body.team.id as string;
+
+    const disallowedInvite = await client.post(`/api/teams/${teamId}/members`).set("Cookie", ownerCookie).send({
+      email: "external-normal@gmail.com"
+    });
+    expect(disallowedInvite.status).toBe(403);
+    expect(disallowedInvite.body.error).toContain("domain");
+
+    const allowedInvite = await client.post(`/api/teams/${teamId}/members`).set("Cookie", ownerCookie).send({
+      email: "normal-new@example-company.com"
+    });
+    expect(allowedInvite.status).toBe(201);
+    expect(allowedInvite.body.invitationDelivery).toBe("smtp");
+  });
+
+  it("rate-limits public trial signup code requests by client", async () => {
+    const { app } = await loadTestServer({ publicTrial: true });
+    const client = request(app);
+
+    for (let index = 0; index < 3; index += 1) {
+      const response = await client.post("/api/auth/public-trial/request-code").send({
+        email: `trial-rate-${index}@gmail.com`
+      });
+      expect(response.status).toBe(200);
+    }
+
+    const limitedResponse = await client.post("/api/auth/public-trial/request-code").send({
+      email: "trial-rate-limited@gmail.com"
+    });
+    expect(limitedResponse.status).toBe(429);
+    expect(limitedResponse.body.error).toContain("Too many public trial requests");
+    expect(limitedResponse.body.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
   it("changes the current user's password and accepts only the new password afterwards", async () => {
     const { app } = await loadTestServer();
     const client = request(app);

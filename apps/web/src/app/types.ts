@@ -33,6 +33,18 @@ export type BootstrapResponse = {
   branding?: BrandingManifest;
   simulatorModeEnabled?: boolean;
   demoModeEnabled?: boolean;
+  publicTrial?: {
+    enabled: boolean;
+    mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
+  };
   allowedDomainsFile?: string;
 };
 
@@ -74,6 +86,18 @@ export type AdminConfigView = {
   >;
   demo: {
     enabled: boolean;
+  };
+  publicTrial?: {
+    enabled: boolean;
+    mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
   };
 };
 

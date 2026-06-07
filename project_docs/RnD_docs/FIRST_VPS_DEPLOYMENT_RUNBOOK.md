@@ -442,6 +442,7 @@ cd /opt/opa-voting-tool/app
 What `./deploy.sh update` does:
 - preserves deployment-local settings in ignored `config/deployment.local.toml`
 - creates a timestamped backup first
+- lets you prune old update backups later with `./deploy.sh backup:prune`
 - runs `git pull --ff-only`
 - rebuilds the container image with `--no-cache`
 - recreates the service with the latest image
@@ -462,6 +463,50 @@ If the update looks unhealthy, diagnose before changing Caddy or firewall settin
 ./deploy.sh logs
 ./deploy.sh caddy:logs
 ```
+
+For public-trial or longer-running test deployments, also run:
+
+```bash
+./deploy.sh usage
+```
+
+### Optional Public-Trial Validation
+
+Public-trial mode is disabled by default and is not required for normal self-hosted deployments. Only enable it on a test VPS or intentionally hosted public-test server after SMTP is configured and the normal smoke test is green.
+
+Before enabling:
+- run `./deploy.sh backup`
+- confirm `./deploy.sh public-health` is green
+- confirm SMTP invite/reset delivery already works
+- review `[public_trial]` in `config/deployment.local.toml`
+
+Temporary validation flow:
+1. enable public trial/open signup in `config/deployment.local.toml`
+2. run `./deploy.sh restart`
+3. open the app in a private browser session
+4. use `Start free public trial`
+5. accept the terms, receive the SMTP code, and complete signup
+6. confirm the new user lands in `My First Team`
+7. create a second unrelated trial user and confirm they cannot see the first user's workspace, teams, users, autocomplete results, history, or notifications
+8. invite a collaborator from the first workspace and confirm the collaborator sees only that workspace
+9. confirm configured team/user/revealed-round limits stop excessive hosted-trial usage
+10. run `./deploy.sh usage`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export`
+
+Policy pages to spot-check:
+
+```text
+https://vote.example.com/public-trial/terms
+https://vote.example.com/public-trial/privacy
+https://vote.example.com/public-trial/acceptable-use
+https://vote.example.com/public-trial/export-cleanup
+```
+
+Emergency disable test:
+- set `public_trial.enabled = false`
+- run `./deploy.sh restart`
+- confirm normal admin access still works and public trial signup is no longer available
+
+Do not promote the VPS as a public self-service demo until public-trial signup, SMTP delivery, terms acceptance, workspace isolation, limits, operator reports, and emergency disable have all passed.
 
 ### Backup And Restore Rehearsal
 
@@ -495,6 +540,15 @@ Browser verification after restore:
 - `BACKUP_BASELINE_KEEP_ME` should still exist
 - `RESTORE_TEST_SHOULD_DISAPPEAR` should be gone
 - login, open a team, vote, reveal, and refresh once
+
+Backup retention:
+
+```bash
+BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune
+./deploy.sh backup:prune
+```
+
+`backup:prune` keeps the newest `20` archives by default and deletes older `planning-poker-backup-*.tar.gz` files from `BACKUP_DIR`. Set `BACKUP_PRUNE_KEEP=10` or another positive number to change that retention count.
 
 ## 11. Final Transition To HTTPS-Only App Access
 

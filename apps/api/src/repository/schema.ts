@@ -15,6 +15,8 @@ export function runBaseSchema(db: DatabaseSync): void {
         avatar_icon_key TEXT,
         avatar_color_key TEXT,
         password_hash TEXT,
+        terms_version TEXT,
+        terms_accepted_at TEXT,
         history_timezone_popup_enabled INTEGER NOT NULL DEFAULT 1,
         history_timezone_keys_json TEXT,
         created_at TEXT NOT NULL,
@@ -39,8 +41,20 @@ export function runBaseSchema(db: DatabaseSync): void {
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS workspaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'default',
+        created_by TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_activity_at TEXT NOT NULL,
+        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+      );
+
       CREATE TABLE IF NOT EXISTS teams (
         id TEXT PRIMARY KEY,
+        workspace_id TEXT,
         name TEXT NOT NULL,
         slug TEXT NOT NULL UNIQUE,
         demo INTEGER NOT NULL DEFAULT 0,
@@ -62,7 +76,19 @@ export function runBaseSchema(db: DatabaseSync): void {
         last_activity_at TEXT NOT NULL,
         created_by TEXT NOT NULL,
         created_at TEXT NOT NULL,
+        FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
         FOREIGN KEY(created_by) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS workspace_memberships (
+        workspace_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member',
+        created_at TEXT NOT NULL,
+        last_active_at TEXT NOT NULL,
+        PRIMARY KEY(workspace_id, user_id),
+        FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS team_memberships (
@@ -211,6 +237,9 @@ export function runBaseSchema(db: DatabaseSync): void {
 
       CREATE INDEX IF NOT EXISTS idx_team_memberships_user ON team_memberships(user_id);
       CREATE INDEX IF NOT EXISTS idx_team_memberships_user_role_team ON team_memberships(user_id, role, team_id);
+      CREATE INDEX IF NOT EXISTS idx_workspaces_kind ON workspaces(kind);
+      CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user ON workspace_memberships(user_id);
+      CREATE INDEX IF NOT EXISTS idx_teams_workspace ON teams(workspace_id);
       CREATE INDEX IF NOT EXISTS idx_user_team_preferences_team ON user_team_preferences(team_id);
       CREATE INDEX IF NOT EXISTS idx_team_join_requests_user ON team_join_requests(user_id);
       CREATE INDEX IF NOT EXISTS idx_team_join_requests_team ON team_join_requests(team_id);
@@ -233,6 +262,7 @@ export function runBaseSchema(db: DatabaseSync): void {
 
   ensureColumn(db, "teams", "jira_project_key", "TEXT");
   ensureColumn(db, "teams", "jira_jql", "TEXT");
+  ensureColumn(db, "teams", "workspace_id", "TEXT");
   ensureColumn(db, "teams", "minimum_vote_percent_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "teams", "minimum_vote_percent", "INTEGER NOT NULL DEFAULT 75");
   ensureColumn(db, "rounds", "pending_issue_id", "TEXT");

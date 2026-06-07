@@ -62,7 +62,12 @@ Common commands:
 - `./deploy.sh caddy:reload`
 - `./deploy.sh backup`
 - `./deploy.sh backup:list`
+- `./deploy.sh backup:prune`
 - `./deploy.sh restore <file>`
+- `./deploy.sh usage`
+- `./deploy.sh usage:json`
+- `./deploy.sh users:export`
+- `./deploy.sh workspaces:export`
 - `./deploy.sh update`
 - `./deploy.sh config:migrate`
 
@@ -78,10 +83,10 @@ New release/update flow on the VPS:
 5. Open the HTTPS app and do a short login/team/vote/reveal smoke test.
 6. If anything looks wrong, run `./deploy.sh diagnose` before editing Caddy or firewall settings.
 
-Migration note for the first switch from the old private-history checkout to the clean public repository:
+Migration note for replacing or moving an existing deployment checkout:
 - take a backup before changing the checkout
 - preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`
-- do not copy historical untracked compose/config scratch folders into the clean public checkout
+- do not copy historical untracked compose/config scratch folders into the replacement checkout
 
 Backup/restore rehearsal on a test deployment:
 1. Create a clearly named baseline team in the browser, for example `BACKUP_BASELINE_KEEP_ME`.
@@ -92,6 +97,15 @@ Backup/restore rehearsal on a test deployment:
 6. Verify the baseline team still exists and the post-backup test team disappeared.
 
 `./deploy.sh restore` is destructive by design: it stops the app, overwrites the configured Podman data volume, restores deployment config/branding files included in the archive, starts the app again, and waits for local health. It asks for `RESTORE` confirmation unless `DEPLOY_RESTORE_CONFIRM=1` is set for an automated rehearsal.
+
+Backup retention:
+- `./deploy.sh backup:prune` removes older `planning-poker-backup-*.tar.gz` archives from `BACKUP_DIR`.
+- It keeps the newest `20` backups by default; set `BACKUP_PRUNE_KEEP=10` or another positive number to change the retention count.
+- Set `BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune` to preview which archives would be deleted.
+
+Public-trial/operator reporting:
+- `./deploy.sh usage` prints a human-readable summary of users, workspaces, teams, active sessions, current-month reveals/votes, and database size.
+- `./deploy.sh usage:json`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export` print machine-readable JSON for operator review; exports intentionally avoid passwords, tokens, sessions, SMTP secrets, Jira secrets, and deployment secrets.
 
 ## Command Use Guide
 
@@ -113,6 +127,7 @@ Backup/restore rehearsal on a test deployment:
 - `./dev.sh stack:down` and `./dev.sh stack:verify` do not require local Node 22 because they only stop or inspect the packaged Podman workflow.
 - `./dev.sh stack:up` runs in the foreground, keeps printing stack logs until stopped, and uses the strict refresh path (`down --remove-orphans`, `build --no-cache`, `up --force-recreate`) on every run so stale containers or cached image layers are not reused.
 - On macOS, `./dev.sh stack:up` and packaged e2e commands self-heal the common `unable to connect to Podman socket` case by managing the local Podman machine before compose runs. This is intentionally macOS-only because Linux Podman runs natively without the VM/socket layer.
+- On restricted local Linux environments, rootless Podman may fail bridge creation with a `netavark` error. Packaged stack/e2e commands default to `PACKAGED_STACK_NETWORK_MODE=auto`, which tries the normal bridge first and retries with host networking only when needed. Use `PACKAGED_STACK_NETWORK_MODE=bridge` or `PACKAGED_STACK_NETWORK_MODE=host` to force one mode for debugging. This is local verification behavior; VPS deployment still uses the normal deployed compose port binding.
 - `./dev.sh sim:up` starts the live bot simulator as a long-running helper and returns control to the shell; it uses `setsid` when available and falls back to `nohup` on macOS-style environments where `setsid` is not installed.
 - `./dev.sh test:e2e` runs the packaged browser flow and may take ownership of the local stack during the test window.
 - `./dev.sh test:e2e:sim` seeds/starts the simulator, runs the dedicated seeded-room layout matrix, and then stops the simulator again.
@@ -261,10 +276,12 @@ Operational notes:
 15. automated SMTP-capable verification uses mocked transport tests and does not require a real external mail server
 16. managed branding upload/application is now covered in both the backend admin-config suite and the web settings suite so asset-regression checks are not left to manual testing alone
 17. for manual local SMTP validation, point the app to Mailpit or MailHog and confirm invite/reset mail appears there
-18. real production mail still requires valid SMTP settings in the deployment config; otherwise development/test uses the log fallback for codes and the manual-share onboarding/reset paths for team-admin recovery
-19. automated packaged e2e/perf/simulator runs now use isolated packaged-stack data so old test teams should not leak back into the normal local stack after verification runs
-20. both deployment TOML files now include a `[jira]` section; local defaults leave Jira disconnected, while the sample file shows the fields a real Jira Cloud setup needs
-21. `[history_popup].timezone_keys` in the deployment TOML is the global date-popup timezone default used when new teams are created; team-admin defaults and per-team personal overrides take precedence later
+18. real production mail still requires valid SMTP settings in the deployment config; SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider
+19. otherwise development/test uses the log fallback for codes and the manual-share onboarding/reset paths for team-admin recovery
+20. automated packaged e2e/perf/simulator runs now use isolated packaged-stack data so old test teams should not leak back into the normal local stack after verification runs
+21. both deployment TOML files now include a `[jira]` section; local defaults leave Jira disconnected, while the sample file shows the fields a real Jira Cloud setup needs
+22. `[history_popup].timezone_keys` in the deployment TOML is the global date-popup timezone default used when new teams are created; team-admin defaults and per-team personal overrides take precedence later
+23. `[public_trial]` remains disabled by default for normal self-hosted deployments; it is an advanced hosted-test-server mode with configurable teams/users/monthly-reveal caps, signup/invite/login rate limits, and public-trial policy pages that should only be enabled after public-trial safety checks pass
 
 ## Main Board Notes
 

@@ -7,6 +7,7 @@ set -euo pipefail
 cmd="${1:-help}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 compose_file="infra/containers/compose.yaml"
+compose_host_network_file="infra/containers/compose.host-network.yaml"
 simulator_dir=".simulator"
 simulator_pid_file="$simulator_dir/pid"
 simulator_log_file="$simulator_dir/simulator.log"
@@ -14,6 +15,7 @@ isolated_stack_data_dir="/tmp/planning-poker-packaged-test-data"
 required_node_version_file=".nvmrc"
 tracked_deployment_config="config/deployment.toml"
 local_deployment_config="config/deployment.local.toml"
+packaged_test_config_dir=""
 
 required_node_version() {
   if [[ -f "$required_node_version_file" ]]; then
@@ -192,20 +194,107 @@ EOF
 
 run_podman_compose() {
   export APP_CONFIG_DIR="${APP_CONFIG_DIR:-$repo_root/config}"
+  local active_compose_file="$compose_file"
+
+  if [[ "${PACKAGED_STACK_NETWORK_MODE:-auto}" == "host" ]]; then
+    active_compose_file="$compose_host_network_file"
+  fi
 
   if command -v podman >/dev/null 2>&1; then
     ensure_macos_podman_machine
-    podman compose -f "$compose_file" "$@"
+    podman compose -f "$active_compose_file" "$@"
     return
   fi
 
   if command -v podman-compose >/dev/null 2>&1; then
-    podman-compose -f "$compose_file" "$@"
+    podman-compose -f "$active_compose_file" "$@"
     return
   fi
 
   echo "Podman is required for stack commands. Install podman or podman-compose." >&2
   exit 1
+}
+
+run_podman_compose_with_network_fallback() {
+  local requested_mode="${PACKAGED_STACK_NETWORK_MODE:-auto}"
+  local status
+
+  if [[ "$requested_mode" == "host" || "$requested_mode" == "bridge" ]]; then
+    PACKAGED_STACK_NETWORK_MODE="$requested_mode" run_podman_compose "$@"
+    return
+  fi
+
+  if PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose "$@"; then
+    return
+  fi
+  status=$?
+
+  cat >&2 <<'EOF'
+The packaged stack could not start with the default Podman bridge network.
+Retrying with host networking for this local test/dev run.
+
+This fallback is intended for restricted local Linux environments where rootless
+Podman cannot create a netavark bridge. The deployed VPS compose file still uses
+the normal localhost port binding.
+EOF
+
+  PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose down --remove-orphans >/dev/null 2>&1 || true
+  if PACKAGED_STACK_NETWORK_MODE=host run_podman_compose "$@"; then
+    return
+  fi
+
+  return "$status"
+}
+
+run_packaged_stack_down() {
+  local requested_mode="${PACKAGED_STACK_NETWORK_MODE:-auto}"
+
+  if [[ "$requested_mode" == "host" || "$requested_mode" == "bridge" ]]; then
+    PACKAGED_STACK_NETWORK_MODE="$requested_mode" run_podman_compose down "$@"
+    return
+  fi
+
+  PACKAGED_STACK_NETWORK_MODE=host run_podman_compose down "$@" >/dev/null 2>&1 || true
+  PACKAGED_STACK_NETWORK_MODE=bridge run_podman_compose down "$@"
+}
+
+cleanup_packaged_test_config() {
+  if [[ -n "$packaged_test_config_dir" && -d "$packaged_test_config_dir" ]]; then
+    rm -rf "$packaged_test_config_dir"
+    packaged_test_config_dir=""
+  fi
+}
+
+prepare_packaged_test_config() {
+  if [[ -n "$packaged_test_config_dir" && -d "$packaged_test_config_dir" ]]; then
+    export APP_CONFIG_DIR="$packaged_test_config_dir"
+    return
+  fi
+
+  packaged_test_config_dir="$(mktemp -d)"
+  cp config/allowed-domains.txt "$packaged_test_config_dir/allowed-domains.txt"
+  mkdir -p "$packaged_test_config_dir/managed-branding"
+  cat >"$packaged_test_config_dir/deployment.local.toml" <<'EOF'
+[app]
+base_url = "http://127.0.0.1:3001"
+allowed_domains_path = "/app/config/allowed-domains.txt"
+
+[admin]
+username = "platform-admin"
+password = "PlatformAdmin123!"
+EOF
+  export APP_CONFIG_DIR="$packaged_test_config_dir"
+}
+
+uses_packaged_test_config() {
+  case "$cmd" in
+    test:e2e | test:e2e:perf | test:e2e:sim | test:e2e:sim:matrix21 | phase:p2:verify | phase:p3:verify)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 ensure_deployment_local_config() {
@@ -279,9 +368,9 @@ EOF
 
 fresh_stack_up() {
   ensure_local_super_admin_credentials
-  run_podman_compose down --remove-orphans || true
+  run_packaged_stack_down --remove-orphans || true
   run_podman_compose build --no-cache
-  run_podman_compose up --force-recreate
+  run_podman_compose_with_network_fallback up --force-recreate
 }
 
 wait_for_stack_health() {
@@ -311,8 +400,12 @@ print_project_version() {
 }
 
 ensure_packaged_stack() {
-  ensure_local_super_admin_credentials
-  DATA_DIR="$isolated_stack_data_dir" run_podman_compose up -d --build
+  if uses_packaged_test_config; then
+    prepare_packaged_test_config
+  else
+    ensure_local_super_admin_credentials
+  fi
+  DATA_DIR="$isolated_stack_data_dir" run_podman_compose_with_network_fallback up -d --build
   wait_for_stack_health
 }
 
@@ -350,6 +443,12 @@ Tests
   ./dev.sh phase:p2:verify Run the broad Phase 2 verification batch
   ./dev.sh phase:p3:verify Run the machine-heavy Phase 3 capacity validation batch
   ./dev.sh test:full    Run the main verification suite; the heavy sim e2e suite stays separate
+
+Packaged stack environment:
+  PACKAGED_STACK_NETWORK_MODE=auto|bridge|host
+                       Default: auto. Local packaged stack commands try the normal
+                       Podman bridge network first, then host networking if bridge
+                       creation is unsupported. VPS deployment remains unchanged.
 
 Stack
   ./dev.sh stack:up     Tear down stale containers, rebuild with no cache, and start the packaged Podman stack
@@ -402,7 +501,7 @@ EOF
     ./dev.sh sim:down >/dev/null 2>&1 || true
     ./dev.sh stack:down >/dev/null 2>&1 || true
     ensure_packaged_stack
-    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true' EXIT
+    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true; cleanup_packaged_test_config' EXIT
     ./dev.sh sim:seed
     SIMULATOR_SKIP_BOOTSTRAP=1 ./dev.sh sim:up
     pnpm --filter @planning-poker/web test:e2e:perf
@@ -411,7 +510,7 @@ EOF
     ./dev.sh sim:down >/dev/null 2>&1 || true
     ./dev.sh stack:down >/dev/null 2>&1 || true
     ensure_packaged_stack
-    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true' EXIT
+    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true; cleanup_packaged_test_config' EXIT
     ./dev.sh sim:seed
     SIMULATOR_SKIP_BOOTSTRAP=1 ./dev.sh sim:up
     pnpm --filter @planning-poker/web test:e2e:sim
@@ -420,7 +519,7 @@ EOF
     ./dev.sh sim:down >/dev/null 2>&1 || true
     ./dev.sh stack:down >/dev/null 2>&1 || true
     ensure_packaged_stack
-    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true' EXIT
+    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true; cleanup_packaged_test_config' EXIT
     ./dev.sh sim:seed
     SIMULATOR_SKIP_BOOTSTRAP=1 ./dev.sh sim:up
     pnpm --filter @planning-poker/web test:e2e:sim:matrix21
@@ -440,7 +539,7 @@ EOF
     ./dev.sh sim:down >/dev/null 2>&1 || true
     ./dev.sh stack:down >/dev/null 2>&1 || true
     ensure_packaged_stack
-    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true' EXIT
+    trap './dev.sh sim:down >/dev/null 2>&1 || true; ./dev.sh stack:down >/dev/null 2>&1 || true; cleanup_packaged_test_config' EXIT
     pnpm --filter @planning-poker/simulator test
     pnpm --filter @planning-poker/api test:int
     pnpm --filter @planning-poker/simulator phase3:verify
@@ -456,7 +555,7 @@ EOF
     fresh_stack_up
     ;;
   stack:down)
-    run_podman_compose down
+    run_packaged_stack_down
     ;;
   stack:verify)
     curl -fsS http://localhost:3001/health

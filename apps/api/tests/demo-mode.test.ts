@@ -4,8 +4,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { BRANDING_MANIFEST, DEFAULT_HISTORY_TIME_ZONE_KEYS } from "@planning-poker/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import { DemoModeManager } from "../src/demoMode.js";
+import { Repository } from "../src/repository.js";
+import type { AppConfig } from "../src/types.js";
 
 const tempDirs: string[] = [];
 const loadedManagers: Array<{ shutdown: () => void }> = [];
@@ -15,6 +19,44 @@ function createEnvDir() {
   tempDirs.push(dir);
   fs.writeFileSync(path.join(dir, "allowed-domains.txt"), "example-company.com\nexample-partner.com\n");
   return dir;
+}
+
+function createTestConfig(): AppConfig {
+  const dir = createEnvDir();
+  return {
+    port: 0,
+    host: "127.0.0.1",
+    allowedDomainsPath: path.join(dir, "allowed-domains.txt"),
+    sessionTtlDays: 90,
+    loginCodeTtlMinutes: 120,
+    debugCodesEnabled: true,
+    debugToolsEnabled: true,
+    dataDir: dir,
+    databasePath: path.join(dir, "test.db"),
+    deploymentConfigPath: path.join(dir, "deployment.toml"),
+    managedBrandingDir: path.join(dir, "managed-branding"),
+    appBaseUrl: "http://localhost:3001",
+    simulatorModeEnabled: false,
+    simulatorSharedSecret: "test-secret",
+    demoModeEnabled: true,
+    publicTrial: {
+      enabled: false,
+      mode: "disabled",
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    },
+    superAdminUsername: "platform-admin",
+    superAdminPassword: "PlatformAdmin123!",
+    superAdminDisplayName: "Platform Admin",
+    branding: BRANDING_MANIFEST,
+    defaultHistoryTimezoneKeys: [...DEFAULT_HISTORY_TIME_ZONE_KEYS]
+  };
 }
 
 async function loadTestServer() {
@@ -65,6 +107,7 @@ async function createRegularUser(app: ReturnType<typeof request>, email: string,
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   for (const manager of loadedManagers.splice(0)) {
     manager.shutdown();
   }
@@ -86,6 +129,85 @@ afterEach(() => {
 });
 
 describe("Demo mode integration", () => {
+  it("keeps repeated enabled syncs idempotent for active demo rooms", () => {
+    vi.useFakeTimers();
+    const repository = new Repository(createTestConfig());
+    let enabled = true;
+    const onChooserChanged = vi.fn();
+    const onTeamChanged = vi.fn();
+    const manager = new DemoModeManager({
+      repository,
+      isEnabled: () => enabled,
+      onChooserChanged,
+      onTeamChanged,
+      onVoteChanged: vi.fn()
+    });
+
+    manager.sync();
+    const firstKnownTeamChangeCount = onTeamChanged.mock.calls.length;
+    const firstChooserChangeCount = onChooserChanged.mock.calls.length;
+    const demoTeam = repository.getTeamsForUser(repository.getSuperAdminUser()!.id).memberships.find((team) => team.name === "Demo Team 10");
+
+    expect(demoTeam).toBeTruthy();
+    expect(manager.getSyntheticActiveParticipantIds(demoTeam!.id).size).toBe(10);
+
+    manager.sync();
+    manager.sync();
+
+    expect(onTeamChanged).toHaveBeenCalledTimes(firstKnownTeamChangeCount);
+    expect(onChooserChanged).toHaveBeenCalledTimes(firstChooserChangeCount);
+    expect(repository.getTeamMembers(demoTeam!.id)).toHaveLength(10);
+    expect(manager.getSyntheticActiveParticipantIds(demoTeam!.id).size).toBe(10);
+
+    enabled = false;
+    manager.sync();
+    expect(manager.getSyntheticActiveParticipantIds(demoTeam!.id).size).toBe(0);
+    manager.shutdown();
+  });
+
+  it("keeps repeated Demo Team 400 rounds bounded to the seeded demo participants", async () => {
+    vi.useFakeTimers();
+    const repository = new Repository(createTestConfig());
+    const manager = new DemoModeManager({
+      repository,
+      isEnabled: () => true,
+      onChooserChanged: vi.fn(),
+      onTeamChanged: vi.fn(),
+      onVoteChanged: vi.fn()
+    });
+
+    manager.sync();
+    const demoTeam = repository.getTeamsForUser(repository.getSuperAdminUser()!.id).memberships.find((team) => team.name === "Demo Team 400");
+    expect(demoTeam).toBeTruthy();
+    expect(repository.getTeamMembers(demoTeam!.id)).toHaveLength(400);
+    expect(manager.getSyntheticActiveParticipantIds(demoTeam!.id).size).toBe(400);
+
+    for (let roundIndex = 0; roundIndex < 4; roundIndex += 1) {
+      const round = repository.createRound(demoTeam!.id, `DEMO-400-${roundIndex}`);
+
+      manager.sync();
+      await vi.advanceTimersByTimeAsync(2500);
+      manager.sync();
+      await vi.advanceTimersByTimeAsync(2500);
+
+      const activeRound = repository.getCurrentRound(demoTeam!.id)!;
+      expect(activeRound.id).toBe(round.id);
+      expect(activeRound.votes.length).toBeLessThanOrEqual(400);
+
+      const revealed = repository.revealRound(round.id, {
+        eligibleParticipantIds: [...manager.getSyntheticActiveParticipantIds(demoTeam!.id)]
+      });
+      const historyEntry = repository.getHistory(demoTeam!.id)[0]!;
+
+      expect(revealed.votes.length).toBeLessThanOrEqual(400);
+      expect(historyEntry.participantCount).toBeLessThanOrEqual(400);
+      expect(historyEntry.votes).toHaveLength(historyEntry.participantCount);
+      expect(new Set(historyEntry.votes.map((vote) => vote.userId)).size).toBe(historyEntry.votes.length);
+    }
+
+    manager.shutdown();
+  });
+
   it("shows demo teams only to the super-admin and stops simulated voting when disabled", async () => {
     const { app, repository, demoModeManager } = await loadTestServer();
     const client = request(app);

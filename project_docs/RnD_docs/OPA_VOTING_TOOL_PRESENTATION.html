@@ -425,11 +425,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <span class="map-chip">Slide 4</span>
           </a>
           <a class="map-box map-link" href="#slide-7-spec-driven">
-            Spec-Driven Development<br>public docs, private planning, architecture decisions
+            Spec-Driven Development<br>living docs, planning, architecture decisions
             <span class="map-chip">Slide 7</span>
           </a>
           <a class="map-box map-link" href="#slide-6-doc-orientation">
-            Agent Orientation<br>README, USAGE, ARCHITECTURE, private worklog
+            Agent Orientation<br>README, USAGE, ARCHITECTURE, worklog
             <span class="map-chip">Slides 4-6</span>
           </a>
           <a class="map-box map-link" href="#slide-9-testing">
@@ -450,7 +450,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <span class="map-chip">Slide 11</span>
           </a>
           <div class="map-box">
-            Dev Tracing and Transferability<br>private worklog, artifacts, portability
+            Dev Tracing and Transferability<br>worklog, artifacts, portability
             <div class="sub-links">
               <a href="#slide-12-tracing">Slide 12</a>
               <a href="#slide-13-transferability">Slide 13</a>
@@ -474,7 +474,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
           <li>treat the <code>200</code>-user target as a real design constraint</li>
           <li>use the shared command discipline around <code>./dev.sh</code>, including <code>build</code>, <code>typecheck</code>, <code>test:unit</code>, <code>test:int</code>, <code>test:web</code>, and stack commands</li>
           <li>before closing a task, report any verification gaps explicitly</li>
-          <li>update private worklogs and public docs for non-trivial work</li>
+          <li>update worklogs and user-facing docs for non-trivial work</li>
         </ul>
         <p>Result: less random AI behavior, stronger consistency, and lower risk of hidden regressions.</p>
         <div class="footer">4</div>
@@ -496,7 +496,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
           <li>run the nearest relevant verification before and after meaningful changes</li>
           <li>keep simulator-backed suites serial so the results stay trustworthy</li>
           <li>before closing a task, report any verification gaps explicitly</li>
-          <li>update private worklogs and public docs for non-trivial changes</li>
+          <li>update worklogs and user-facing docs for non-trivial changes</li>
         </ul>
         <p>These rules make the AI more predictable and reduce accidental scope drift.</p>
         <div class="footer">5</div>
@@ -516,8 +516,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
               <li><code>ARCHITECTURE.md</code>: system shape and runtime model</li>
               <li>public docs: product, operator, contributor, architecture, and release guidance</li>
               <li>role-focused docs: user guidance plus dedicated team-admin and super-admin operation guides</li>
-              <li>private local worklog: recent changes and prior verification evidence</li>
-              <li>private planning context: what is in scope now, what is done, and what still needs proof</li>
+              <li>worklog: recent changes and prior verification evidence</li>
+              <li>planning context: what is in scope now, what is done, and what still needs proof</li>
             </ul>
           </div>
           <div class="card">
@@ -541,9 +541,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         <p>The project uses living documentation, not only tickets or chat history.</p>
         <ul>
           <li>public docs for product direction and operator expectations</li>
-          <li>private planning notes for active delivery streams</li>
+          <li>planning notes for active delivery streams</li>
           <li>architecture notes for technical decisions and explicit architecture changes</li>
-          <li>private worklogs for change history and verification trail</li>
+          <li>worklogs for change history and verification trail</li>
           <li>release notes and changelogs for public-facing change history</li>
         </ul>
         <p>That keeps requirements visible during implementation and allows work to resume later without losing intent.</p>
@@ -673,10 +673,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <h3>What transfers well</h3>
             <ul>
               <li>documentation-first workflow</li>
-              <li>public docs plus private planning trackers</li>
+              <li>public docs plus planning trackers</li>
               <li>architecture notes</li>
               <li>role-specific operating guides for users, team admins, and super-admins</li>
-              <li>private worklog discipline</li>
+              <li>worklog discipline</li>
               <li>layered testing and explicit verification commands</li>
               <li>saved performance artifacts</li>
             </ul>
@@ -773,7 +773,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
           <li>layered testing</li>
           <li>simulation</li>
           <li>measurable performance evidence</li>
-          <li>disciplined private worklog and public changelog updates</li>
+          <li>disciplined worklog and public changelog updates</li>
           <li>explicit verification-gap reporting when proof is incomplete</li>
         </ul>
         <blockquote>

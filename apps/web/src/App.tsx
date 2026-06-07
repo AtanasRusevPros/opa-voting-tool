@@ -101,6 +101,18 @@ type BootstrapResponse = {
   branding?: BrandingManifest;
   simulatorModeEnabled?: boolean;
   demoModeEnabled?: boolean;
+  publicTrial?: {
+    enabled: boolean;
+    mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
+  };
   allowedDomainsFile?: string;
 };
 
@@ -142,6 +154,18 @@ type AdminConfigView = {
   >;
   demo: {
     enabled: boolean;
+  };
+  publicTrial?: {
+    enabled: boolean;
+    mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
+    maxTeamsPerWorkspace: number;
+    maxUsersPerWorkspace: number;
+    maxRevealedRoundsPerWorkspacePerMonth: number;
+    maxSignupRequestsPerIpPerHour: number;
+    maxCodeRequestsPerEmailPerDay: number;
+    maxInvitesPerWorkspacePerDay: number;
+    maxWorkspaceCreationsPerIpPerDay: number;
+    maxLoginAttemptsPerEmailPerHour: number;
   };
 };
 
@@ -272,6 +296,7 @@ type RouteState = {
 };
 
 type AuthStep = "signin" | "code" | "admin";
+type AuthFlow = "standard" | "publicTrial";
 type StatusTone = "neutral" | "success" | "error" | "busy";
 type StatusState = {
   tone: StatusTone;
@@ -1097,7 +1122,7 @@ function sameLiveSyncState(
   );
 }
 
-function applyOptimisticVoteToTeamState(
+export function applyOptimisticVoteToTeamState(
   state: TeamStateResponse,
   teamId: string,
   roundId: string,
@@ -1130,7 +1155,7 @@ function applyOptimisticVoteToTeamState(
   const nextActiveRound: RoundState = {
     ...activeRound,
     votes: nextVotes,
-    votedCount: Math.max(activeRound.votedCount, nextVotes.length),
+    votedCount: nextVotes.length,
     notVotedCount: Math.max(0, state.teamMembers.length - nextVotes.length)
   };
   if (sameRoundState(activeRound, nextActiveRound)) {
@@ -4189,6 +4214,7 @@ export default function App() {
   const [pendingTargetTeamId, setPendingTargetTeamId] = useState<string | null>(initialRoute.selectedTeamId);
   const [showTeamChooser, setShowTeamChooser] = useState(initialRoute.showTeamChooser);
   const [authStep, setAuthStep] = useState<AuthStep>("signin");
+  const [authFlow, setAuthFlow] = useState<AuthFlow>("standard");
   const [email, setEmail] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -4200,6 +4226,20 @@ export default function App() {
   const [debugToolsEnabled, setDebugToolsEnabled] = useState(false);
   const [debugCodesEnabled, setDebugCodesEnabled] = useState(false);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
+  const [publicTrial, setPublicTrial] = useState<NonNullable<BootstrapResponse["publicTrial"]>>({
+    enabled: false,
+    mode: "disabled",
+    maxTeamsPerWorkspace: 2,
+    maxUsersPerWorkspace: 10,
+    maxRevealedRoundsPerWorkspacePerMonth: 40,
+    maxSignupRequestsPerIpPerHour: 3,
+    maxCodeRequestsPerEmailPerDay: 5,
+    maxInvitesPerWorkspacePerDay: 10,
+    maxWorkspaceCreationsPerIpPerDay: 2,
+    maxLoginAttemptsPerEmailPerHour: 10
+  });
+  const [trialTermsAccepted, setTrialTermsAccepted] = useState(false);
+  const [trialTermsVersion, setTrialTermsVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusState>({
@@ -4876,11 +4916,37 @@ export default function App() {
         setDebugCodesEnabled(Boolean(response.debugCodesEnabled));
         setDebugToolsEnabled(response.debugToolsEnabled);
         setSmtpConfigured(Boolean(response.smtpConfigured));
+        setPublicTrial(
+          response.publicTrial ?? {
+            enabled: false,
+            mode: "disabled",
+            maxTeamsPerWorkspace: 2,
+            maxUsersPerWorkspace: 10,
+            maxRevealedRoundsPerWorkspacePerMonth: 40,
+            maxSignupRequestsPerIpPerHour: 3,
+            maxCodeRequestsPerEmailPerDay: 5,
+            maxInvitesPerWorkspacePerDay: 10,
+            maxWorkspaceCreationsPerIpPerDay: 2,
+            maxLoginAttemptsPerEmailPerHour: 10
+          }
+        );
         setBranding(mergeBrandingManifest(response.branding));
       } catch {
         revealDebugEnabled = false;
         setDebugToolsEnabled(false);
         setSmtpConfigured(false);
+        setPublicTrial({
+          enabled: false,
+          mode: "disabled",
+          maxTeamsPerWorkspace: 2,
+          maxUsersPerWorkspace: 10,
+          maxRevealedRoundsPerWorkspacePerMonth: 40,
+          maxSignupRequestsPerIpPerHour: 3,
+          maxCodeRequestsPerEmailPerDay: 5,
+          maxInvitesPerWorkspacePerDay: 10,
+          maxWorkspaceCreationsPerIpPerDay: 2,
+          maxLoginAttemptsPerEmailPerHour: 10
+        });
         setBranding(mergeBrandingManifest(BRANDING_MANIFEST));
       }
     })();
@@ -5527,6 +5593,9 @@ export default function App() {
         body: JSON.stringify({ email })
       });
       setAuthStep("code");
+      setAuthFlow("standard");
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(null);
       setDebugCode(response.debugCode ?? null);
       setInfo(
         response.delivery === "fallback-log"
@@ -5547,6 +5616,40 @@ export default function App() {
       setError((requestError as Error).message);
     }
   }, [avatarSelection, email]);
+
+  const handleStartPublicTrial = useCallback(async () => {
+    try {
+      setError(null);
+      setInfo(null);
+      if (!email.trim()) {
+        setError("Enter your email first.");
+        return;
+      }
+
+      const response = await api<{
+        ok: boolean;
+        delivery: "smtp" | "fallback-log";
+        debugCode?: string;
+        termsVersion: string;
+      }>("/api/auth/public-trial/request-code", {
+        method: "POST",
+        body: JSON.stringify({ email })
+      });
+      setAuthStep("code");
+      setAuthFlow("publicTrial");
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(response.termsVersion);
+      setDebugCode(response.debugCode ?? null);
+      setDisplayName((current) => current || deriveDisplayNameFromEmail(email));
+      setInfo(
+        response.delivery === "fallback-log"
+          ? "A public-trial code has been generated. In the current dev setup, you can use the code shown below."
+          : "A public-trial code has been sent by email. Accept the terms, then finish setup to create your private trial workspace."
+      );
+    } catch (requestError) {
+      setError((requestError as Error).message);
+    }
+  }, [email]);
 
   const handleRequestAccess = useCallback(async () => {
     try {
@@ -5591,6 +5694,9 @@ export default function App() {
       }
 
       setAuthStep("code");
+      setAuthFlow("standard");
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(null);
       setDebugCode(response.debugCode ?? null);
       setDisplayName((current) => current || deriveDisplayNameFromEmail(email));
       setInfo(
@@ -5642,19 +5748,36 @@ export default function App() {
     try {
       setError(null);
       setInfo(null);
-      await api("/api/auth/verify-code", {
-        method: "POST",
-        body: JSON.stringify({ email, code, displayName, password, ...avatarSelection })
-      });
+      if (authFlow === "publicTrial") {
+        await api("/api/auth/public-trial/signup", {
+          method: "POST",
+          body: JSON.stringify({
+            email,
+            code,
+            displayName,
+            password,
+            ...avatarSelection,
+            acceptedTerms: trialTermsAccepted,
+            acceptedTermsVersion: trialTermsVersion
+          })
+        });
+      } else {
+        await api("/api/auth/verify-code", {
+          method: "POST",
+          body: JSON.stringify({ email, code, displayName, password, ...avatarSelection })
+        });
+      }
       await loadSession();
       setPassword("");
       setConfirmPassword("");
-      setInfo("Access finished. This browser will stay remembered automatically.");
-      setSuccessStatus("Access finished successfully. Returning you to your last team when available.");
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(null);
+      setInfo(authFlow === "publicTrial" ? "Public trial workspace created. This browser will stay remembered automatically." : "Access finished. This browser will stay remembered automatically.");
+      setSuccessStatus(authFlow === "publicTrial" ? "Public trial ready. Opening your starter team." : "Access finished successfully. Returning you to your last team when available.");
     } catch (requestError) {
       setError((requestError as Error).message);
     }
-  }, [avatarSelection, code, displayName, email, loadSession, password, setSuccessStatus]);
+  }, [authFlow, avatarSelection, code, displayName, email, loadSession, password, setSuccessStatus, trialTermsAccepted, trialTermsVersion]);
 
   const handleCreateTeam = useCallback(async (name: string) => {
     if (!name.trim()) {
@@ -6747,15 +6870,28 @@ export default function App() {
         setAvatarColorKey={(value) => setAvatarSelection((current) => ({ ...current, avatarColorKey: value }))}
         authStep={authStep}
         canUseEmailCode={smtpConfigured || debugCodesEnabled}
+        publicTrialOpenSignup={publicTrial.enabled && publicTrial.mode === "open_signup"}
+        isPublicTrialCodeStep={authFlow === "publicTrial"}
+        trialTermsAccepted={trialTermsAccepted}
+        setTrialTermsAccepted={setTrialTermsAccepted}
         code={code}
         setCode={setCode}
         onRequestCode={handleRequestCode}
+        onStartPublicTrial={handleStartPublicTrial}
         onRequestAccess={handleRequestAccess}
         onForgotPassword={handleForgotPassword}
-        onOpenAdminSignIn={() => setAuthStep("admin")}
+        onOpenAdminSignIn={() => {
+          setAuthFlow("standard");
+          setAuthStep("admin");
+        }}
         onPasswordSignIn={handlePasswordSignIn}
         onAdminSignIn={handleAdminSignIn}
-        onBackToSignIn={() => setAuthStep("signin")}
+        onBackToSignIn={() => {
+          setAuthStep("signin");
+          setAuthFlow("standard");
+          setTrialTermsAccepted(false);
+          setTrialTermsVersion(null);
+        }}
         onVerify={handleVerify}
         debugCode={debugCode}
         error={error}

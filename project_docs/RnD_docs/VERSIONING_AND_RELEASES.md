@@ -24,17 +24,13 @@ Both commands print the project version and current Git commit. This keeps deplo
 
 ## Public Release Strategy
 
-The first public release was created from the clean public repository, not from the private-history repository.
-
 Completed first-public-alpha sequence:
 
-1. Sanitized public tree copied into the clean `opa-voting-tool` repository.
+1. Release tree sanitized and reviewed.
 2. First public commit created.
 3. Release checklist verification run.
 4. First public alpha tag pushed as `v0.1.0`.
 5. Future GitHub release notes should be created from `CHANGELOG.md`.
-
-Do not create public release tags in the private-history repository.
 
 ## Version Format
 
