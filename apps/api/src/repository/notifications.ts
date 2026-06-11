@@ -130,7 +130,7 @@ export function getPlatformUsers(
       `
       SELECT id, email, display_name, created_at, updated_at, last_active_at
       FROM users
-      WHERE is_super_admin = 0
+      WHERE is_super_admin = 0 AND deleted_at IS NULL
       ${searchClause}
       ${orderClause}
       LIMIT ?

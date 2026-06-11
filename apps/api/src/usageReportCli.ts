@@ -159,7 +159,7 @@ export function buildReport(dbPath: string): UsageReport {
       databaseBytes: fs.statSync(dbPath).size,
       publicTrial: readPublicTrialConfig(),
       totals: {
-        users: count(db, "SELECT COUNT(*) AS count FROM users WHERE is_super_admin = 0"),
+        users: count(db, "SELECT COUNT(*) AS count FROM users WHERE is_super_admin = 0 AND deleted_at IS NULL"),
         superAdmins: count(db, "SELECT COUNT(*) AS count FROM users WHERE is_super_admin = 1"),
         workspaces: workspaces.length,
         publicTrialWorkspaces: workspaces.filter((workspace) => workspace.kind === "public_trial").length,
@@ -200,7 +200,7 @@ export function usersExport(dbPath: string): unknown[] {
           FROM users u
           LEFT JOIN workspace_memberships wm ON wm.user_id = u.id
           LEFT JOIN team_memberships tm ON tm.user_id = u.id
-          WHERE u.is_super_admin = 0
+          WHERE u.is_super_admin = 0 AND u.deleted_at IS NULL
           GROUP BY u.id
           ORDER BY u.created_at DESC
         `

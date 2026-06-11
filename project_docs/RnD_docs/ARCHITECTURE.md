@@ -62,8 +62,20 @@ When public trial mode is enabled:
 - public-trial collaborator invites are SMTP-only and join the inviter's workspace
 - configurable limits cap public-trial teams, users, revealed rounds per month, signup/code/invite attempts, workspace creation, and public-trial password sign-in attempts
 - policy pages are served at `/public-trial/terms`, `/public-trial/privacy`, `/public-trial/acceptable-use`, and `/public-trial/export-cleanup`
+- deleting a public-trial owner account atomically purges every owned public-trial workspace and its child data, while unrelated users/workspaces survive
 
 This mode is not the normal OSS/self-hosted path and should not be publicly promoted until the Phase 19.1 VPS go/no-go checks pass.
+
+## Account Deletion Flow
+
+1. The API builds a deletion preview before mutation and distinguishes normal account deactivation from owned public-trial workspace purge.
+2. Self-deletion requires the current password plus `DELETE MY ACCOUNT` or `DELETE MY WORKSPACE`; super-admin deletion requires the selected account's exact email.
+3. The configured super-admin account is protected from every deletion path.
+4. Normal deactivation invalidates sessions, removes active memberships/state, frees the original email, and preserves shared history as `Name (Deactivated)` without the old email.
+5. Public-trial owner deletion atomically removes only owned `public_trial` workspaces and their teams/history before deactivating the owner.
+6. Default/self-hosted workspaces are never purged by account deletion, and collaborators/unrelated workspaces remain intact.
+7. The database keeps an internal tombstone user for retained foreign-key references; user-facing history never exposes the internal tombstone email.
+8. Existing backup archives and previous exports remain unchanged and may still contain older account data.
 
 ## SMTP-Free Onboarding Flow
 

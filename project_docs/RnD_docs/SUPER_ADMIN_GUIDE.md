@@ -81,6 +81,7 @@ The in-app `Platform settings` surface currently controls:
   - existing platform users below
   - super-admin-only admit/deny for platform access requests
   - super-admin-only generated replacement password for existing users
+  - super-admin-only account deletion with an impact preview and exact-email confirmation
 - `Branding`:
   - branding uploads for:
   - login logo
@@ -273,6 +274,18 @@ Useful deployed reporting commands:
 ```
 
 These commands are intended for operator review and must not expose passwords, tokens, SMTP secrets, Jira secrets, or deployment secrets.
+
+## Account Deletion And Trial Workspace Purge
+
+- Any normal user can delete their own account from `Account settings`; self-deletion requires the current password and an explicit typed confirmation.
+- The super-admin can delete another normal account from `Platform settings -> People`; the action requires typing the selected account's exact email.
+- The configured super-admin account can never be deleted.
+- If the account owns no public-trial workspace, access and memberships are removed while retained shared history shows `Name (Deactivated)` and no original email.
+- If the account owns one or more public-trial workspaces, the preview warns that those workspaces, teams, history, comments, and workspace data will be permanently purged.
+- Account deletion never purges the default/self-hosted workspace.
+- Existing backups and previous exports may still contain pre-deletion data and are not rewritten automatically.
+
+After deleting an account, verify `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh usage`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export`.
 
 ## Simulator Visibility Note
 

@@ -35,6 +35,7 @@ This guide describes what a team-admin can do inside a team, what is intentional
 
 - admit or deny platform access requests
 - manage the platform-wide `People` list
+- delete another person's platform account; `Remove` only removes a regular member from the current team
 - reset passwords for existing users from the platform side
 - reveal or edit the dedicated super-admin credentials
 - change platform branding, global app settings, or SMTP settings
@@ -68,6 +69,7 @@ Current actions:
   - makes a regular member a team-admin
 - `Remove`
   - removes that member from the team
+  - does not delete the person's platform account or their history elsewhere
 
 Important limitation:
 

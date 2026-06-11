@@ -3,9 +3,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { AdminConfigSaveResult, AdminConfigView, AdminSettingsTab, BrandingAssetSlot, PlatformAccessRequestActionResponse, PlatformAccessRequestSummary, PlatformPeopleResponse, PlatformPeopleSort, PlatformUserSummary, TeamMemberPasswordResetResponse } from "./types";
+import type { AccountDeletionPreview, AdminConfigSaveResult, AdminConfigView, AdminSettingsTab, BrandingAssetSlot, PlatformAccessRequestActionResponse, PlatformAccessRequestSummary, PlatformPeopleResponse, PlatformPeopleSort, PlatformUserSummary, TeamMemberPasswordResetResponse } from "./types";
 import { EyeIcon } from "./icons";
 import { formatHistoryDisplay } from "./utils";
+import { AccountDeletionDialog } from "./AccountDeletionDialog";
 
 function normalizeAdminConfigView(config: AdminConfigView): AdminConfigView {
   return {
@@ -38,6 +39,8 @@ export function AdminSettingsModal(props: {
   admitAccessRequest: (request: PlatformAccessRequestSummary) => Promise<PlatformAccessRequestActionResponse>;
   denyAccessRequest: (requestId: string) => Promise<void>;
   resetPlatformUserPassword: (userId: string) => Promise<TeamMemberPasswordResetResponse>;
+  loadPlatformUserDeletionPreview?: (userId: string) => Promise<AccountDeletionPreview>;
+  deletePlatformUser?: (userId: string, confirmation: string, impactToken: string) => Promise<void>;
   saveConfig: (patch: Record<string, unknown>) => Promise<AdminConfigSaveResult>;
   revealSecret: (field: "admin.password" | "smtp.pass" | "jira.clientSecret") => Promise<string>;
   uploadBrandingAsset: (slot: BrandingAssetSlot, file: File) => Promise<AdminConfigSaveResult>;
@@ -78,6 +81,8 @@ export function AdminSettingsModal(props: {
     reminder: string;
   } | null>(null);
   const [databaseImportFile, setDatabaseImportFile] = useState<File | null>(null);
+  const [deletionPreview, setDeletionPreview] = useState<AccountDeletionPreview | null>(null);
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
 
   const updateDraft = (updater: (current: AdminConfigView) => AdminConfigView) => {
     setDraft((current) => (current ? updater(current) : current));
@@ -106,6 +111,8 @@ export function AdminSettingsModal(props: {
     setErrorText(null);
     setStatusText(null);
     setCredentialReveal(null);
+    setDeletionPreview(null);
+    setDeletionConfirmation("");
     setPeopleQuery("");
     setPeopleSort("recent");
     setPeopleNextOffset(null);
@@ -355,6 +362,42 @@ export function AdminSettingsModal(props: {
     }
   };
 
+  const handleReviewPlatformUserDeletion = async (user: PlatformUserSummary) => {
+    if (!props.loadPlatformUserDeletionPreview) {
+      return;
+    }
+    try {
+      setSaving(true);
+      setErrorText(null);
+      setDeletionConfirmation("");
+      setDeletionPreview(await props.loadPlatformUserDeletionPreview(user.id));
+    } catch (error) {
+      setErrorText((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeletePlatformUser = async () => {
+    if (!deletionPreview || !props.deletePlatformUser) {
+      return;
+    }
+    try {
+      setSaving(true);
+      setErrorText(null);
+      await props.deletePlatformUser(deletionPreview.targetUserId, deletionConfirmation, deletionPreview.impactToken);
+      const deletedEmail = deletionPreview.email;
+      setDeletionPreview(null);
+      setDeletionConfirmation("");
+      await loadPeopleData();
+      setStatusText(`Deleted the account for ${deletedEmail}.`);
+    } catch (error) {
+      setErrorText((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleLoadMorePeople = async () => {
     if (peopleLoadingMore || peopleNextOffset == null) {
       return;
@@ -568,6 +611,11 @@ export function AdminSettingsModal(props: {
                           <button className="ghost-button" type="button" disabled={saving} onClick={() => void handleResetPlatformPassword(user)}>
                             Reset password
                           </button>
+                          {props.loadPlatformUserDeletionPreview && props.deletePlatformUser ? (
+                            <button className="danger-button" type="button" disabled={saving} onClick={() => void handleReviewPlatformUserDeletion(user)}>
+                              Delete account
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -1007,7 +1055,24 @@ export function AdminSettingsModal(props: {
             ) : null}
           </div>
         ) : null}
-
+        {deletionPreview ? (
+          <AccountDeletionDialog
+            preview={deletionPreview}
+            busy={saving}
+            requirePassword={false}
+            password=""
+            confirmation={deletionConfirmation}
+            errorText={errorText}
+            onPasswordChange={() => undefined}
+            onConfirmationChange={setDeletionConfirmation}
+            onCancel={() => {
+              setDeletionPreview(null);
+              setDeletionConfirmation("");
+              setErrorText(null);
+            }}
+            onConfirm={() => void handleDeletePlatformUser()}
+          />
+        ) : null}
       </div>
     </div>,
     document.body

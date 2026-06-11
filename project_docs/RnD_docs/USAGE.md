@@ -199,6 +199,12 @@ Production deployment note:
 
 ## Authentication Notes
 
+- Normal users can open `Account settings -> Delete account` to review and confirm account deletion.
+- Deleting a non-owner account removes access, sessions, memberships, and the original email while preserving shared voting/comment history as `Name (Deactivated)`.
+- Deleting a public-trial workspace owner permanently purges every owned public-trial workspace and its teams/history. Default/self-hosted workspaces are never purged by account deletion.
+- The original email can register again as a completely fresh account. Existing backups and previously exported files are not rewritten automatically.
+- The configured super-admin account cannot be deleted.
+
 - First access or password reset starts with a 16-digit code request for an allowlisted company email.
 - After code verification, set a real password for later sign-in.
 - Returning users normally sign in with email + password.

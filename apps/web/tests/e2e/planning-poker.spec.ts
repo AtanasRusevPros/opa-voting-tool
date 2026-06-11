@@ -756,6 +756,30 @@ test("super-admin can open the platform settings modal from the chooser", async 
   await expectInsideBox(page, ".admin-settings-modal", ".admin-settings-top-actions");
 });
 
+test("a normal user can delete their account and register fresh with the same email", async ({ page }) => {
+  const email = uniqueEmail("self-delete");
+
+  await loginWithDebugCode(page, email, "Delete Me");
+  await page.getByRole("button", { name: "Account" }).click();
+  const accountSettings = page.getByRole("dialog", { name: "Account settings" });
+  await accountSettings.getByRole("button", { name: "Review account deletion" }).click();
+
+  const deletionDialog = page.getByRole("dialog", { name: "Confirm account deletion" });
+  await expect(deletionDialog).toBeVisible();
+  await deletionDialog.getByLabel("Current password").fill(DEFAULT_TEST_PASSWORD);
+  await deletionDialog.getByLabel(/Type DELETE MY ACCOUNT to confirm/).fill("DELETE MY ACCOUNT");
+  const deletionResponsePromise = page.waitForResponse(
+    (response) => response.url().endsWith("/api/account/delete") && response.request().method() === "POST"
+  );
+  await deletionDialog.getByRole("button", { name: "Delete account" }).click();
+  const deletionResponse = await deletionResponsePromise;
+  expect(deletionResponse.ok()).toBe(true);
+
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await loginWithDebugCode(page, email, "Delete Me Fresh");
+  await expect(page.getByRole("heading", { name: "Choose your team" })).toBeVisible();
+});
+
 test("demo mode is super-admin-only and shows seeded demo teams when enabled", async ({ page }) => {
   const assertNoBrowserIssues = attachBrowserIssueCapture(page);
   const settingsDialog = page.getByRole("dialog", { name: "Platform settings" });

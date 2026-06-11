@@ -491,6 +491,10 @@ Temporary validation flow:
 8. invite a collaborator from the first workspace and confirm the collaborator sees only that workspace
 9. confirm configured team/user/revealed-round limits stop excessive hosted-trial usage
 10. run `./deploy.sh usage`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export`
+11. create a disposable normal user, delete it from `Account settings`, and confirm the same email can register as a fresh account
+12. create a disposable public-trial owner, review the purge warning, delete it, and confirm only that owned trial workspace disappears
+13. repeat one disposable-user deletion from `Platform settings -> People` and confirm exact-email confirmation is required
+14. rerun health, usage, user-export, and workspace-export checks after deletion
 
 Policy pages to spot-check:
 
@@ -507,6 +511,12 @@ Emergency disable test:
 - confirm normal admin access still works and public trial signup is no longer available
 
 Do not promote the VPS as a public self-service demo until public-trial signup, SMTP delivery, terms acceptance, workspace isolation, limits, operator reports, and emergency disable have all passed.
+
+Account-deletion safety notes:
+- take a fresh backup before the first VPS deletion rehearsal
+- account deletion never rewrites old backup archives or previous exports
+- never use real user/workspace data for the purge rehearsal
+- default/self-hosted workspaces must survive every account deletion path
 
 ### Backup And Restore Rehearsal
 

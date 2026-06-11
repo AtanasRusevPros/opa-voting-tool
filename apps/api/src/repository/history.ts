@@ -93,7 +93,7 @@ export function getHistoryCommentsByEntryId(db: DatabaseSync, historyEntryIds: s
         hc.body,
         hc.created_at,
         hc.updated_at,
-        u.email,
+        CASE WHEN u.deleted_at IS NULL THEN u.email ELSE '' END AS email,
         u.display_name,
         u.avatar_key,
         u.avatar_icon_key,
@@ -243,7 +243,7 @@ export function searchHistoryPage(
           LEFT JOIN users vu ON vu.id = json_extract(vote.value, '$.userId')
           WHERE lower(COALESCE(json_extract(vote.value, '$.displayName'), '')) LIKE ?
              OR lower(COALESCE(vu.display_name, '')) LIKE ?
-             OR lower(COALESCE(vu.email, '')) LIKE ?
+             OR lower(CASE WHEN vu.deleted_at IS NULL THEN COALESCE(vu.email, '') ELSE '' END) LIKE ?
         )
         OR EXISTS (
           SELECT 1
@@ -253,7 +253,7 @@ export function searchHistoryPage(
             AND (
               lower(COALESCE(hc.author_signature, '')) LIKE ?
               OR lower(COALESCE(cu.display_name, '')) LIKE ?
-              OR lower(COALESCE(cu.email, '')) LIKE ?
+              OR lower(CASE WHEN cu.deleted_at IS NULL THEN COALESCE(cu.email, '') ELSE '' END) LIKE ?
             )
         )
       )

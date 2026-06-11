@@ -3269,6 +3269,31 @@ describe("App", () => {
         });
         return buildJsonResponse({ ok: true });
       }
+      if (url === "/api/account/deletion-preview") {
+        return buildJsonResponse({
+          targetUserId: "account-user",
+          email: "account-user@example-company.com",
+          displayName: "Account User",
+          mode: "deactivate_account",
+          confirmationPhrase: "DELETE MY ACCOUNT",
+          impactToken: "self-delete-impact",
+          ownedPublicTrialWorkspaces: []
+        });
+      }
+      if (url === "/api/account/delete" && init?.method === "POST") {
+        expect(JSON.parse(String(init.body))).toEqual({
+          currentPassword: "Password123!",
+          confirmation: "DELETE MY ACCOUNT",
+          impactToken: "self-delete-impact"
+        });
+        return buildJsonResponse({
+          deletedUserId: "account-user",
+          mode: "deactivate_account",
+          purgedWorkspaceIds: [],
+          purgedTeamIds: [],
+          affectedTeamIds: []
+        });
+      }
       if (url === "/api/auth/profile" && init?.method === "PATCH") {
         const payload = JSON.parse(String(init.body));
         return buildJsonResponse({
@@ -3354,6 +3379,25 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByPlaceholderText("Current password")).toHaveValue(""));
     expect(screen.getByPlaceholderText("New password")).toHaveValue("");
     expect(screen.getByPlaceholderText("Confirm new password")).toHaveValue("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Review account deletion" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Confirm account deletion" })).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText("Current password", { selector: ".account-deletion-card input" }), { target: { value: "Password123!" } });
+    fireEvent.change(screen.getByLabelText(/Type DELETE MY ACCOUNT to confirm/), { target: { value: "DELETE MY ACCOUNT" } });
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Confirm account deletion" })).getByRole("button", {
+        name: "Delete account"
+      })
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+          return url === "/api/account/delete" && init?.method === "POST";
+        })
+      ).toBe(true)
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument());
   });
 
   it("shows manual-admin guidance when forgot password is used without SMTP or debug code delivery", async () => {
@@ -4255,6 +4299,30 @@ describe("App", () => {
           secureSaveReminder: "Save this password somewhere secure before closing."
         });
       }
+      if (url === "/api/admin/users/member-user/deletion-preview") {
+        return buildJsonResponse({
+          targetUserId: "member-user",
+          email: "member@example-company.com",
+          displayName: "Member",
+          mode: "deactivate_account",
+          confirmationPhrase: "member@example-company.com",
+          impactToken: "admin-delete-impact",
+          ownedPublicTrialWorkspaces: []
+        });
+      }
+      if (url === "/api/admin/users/member-user" && init?.method === "DELETE") {
+        expect(JSON.parse(String(init.body))).toEqual({
+          confirmation: "member@example-company.com",
+          impactToken: "admin-delete-impact"
+        });
+        return buildJsonResponse({
+          deletedUserId: "member-user",
+          mode: "deactivate_account",
+          purgedWorkspaceIds: [],
+          purgedTeamIds: [],
+          affectedTeamIds: []
+        });
+      }
       return buildJsonResponse({ error: `Unhandled test request: ${url}` }, false);
     });
 
@@ -4271,6 +4339,25 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("Share this replacement password manually")).toBeInTheDocument());
     expect(within(screen.getByRole("status")).getByText("member@example-company.com")).toBeInTheDocument();
     expect(screen.getByText("Save this password somewhere secure before closing.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Confirm account deletion" })).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/Type member@example-company.com to confirm/), { target: { value: "member@example-company.com" } });
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Confirm account deletion" })).getByRole("button", {
+        name: "Delete account"
+      })
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+          return url === "/api/admin/users/member-user" && init?.method === "DELETE";
+        })
+      ).toBe(true)
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Confirm account deletion" })).not.toBeInTheDocument());
+    expect(screen.getByText("Deleted the account for member@example-company.com.")).toBeInTheDocument();
   });
 
   it("keeps Create and Import team popups mutually exclusive and focuses the active popup input", async () => {

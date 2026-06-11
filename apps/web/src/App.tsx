@@ -252,6 +252,23 @@ type PlatformPeopleResponse = {
 
 type PlatformPeopleSort = "recent" | "oldest" | "alpha" | "alpha-desc";
 
+type AccountDeletionPreview = {
+  targetUserId: string;
+  email: string;
+  displayName: string;
+  mode: "deactivate_account" | "purge_trial_workspaces";
+  confirmationPhrase: string;
+  impactToken: string;
+  ownedPublicTrialWorkspaces: Array<{
+    id: string;
+    name: string;
+    teamCount: number;
+    memberCount: number;
+    historyEntryCount: number;
+    activeSessionCount: number;
+  }>;
+};
+
 type TeamMemberCandidateResponse = {
   users: UserSummary[];
 };
@@ -4443,6 +4460,16 @@ export default function App() {
       setSession(null);
       setTeamState(null);
       setNotificationFeed(null);
+      setAccountSettingsOpen(false);
+      setAdminSettingsOpen(false);
+      setAuthStep("signin");
+      setAuthFlow("standard");
+      setCode("");
+      setPassword("");
+      setConfirmPassword("");
+      setDebugCode(null);
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(null);
     }
   }, [selectedTeamId]);
 
@@ -4489,6 +4516,60 @@ export default function App() {
       method: "POST"
     });
   }, []);
+
+  const loadAccountDeletionPreview = useCallback(async () => {
+    return api<AccountDeletionPreview>("/api/account/deletion-preview");
+  }, []);
+
+  const deleteOwnAccount = useCallback(async (currentPassword: string, confirmation: string, impactToken: string) => {
+    setIsBusy(true);
+    try {
+      await api("/api/account/delete", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, confirmation, impactToken })
+      });
+      storeSessionToken(null);
+      localStorage.removeItem(SELECTED_TEAM_KEY);
+      setAccountSettingsOpen(false);
+      setAdminSettingsOpen(false);
+      setSelectedTeamId(null);
+      setPendingTargetTeamId(null);
+      setShowTeamChooser(false);
+      setMemberDirectory(null);
+      setTeamState(null);
+      setNotificationFeed(null);
+      setSession(null);
+      setAuthStep("signin");
+      setAuthFlow("standard");
+      setCode("");
+      setPassword("");
+      setConfirmPassword("");
+      setDisplayName("");
+      setDebugCode(null);
+      setTrialTermsAccepted(false);
+      setTrialTermsVersion(null);
+      setInfo("Your account was deleted.");
+      setSuccessStatus("Account deleted successfully.");
+      writeRouteState({ selectedTeamId: null, showTeamChooser: false }, "replace");
+      // A destructive account operation must not retain stale auth, chooser, or websocket state.
+      window.location.replace("/");
+    } finally {
+      setIsBusy(false);
+    }
+  }, [setSuccessStatus]);
+
+  const loadPlatformUserDeletionPreview = useCallback(async (userId: string) => {
+    return api<AccountDeletionPreview>(`/api/admin/users/${userId}/deletion-preview`);
+  }, []);
+
+  const deletePlatformUser = useCallback(async (userId: string, confirmation: string, impactToken: string) => {
+    await api(`/api/admin/users/${userId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation, impactToken })
+    });
+    setAdminPeopleRefreshTick((current) => current + 1);
+    await loadSession();
+  }, [loadSession]);
 
   const revealAdminSecret = useCallback(async (field: "admin.password" | "smtp.pass" | "jira.clientSecret") => {
     const response = await api<RevealSecretResponse>("/api/admin/config/reveal-secret", {
@@ -6938,6 +7019,8 @@ export default function App() {
           onSaveBoardShortcutsPreference={handleSaveBoardShortcutsPreference}
           onSaveHistoryTimezonePreference={handleSaveHistoryTimezonePreference}
           onChangePassword={handleChangePassword}
+          loadAccountDeletionPreview={loadAccountDeletionPreview}
+          onDeleteAccount={deleteOwnAccount}
         />
         <AdminSettingsModal
           open={adminSettingsOpen}
@@ -6948,6 +7031,8 @@ export default function App() {
           admitAccessRequest={handleAdmitPlatformAccessRequest}
           denyAccessRequest={handleDenyPlatformAccessRequest}
           resetPlatformUserPassword={resetPlatformUserPassword}
+          loadPlatformUserDeletionPreview={loadPlatformUserDeletionPreview}
+          deletePlatformUser={deletePlatformUser}
           saveConfig={saveAdminConfig}
           revealSecret={revealAdminSecret}
           uploadBrandingAsset={uploadBrandingAsset}
@@ -7046,6 +7131,8 @@ export default function App() {
         onSaveBoardShortcutsPreference={handleSaveBoardShortcutsPreference}
         onSaveHistoryTimezonePreference={handleSaveHistoryTimezonePreference}
         onChangePassword={handleChangePassword}
+        loadAccountDeletionPreview={loadAccountDeletionPreview}
+        onDeleteAccount={deleteOwnAccount}
       />
       <AdminSettingsModal
         open={adminSettingsOpen}
@@ -7056,6 +7143,8 @@ export default function App() {
         admitAccessRequest={handleAdmitPlatformAccessRequest}
         denyAccessRequest={handleDenyPlatformAccessRequest}
         resetPlatformUserPassword={resetPlatformUserPassword}
+        loadPlatformUserDeletionPreview={loadPlatformUserDeletionPreview}
+        deletePlatformUser={deletePlatformUser}
         saveConfig={saveAdminConfig}
         revealSecret={revealAdminSecret}
         uploadBrandingAsset={uploadBrandingAsset}

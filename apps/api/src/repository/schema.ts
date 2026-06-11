@@ -19,6 +19,7 @@ export function runBaseSchema(db: DatabaseSync): void {
         terms_accepted_at TEXT,
         history_timezone_popup_enabled INTEGER NOT NULL DEFAULT 1,
         history_timezone_keys_json TEXT,
+        deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         last_active_at TEXT NOT NULL
@@ -273,6 +274,7 @@ export function runBaseSchema(db: DatabaseSync): void {
   ensureColumn(db, "users", "board_shortcuts_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_popup_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_keys_json", "TEXT");
+  ensureColumn(db, "users", "deleted_at", "TEXT");
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_team_preferences (
       user_id TEXT NOT NULL,

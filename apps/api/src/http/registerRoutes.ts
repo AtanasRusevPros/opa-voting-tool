@@ -13,6 +13,8 @@ import {
   adminSignInSchema,
   brandingUploadSchema,
   changePasswordSchema,
+  deleteOwnAccountSchema,
+  deletePlatformUserSchema,
   createTeamSchema,
   historyPageQuerySchema,
   historySearchQuerySchema,
@@ -238,6 +240,11 @@ export function registerRoutes({
             heading: "No Confidential Data",
             body:
               "The operator intends to keep trial data private and not sell or misuse email addresses, but this is still a public alpha test service. Do not enter confidential, regulated, or sensitive production data."
+          },
+          {
+            heading: "Account Deletion",
+            body:
+              "Any normal user may delete their own account. Deleting a public-trial workspace owner permanently purges that owner's trial workspace, teams, voting history, comments, and workspace data."
           }
         ])
       );
@@ -262,6 +269,11 @@ export function registerRoutes({
             heading: "Email And Third Parties",
             body:
               "Email delivery may use a transactional SMTP provider. Public-trial emails are for access, reset, invite, cleanup, and important service notices."
+          },
+          {
+            heading: "Deletion And Retained History",
+            body:
+              "Deleting a normal account removes its email and access. If shared history remains in another workspace, it stays attributed only as the former display name with “(Deactivated)” added. Existing backups and exports are not rewritten automatically."
           }
         ])
       );
@@ -300,6 +312,11 @@ export function registerRoutes({
             heading: "Export",
             body:
               "Before cleanup or shutdown, the operator should provide a practical export path when feasible. Public-trial exports must avoid passwords, tokens, SMTP secrets, Jira secrets, and other operational credentials."
+          },
+          {
+            heading: "Delete Your Trial Workspace",
+            body:
+              "A public-trial workspace owner can delete their account from Account settings. The confirmation explicitly warns that the owned trial workspace and all of its data will be permanently purged."
           }
         ])
       );
@@ -838,6 +855,38 @@ export function registerRoutes({
     }
   });
 
+  app.get("/api/account/deletion-preview", requireUser, (req, res) => {
+    try {
+      res.json(repository.getOwnAccountDeletionPreview((req as AuthedRequest).user.id));
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  app.post("/api/account/delete", requireUser, (req, res) => {
+    const payload = deleteOwnAccountSchema.safeParse(req.body);
+    if (!payload.success) {
+      res.status(400).json({ error: "Invalid account deletion request" });
+      return;
+    }
+    try {
+      const result = repository.deleteOwnAccount(
+        (req as AuthedRequest).user.id,
+        payload.data.currentPassword,
+        payload.data.confirmation,
+        payload.data.impactToken
+      );
+      clearSessionCookie(res);
+      for (const teamId of result.affectedTeamIds) {
+        broadcastSoon(teamId);
+      }
+      broadcastChooserSoon();
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
   app.get("/api/auth/session", requireUser, (req, res) => {
     const authedReq = req as AuthedRequest;
     const teams = repository.getTeamsForUser(authedReq.user.id);
@@ -1007,6 +1056,43 @@ export function registerRoutes({
       });
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  app.get("/api/admin/users/:userId/deletion-preview", requireUser, (req, res) => {
+    if (!requireSuperAdmin(req, res)) {
+      return;
+    }
+    try {
+      res.json(repository.getPlatformUserDeletionPreview((req as AuthedRequest).user.id, String(req.params.userId)));
+    } catch (error) {
+      res.status((error as Error).message === "User not found" ? 404 : 400).json({ error: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/admin/users/:userId", requireUser, (req, res) => {
+    if (!requireSuperAdmin(req, res)) {
+      return;
+    }
+    const payload = deletePlatformUserSchema.safeParse(req.body);
+    if (!payload.success) {
+      res.status(400).json({ error: "Invalid account deletion request" });
+      return;
+    }
+    try {
+      const result = repository.deletePlatformUser(
+        (req as AuthedRequest).user.id,
+        String(req.params.userId),
+        payload.data.confirmation,
+        payload.data.impactToken
+      );
+      for (const teamId of result.affectedTeamIds) {
+        broadcastSoon(teamId);
+      }
+      broadcastChooserSoon();
+      res.json(result);
+    } catch (error) {
+      res.status((error as Error).message === "User not found" ? 404 : 400).json({ error: (error as Error).message });
     }
   });
 

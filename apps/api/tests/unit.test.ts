@@ -51,6 +51,24 @@ describe("runBaseSchema", () => {
 
     try {
       db.exec(`
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          login_name TEXT UNIQUE,
+          is_super_admin INTEGER NOT NULL DEFAULT 0,
+          display_name TEXT NOT NULL,
+          avatar_key TEXT NOT NULL,
+          avatar_icon_key TEXT,
+          avatar_color_key TEXT,
+          password_hash TEXT,
+          terms_version TEXT,
+          terms_accepted_at TEXT,
+          history_timezone_popup_enabled INTEGER NOT NULL DEFAULT 1,
+          history_timezone_keys_json TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          last_active_at TEXT NOT NULL
+        );
         CREATE TABLE teams (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL
@@ -70,11 +88,13 @@ describe("runBaseSchema", () => {
       runBaseSchema(db);
 
       const teamColumns = db.prepare("PRAGMA table_info(teams)").all() as Array<{ name: string }>;
+      const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
       const roundColumns = db.prepare("PRAGMA table_info(rounds)").all() as Array<{ name: string }>;
       const historyColumns = db.prepare("PRAGMA table_info(history_entries)").all() as Array<{ name: string }>;
       const indexes = new Set((db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as Array<{ name: string }>).map((row) => row.name));
 
       expect(teamColumns.some((column) => column.name === "workspace_id")).toBe(true);
+      expect(userColumns.some((column) => column.name === "deleted_at")).toBe(true);
       expect(roundColumns.some((column) => column.name === "pending_issue_id")).toBe(true);
       expect(historyColumns.some((column) => column.name === "import_batch_id")).toBe(true);
       expect(historyColumns.some((column) => column.name === "import_entry_id")).toBe(true);

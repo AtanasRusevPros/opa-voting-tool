@@ -163,6 +163,7 @@ textarea {
 .primary-button,
 .secondary-button,
 .ghost-button,
+.danger-button,
 .planning-card,
 .team-tile,
 .avatar-option {
@@ -173,7 +174,8 @@ textarea {
 
 .primary-button,
 .secondary-button,
-.ghost-button {
+.ghost-button,
+.danger-button {
   padding: 12px 18px;
 }
 
@@ -203,6 +205,15 @@ textarea {
   width: fit-content;
 }
 
+.danger-button {
+  width: fit-content;
+  border: 1px solid rgba(183, 48, 48, 0.34);
+  border-radius: 12px;
+  background: #fff1f0;
+  color: #9c2525;
+  font-weight: 700;
+}
+
 .ghost-button.icon-only {
   width: 42px;
   height: 42px;
@@ -214,6 +225,7 @@ textarea {
 .primary-button:hover,
 .secondary-button:hover,
 .ghost-button:hover,
+.danger-button:hover,
 .planning-card:hover,
 .team-tile:hover,
 .avatar-option:hover {
@@ -1717,13 +1729,52 @@ textarea {
 
 .primary-button:disabled,
 .secondary-button:disabled,
-.ghost-button:disabled {
+.ghost-button:disabled,
+.danger-button:disabled {
   background: #e7ecf3;
   color: #8a97aa;
   border-color: #d8e0eb;
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
+}
+
+.account-danger-zone {
+  border-color: rgba(183, 48, 48, 0.28);
+  background: linear-gradient(145deg, #fffafa, #fff1f0);
+}
+
+.account-deletion-card {
+  max-width: min(620px, calc(100vw - 32px));
+}
+
+.account-deletion-summary {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.account-deletion-summary div,
+.account-deletion-workspace {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(183, 48, 48, 0.06);
+}
+
+.account-deletion-summary dt {
+  font-weight: 700;
+}
+
+.account-deletion-summary dd {
+  margin: 0;
+}
+
+.account-deletion-workspace span,
+.account-deletion-note {
+  color: var(--brand-text-muted, #687990);
+  font-size: 0.9rem;
 }
 
 .button-shortcut-hint {

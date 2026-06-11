@@ -647,6 +647,195 @@ describe("Repository integration", () => {
     expect(() => repo.revealRound(secondRound.id)).toThrowError("Public trial workspaces can reveal at most 1 rounds per month.");
   });
 
+  it("deactivates a retained-workspace account, preserves attributed history, and frees the email", () => {
+    const repo = new Repository(createTestConfig());
+    const owner = repo.verifyLoginCode(
+      "delete-owner@example-company.com",
+      repo.requestLoginCode("delete-owner@example-company.com").code,
+      "Delete Owner",
+      "fox",
+      "teal",
+      undefined,
+      "Password123!"
+    )!;
+    const memberEmail = "delete-member@example-company.com";
+    const member = repo.verifyLoginCode(
+      memberEmail,
+      repo.requestLoginCode(memberEmail).code,
+      "John Doe",
+      "owl",
+      "gold",
+      undefined,
+      "Password123!"
+    )!;
+    const team = repo.createTeam(owner.id, "Retained Delete Team");
+    repo.joinTeam(member.id, team.id);
+    const round = repo.createRound(team.id, "DELETE-RETAINED-001");
+    repo.castVote(round.id, member.id, "8");
+    repo.revealRound(round.id);
+    const historyEntry = repo.getHistory(team.id)[0]!;
+    repo.addHistoryComment(team.id, historyEntry.id, member.id, "Retained comment");
+
+    const preview = repo.getOwnAccountDeletionPreview(member.id);
+    expect(preview).toMatchObject({
+      mode: "deactivate_account",
+      confirmationPhrase: "DELETE MY ACCOUNT",
+      ownedPublicTrialWorkspaces: []
+    });
+    expect(() => repo.deleteOwnAccount(member.id, "Password123!", "wrong", preview.impactToken)).toThrowError('Type "DELETE MY ACCOUNT"');
+    expect(repo.verifyPasswordLogin(memberEmail, "Password123!")).not.toBeNull();
+
+    const result = repo.deleteOwnAccount(member.id, "Password123!", "DELETE MY ACCOUNT", preview.impactToken);
+    expect(result).toMatchObject({ mode: "deactivate_account", purgedWorkspaceIds: [], purgedTeamIds: [] });
+    expect(repo.verifyPasswordLogin(memberEmail, "Password123!")).toBeNull();
+    expect(repo.getUserByEmail(memberEmail)).toBeNull();
+    expect(repo.getPlatformUsers().map((user) => user.id)).not.toContain(member.id);
+    expect(repo.getTeamsForUser(member.id).memberships).toHaveLength(0);
+
+    const retainedHistory = repo.getHistory(team.id)[0]!;
+    expect(retainedHistory.votes).toEqual([expect.objectContaining({ userId: member.id, displayName: "John Doe (Deactivated)", value: "8" })]);
+    expect(retainedHistory.comments[0]).toMatchObject({
+      author: expect.objectContaining({ id: member.id, email: "", displayName: "John Doe (Deactivated)" }),
+      authorSignature: "John Doe (Deactivated)",
+      body: "Retained comment"
+    });
+    expect(retainedHistory.comments[0]?.author.email).not.toBe(memberEmail);
+
+    const replacement = repo.verifyLoginCode(
+      memberEmail,
+      repo.requestLoginCode(memberEmail).code,
+      "John Doe Fresh",
+      "bear",
+      "azure",
+      undefined,
+      "FreshPassword123!"
+    )!;
+    expect(replacement.id).not.toBe(member.id);
+    expect(repo.getTeamsForUser(replacement.id).memberships.map((membership) => membership.id)).not.toContain(team.id);
+  });
+
+  it("purges only owned public-trial workspaces before deactivating their owner", () => {
+    const publicTrial = {
+      enabled: true,
+      mode: "open_signup" as const,
+      maxTeamsPerWorkspace: 2,
+      maxUsersPerWorkspace: 10,
+      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxSignupRequestsPerIpPerHour: 3,
+      maxCodeRequestsPerEmailPerDay: 5,
+      maxInvitesPerWorkspacePerDay: 10,
+      maxWorkspaceCreationsPerIpPerDay: 2,
+      maxLoginAttemptsPerEmailPerHour: 10
+    };
+    const repo = new Repository(createTestConfig({ publicTrial }));
+    const ownerEmail = "delete-trial-owner@gmail.com";
+    const owner = repo.completePublicTrialSignup({
+      email: ownerEmail,
+      code: repo.requestLoginCode(ownerEmail).code,
+      displayName: "Trial Delete Owner",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    const stalePreview = repo.getOwnAccountDeletionPreview(owner.user.id);
+    const collaboratorInvite = repo.addTeamMemberByEmail(owner.user.id, owner.team.id, "delete-trial-collaborator@gmail.com");
+    const collaborator = collaboratorInvite.user;
+    const secondTeam = repo.createTeam(owner.user.id, "Second Trial Team");
+    const round = repo.createRound(secondTeam.id, "DELETE-PURGE-001");
+    repo.castVote(round.id, owner.user.id, "5");
+    repo.revealRound(round.id);
+
+    const unrelatedEmail = "delete-unrelated-owner@gmail.com";
+    const unrelated = repo.completePublicTrialSignup({
+      email: unrelatedEmail,
+      code: repo.requestLoginCode(unrelatedEmail).code,
+      displayName: "Unrelated Owner",
+      avatarIconKey: "owl",
+      avatarColorKey: "gold",
+      password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+
+    const preview = repo.getOwnAccountDeletionPreview(owner.user.id);
+    expect(preview).toMatchObject({
+      mode: "purge_trial_workspaces",
+      confirmationPhrase: "DELETE MY WORKSPACE",
+      ownedPublicTrialWorkspaces: [expect.objectContaining({ id: owner.workspace.id, teamCount: 2, memberCount: 2, historyEntryCount: 1 })]
+    });
+
+    expect(() => repo.deleteOwnAccount(owner.user.id, "Password123!", "DELETE MY WORKSPACE", stalePreview.impactToken)).toThrowError(
+      "Account deletion impact changed."
+    );
+    expect(repo.getWorkspaceForTeam(owner.team.id)?.id).toBe(owner.workspace.id);
+
+    const result = repo.deleteOwnAccount(owner.user.id, "Password123!", "DELETE MY WORKSPACE", preview.impactToken);
+    expect(result.mode).toBe("purge_trial_workspaces");
+    expect(result.purgedWorkspaceIds).toEqual([owner.workspace.id]);
+    expect(result.purgedTeamIds.sort()).toEqual([owner.team.id, secondTeam.id].sort());
+    expect(repo.getWorkspaceForTeam(owner.team.id)).toBeNull();
+    expect(repo.getTeamsForUser(collaborator.id).memberships).toHaveLength(0);
+    expect(repo.getUserByEmail(collaborator.email)?.id).toBe(collaborator.id);
+    expect(repo.verifyPasswordLogin(collaborator.email, collaboratorInvite.temporaryPassword!)).not.toBeNull();
+    expect(repo.getWorkspaceForTeam(unrelated.team.id)?.id).toBe(unrelated.workspace.id);
+    expect(repo.getTeamsForUser(unrelated.user.id).memberships.map((team) => team.id)).toContain(unrelated.team.id);
+
+    const fresh = repo.completePublicTrialSignup({
+      email: ownerEmail,
+      code: repo.requestLoginCode(ownerEmail).code,
+      displayName: "Fresh Trial Owner",
+      avatarIconKey: "bear",
+      avatarColorKey: "azure",
+      password: "FreshPassword123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    expect(fresh.user.id).not.toBe(owner.user.id);
+    expect(fresh.workspace.id).not.toBe(owner.workspace.id);
+  });
+
+  it("allows only the super-admin to delete another account and never allows deleting the super-admin", () => {
+    const config = createTestConfig();
+    const repo = new Repository(config);
+    const superAdmin = repo.verifySuperAdminLogin(config.superAdminUsername, config.superAdminPassword)!;
+    const actor = repo.verifyLoginCode(
+      "delete-actor@example-company.com",
+      repo.requestLoginCode("delete-actor@example-company.com").code,
+      "Delete Actor",
+      "fox",
+      "teal",
+      undefined,
+      "Password123!"
+    )!;
+    const targetEmail = "delete-target@example-company.com";
+    const target = repo.verifyLoginCode(
+      targetEmail,
+      repo.requestLoginCode(targetEmail).code,
+      "Delete Target",
+      "owl",
+      "gold",
+      undefined,
+      "Password123!"
+    )!;
+
+    expect(() => repo.deletePlatformUser(actor.id, target.id, targetEmail, "")).toThrowError("Only the super-admin can perform this action.");
+    expect(() => repo.deleteOwnAccount(superAdmin.id, config.superAdminPassword, "DELETE MY ACCOUNT", "")).toThrowError(
+      "The super-admin account cannot be deleted."
+    );
+    expect(() => repo.deletePlatformUser(superAdmin.id, superAdmin.id, superAdmin.email, "")).toThrowError("The super-admin account cannot be deleted.");
+    const preview = repo.getPlatformUserDeletionPreview(superAdmin.id, target.id);
+    expect(preview).toMatchObject({
+      confirmationPhrase: targetEmail,
+      mode: "deactivate_account"
+    });
+    expect(() => repo.deletePlatformUser(superAdmin.id, target.id, "wrong", preview.impactToken)).toThrowError(`Type "${targetEmail}"`);
+
+    expect(repo.deletePlatformUser(superAdmin.id, target.id, targetEmail, preview.impactToken)).toMatchObject({
+      deletedUserId: target.id,
+      mode: "deactivate_account"
+    });
+    expect(repo.getUserByEmail(targetEmail)).toBeNull();
+  });
+
   it("keeps unrelated public trial workspaces out of team lists and member search", () => {
     const repo = new Repository(
       createTestConfig({

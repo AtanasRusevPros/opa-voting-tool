@@ -162,6 +162,33 @@ type PublicTrialSignupResult = {
   team: TeamSummary;
 };
 
+export type AccountDeletionWorkspaceImpact = {
+  id: string;
+  name: string;
+  teamCount: number;
+  memberCount: number;
+  historyEntryCount: number;
+  activeSessionCount: number;
+};
+
+export type AccountDeletionPreview = {
+  targetUserId: string;
+  email: string;
+  displayName: string;
+  mode: "deactivate_account" | "purge_trial_workspaces";
+  confirmationPhrase: string;
+  impactToken: string;
+  ownedPublicTrialWorkspaces: AccountDeletionWorkspaceImpact[];
+};
+
+export type AccountDeletionResult = {
+  deletedUserId: string;
+  mode: AccountDeletionPreview["mode"];
+  purgedWorkspaceIds: string[];
+  purgedTeamIds: string[];
+  affectedTeamIds: string[];
+};
+
 export class RoundNotActiveError extends Error {
   constructor(message = "This round has already been revealed. Late votes are not accepted.") {
     super(message);
@@ -471,6 +498,42 @@ export class Repository {
     return { user, temporaryPassword };
   }
 
+  getOwnAccountDeletionPreview(userId: string): AccountDeletionPreview {
+    if (this.isSuperAdmin(userId)) {
+      throw new Error("The super-admin account cannot be deleted.");
+    }
+    return this.buildAccountDeletionPreview(userId, "self");
+  }
+
+  getPlatformUserDeletionPreview(actorUserId: string, memberUserId: string): AccountDeletionPreview {
+    this.assertSuperAdmin(actorUserId);
+    if (this.isSuperAdmin(memberUserId)) {
+      throw new Error("The super-admin account cannot be deleted.");
+    }
+    return this.buildAccountDeletionPreview(memberUserId, "admin");
+  }
+
+  deleteOwnAccount(userId: string, currentPassword: string, confirmation: string, impactToken: string): AccountDeletionResult {
+    if (this.isSuperAdmin(userId)) {
+      throw new Error("The super-admin account cannot be deleted.");
+    }
+    const passwordRow = this.db.prepare("SELECT password_hash FROM users WHERE id = ? AND deleted_at IS NULL").get(userId) as
+      | { password_hash: string | null }
+      | undefined;
+    if (!passwordRow || !verifyPasswordHash(currentPassword, passwordRow.password_hash)) {
+      throw new Error("Current password is incorrect.");
+    }
+    return this.executeAccountDeletion(userId, confirmation, impactToken, "self", userId);
+  }
+
+  deletePlatformUser(actorUserId: string, memberUserId: string, confirmation: string, impactToken: string): AccountDeletionResult {
+    this.assertSuperAdmin(actorUserId);
+    if (actorUserId === memberUserId || this.isSuperAdmin(memberUserId)) {
+      throw new Error("The super-admin account cannot be deleted.");
+    }
+    return this.executeAccountDeletion(memberUserId, confirmation, impactToken, "admin", actorUserId);
+  }
+
   getSessionUser(token: string | undefined): SessionUser | null {
     if (!token) {
       return null;
@@ -667,7 +730,9 @@ export class Repository {
 
   getUser(userId: string): UserSummary | null {
     const row = this.db
-      .prepare("SELECT id, email, display_name, avatar_key, avatar_icon_key, avatar_color_key FROM users WHERE id = ?")
+      .prepare(
+        "SELECT id, CASE WHEN deleted_at IS NULL THEN email ELSE '' END AS email, display_name, avatar_key, avatar_icon_key, avatar_color_key FROM users WHERE id = ?"
+      )
       .get(userId) as
       | { id: string; email: string; display_name: string; avatar_key: string; avatar_icon_key: string | null; avatar_color_key: string | null }
       | undefined;
@@ -700,7 +765,7 @@ export class Repository {
     const rows = this.db
       .prepare(
         `
-        SELECT id, email, display_name, avatar_key, avatar_icon_key, avatar_color_key
+        SELECT id, CASE WHEN deleted_at IS NULL THEN email ELSE '' END AS email, display_name, avatar_key, avatar_icon_key, avatar_color_key
         FROM users
         WHERE id IN (${placeholders})
       `
@@ -1478,6 +1543,7 @@ export class Repository {
         FROM users u
         ${restrictToWorkspace ? "JOIN workspace_memberships wm ON wm.user_id = u.id AND wm.workspace_id = ?" : ""}
         WHERE u.is_super_admin = 0
+          AND u.deleted_at IS NULL
           AND u.id NOT IN (SELECT tm.user_id FROM team_memberships tm WHERE tm.team_id = ?)
           AND (LOWER(u.display_name) LIKE ? OR LOWER(u.email) LIKE ?)
         ORDER BY
@@ -3024,6 +3090,208 @@ export class Repository {
           lastActivityAt: row.last_activity_at
         }
       : null;
+  }
+
+  private buildAccountDeletionPreview(targetUserId: string, confirmationMode: "self" | "admin"): AccountDeletionPreview {
+    const userRow = this.db
+      .prepare("SELECT id, email, display_name, deleted_at FROM users WHERE id = ?")
+      .get(targetUserId) as { id: string; email: string; display_name: string; deleted_at: string | null } | undefined;
+    if (!userRow || userRow.deleted_at) {
+      throw new Error("User not found");
+    }
+
+    const workspaceRows = this.db
+      .prepare(
+        `
+        SELECT DISTINCT w.id, w.name
+        FROM workspaces w
+        LEFT JOIN workspace_memberships wm ON wm.workspace_id = w.id AND wm.user_id = ?
+        WHERE w.kind = 'public_trial' AND (w.created_by = ? OR wm.role = 'owner')
+        ORDER BY w.created_at ASC, w.id ASC
+      `
+      )
+      .all(targetUserId, targetUserId) as Array<{ id: string; name: string }>;
+    const referenceTime = nowIso();
+    const workspaceImpacts = workspaceRows.map((workspace) => {
+      const teamIds = (this.db.prepare("SELECT id FROM teams WHERE workspace_id = ? ORDER BY id ASC").all(workspace.id) as Array<{ id: string }>).map(
+        (row) => row.id
+      );
+      const counts = this.db
+        .prepare(
+          `
+          SELECT
+            (SELECT COUNT(*) FROM teams WHERE workspace_id = ?) AS team_count,
+            (SELECT COUNT(*) FROM workspace_memberships WHERE workspace_id = ?) AS member_count,
+            (
+              SELECT COUNT(*)
+              FROM history_entries he
+              JOIN teams t ON t.id = he.team_id
+              WHERE t.workspace_id = ?
+            ) AS history_entry_count,
+            (
+              SELECT COUNT(DISTINCT s.id)
+              FROM sessions s
+              JOIN workspace_memberships wm ON wm.user_id = s.user_id
+              WHERE wm.workspace_id = ? AND s.expires_at > ?
+            ) AS active_session_count
+        `
+        )
+        .get(workspace.id, workspace.id, workspace.id, workspace.id, referenceTime) as {
+        team_count: number;
+        member_count: number;
+        history_entry_count: number;
+        active_session_count: number;
+      };
+      return {
+        id: workspace.id,
+        name: workspace.name,
+        teamIds,
+        teamCount: counts.team_count,
+        memberCount: counts.member_count,
+        historyEntryCount: counts.history_entry_count,
+        activeSessionCount: counts.active_session_count
+      };
+    });
+    const ownedPublicTrialWorkspaces = workspaceImpacts.map(({ teamIds: _teamIds, ...workspace }) => workspace);
+    const mode = ownedPublicTrialWorkspaces.length > 0 ? "purge_trial_workspaces" : "deactivate_account";
+    const impactToken = JSON.stringify({
+      targetUserId,
+      mode,
+      workspaceIds: workspaceImpacts.map((workspace) => workspace.id),
+      teamIds: workspaceImpacts.flatMap((workspace) => workspace.teamIds)
+    });
+    return {
+      targetUserId: userRow.id,
+      email: userRow.email,
+      displayName: userRow.display_name,
+      mode,
+      confirmationPhrase: confirmationMode === "admin" ? userRow.email : mode === "purge_trial_workspaces" ? "DELETE MY WORKSPACE" : "DELETE MY ACCOUNT",
+      impactToken,
+      ownedPublicTrialWorkspaces
+    };
+  }
+
+  private executeAccountDeletion(
+    targetUserId: string,
+    confirmation: string,
+    expectedImpactToken: string,
+    confirmationMode: "self" | "admin",
+    actorUserId: string
+  ): AccountDeletionResult {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const preview = this.buildAccountDeletionPreview(targetUserId, confirmationMode);
+      if (expectedImpactToken !== preview.impactToken) {
+        throw new Error("Account deletion impact changed. Review the deletion details again before confirming.");
+      }
+      if (confirmation.trim() !== preview.confirmationPhrase) {
+        throw new Error(`Type "${preview.confirmationPhrase}" to confirm account deletion.`);
+      }
+
+      const deactivatedDisplayName = `${preview.displayName} (Deactivated)`;
+      const tombstoneEmail = `deleted-${targetUserId}@deleted.invalid`;
+      const purgedWorkspaceIds = preview.ownedPublicTrialWorkspaces.map((workspace) => workspace.id);
+      const purgedTeamIds =
+        purgedWorkspaceIds.length > 0
+          ? (
+              this.db
+                .prepare(`SELECT id FROM teams WHERE workspace_id IN (${purgedWorkspaceIds.map(() => "?").join(", ")})`)
+                .all(...purgedWorkspaceIds) as Array<{ id: string }>
+            ).map((row) => row.id)
+          : [];
+      const affectedTeamIds = Array.from(
+        new Set([
+          ...purgedTeamIds,
+          ...(this.db.prepare("SELECT team_id FROM team_memberships WHERE user_id = ?").all(targetUserId) as Array<{ team_id: string }>).map(
+            (row) => row.team_id
+          )
+        ])
+      );
+
+      for (const teamId of purgedTeamIds) {
+        this.db.prepare("DELETE FROM teams WHERE id = ?").run(teamId);
+      }
+      for (const workspaceId of purgedWorkspaceIds) {
+        this.db.prepare("DELETE FROM workspaces WHERE id = ? AND kind = 'public_trial'").run(workspaceId);
+      }
+
+      const retainedHistoryRows = this.db
+        .prepare("SELECT id, votes_json FROM history_entries WHERE votes_json LIKE ?")
+        .all(`%${targetUserId}%`) as Array<{ id: string; votes_json: string }>;
+      for (const historyRow of retainedHistoryRows) {
+        const votes = JSON.parse(historyRow.votes_json) as VoteRecord[];
+        let changed = false;
+        const updatedVotes = votes.map((vote) => {
+          if (vote.userId !== targetUserId) {
+            return vote;
+          }
+          changed = true;
+          return { ...vote, displayName: deactivatedDisplayName };
+        });
+        if (changed) {
+          this.db.prepare("UPDATE history_entries SET votes_json = ? WHERE id = ?").run(JSON.stringify(updatedVotes), historyRow.id);
+        }
+      }
+
+      this.db.prepare("UPDATE history_comments SET author_signature = ? WHERE user_id = ?").run(deactivatedDisplayName, targetUserId);
+      for (const table of ["action_history", "notifications"] as const) {
+        this.db.prepare(`UPDATE ${table} SET title = REPLACE(title, ?, ?), message = REPLACE(message, ?, ?)`).run(
+          preview.email,
+          deactivatedDisplayName,
+          preview.email,
+          deactivatedDisplayName
+        );
+      }
+      this.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM login_codes WHERE email = ?").run(preview.email);
+      this.db.prepare("DELETE FROM platform_access_requests WHERE email = ?").run(preview.email);
+      this.db.prepare("DELETE FROM team_join_requests WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM user_team_preferences WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM team_memberships WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM workspace_memberships WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM notifications WHERE user_id = ?").run(targetUserId);
+      this.db.prepare("DELETE FROM votes WHERE user_id = ?").run(targetUserId);
+      const deletedAt = nowIso();
+      this.db
+        .prepare(
+          `
+          UPDATE users
+          SET email = ?,
+              login_name = NULL,
+              display_name = ?,
+              password_hash = NULL,
+              terms_version = NULL,
+              terms_accepted_at = NULL,
+              deleted_at = ?,
+              updated_at = ?,
+              last_active_at = ?
+          WHERE id = ?
+        `
+        )
+        .run(tombstoneEmail, deactivatedDisplayName, deletedAt, deletedAt, deletedAt, targetUserId);
+      this.createActionHistory({
+        scope: "platform",
+        kind: preview.mode === "purge_trial_workspaces" ? "platform_user_deleted_with_trial_workspace_purge" : "platform_user_deleted",
+        title: preview.mode === "purge_trial_workspaces" ? "Platform account and trial workspace deleted" : "Platform account deleted",
+        message:
+          preview.mode === "purge_trial_workspaces"
+            ? `${deactivatedDisplayName} was deleted and ${purgedWorkspaceIds.length} owned public-trial workspace(s) were purged.`
+            : `${deactivatedDisplayName} was deleted while retained history was preserved.`,
+        teamId: null,
+        actorUserId
+      });
+      this.db.exec("COMMIT");
+      return {
+        deletedUserId: targetUserId,
+        mode: preview.mode,
+        purgedWorkspaceIds,
+        purgedTeamIds,
+        affectedTeamIds
+      };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   private getWorkspaceIdForTeam(teamId: string): string | null {

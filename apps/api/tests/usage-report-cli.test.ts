@@ -141,6 +141,15 @@ describe("usage report CLI helpers", () => {
         })
       ])
     );
+
+    const deletionPreview = repo.getOwnAccountDeletionPreview(defaultMember.id);
+    repo.deleteOwnAccount(defaultMember.id, "Password123!", "DELETE MY ACCOUNT", deletionPreview.impactToken);
+    const afterDeletion = buildReport(config.databasePath);
+    expect(afterDeletion.totals.users).toBe(2);
+    expect(afterDeletion.workspaces.find((workspace) => workspace.id === "default-workspace")?.userCount).toBe(1);
+    expect(usersExport(config.databasePath)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ email: "usage-member@example-company.com" })])
+    );
   });
 
   it("exports user summaries without password, token, session, SMTP, or Jira secret fields", () => {

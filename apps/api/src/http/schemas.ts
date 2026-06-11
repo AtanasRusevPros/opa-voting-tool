@@ -34,6 +34,17 @@ export const changePasswordSchema = z.object({
   confirmPassword: z.string().trim().min(8).max(128)
 });
 
+export const deleteOwnAccountSchema = z.object({
+  currentPassword: z.string().trim().min(8).max(128),
+  confirmation: z.string().trim().min(1).max(128),
+  impactToken: z.string().min(1).max(4096)
+});
+
+export const deletePlatformUserSchema = z.object({
+  confirmation: z.string().trim().min(1).max(320),
+  impactToken: z.string().min(1).max(4096)
+});
+
 export const passwordResetRequestSchema = z.object({
   email: z.string().email()
 });

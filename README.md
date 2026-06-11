@@ -132,6 +132,8 @@ Local dependency, build, packaged stack build, test, and simulator commands requ
 - First access or password reset: request a 16-digit code, verify it, then set a real password.
 - Returning sign-in: enter email and password.
 - Signed-in users can change their password from the in-app `Account settings` modal.
+- Any normal user can delete their own account from `Account settings`; the confirmation preview explains whether shared history will be retained under `Name (Deactivated)` or an owned public-trial workspace will be permanently purged.
+- The super-admin can delete normal accounts from `Platform settings -> People`, but the configured super-admin account can never be deleted.
 - Signed-in users can also personalize the history date popup from `Account settings`: the popup starts from the current team's default timezone list, but each user can save a different list for that team or return that team back to its default later.
 - The login screen now includes `Forgot password`; when SMTP/debug-code delivery is unavailable, it explicitly directs the user to a team admin or the super-admin for manual reset.
 - Team-admins can regenerate or replace manually shared credentials when SMTP is not configured.

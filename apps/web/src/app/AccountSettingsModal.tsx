@@ -11,6 +11,8 @@ import {
   type HistoryTimeZoneKey
 } from "@planning-poker/shared";
 import { CheckIcon, EditPencilIcon, EyeIcon, XIcon } from "./icons";
+import { AccountDeletionDialog } from "./AccountDeletionDialog";
+import type { AccountDeletionPreview } from "./types";
 import { formatTimeZoneOffsetLabel, getAvatarUrl } from "./utils";
 
 export function AccountSettingsModal(props: {
@@ -23,6 +25,8 @@ export function AccountSettingsModal(props: {
   onSaveBoardShortcutsPreference: (enabled: boolean) => Promise<void>;
   onSaveHistoryTimezonePreference: (enabled: boolean, keys?: readonly HistoryTimeZoneKey[] | null) => Promise<void>;
   onChangePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>;
+  loadAccountDeletionPreview?: () => Promise<AccountDeletionPreview>;
+  onDeleteAccount?: (currentPassword: string, confirmation: string, impactToken: string) => Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState(props.user.displayName);
   const [avatarIconKey, setAvatarIconKey] = useState(props.user.avatarIconKey);
@@ -38,6 +42,10 @@ export function AccountSettingsModal(props: {
   const [currentPasswordVisible, setCurrentPasswordVisible] = useState(false);
   const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+  const [deletionPreview, setDeletionPreview] = useState<AccountDeletionPreview | null>(null);
+  const [deletionPassword, setDeletionPassword] = useState("");
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!props.open) {
@@ -57,6 +65,10 @@ export function AccountSettingsModal(props: {
     setCurrentPasswordVisible(false);
     setNewPasswordVisible(false);
     setConfirmPasswordVisible(false);
+    setDeletionPreview(null);
+    setDeletionPassword("");
+    setDeletionConfirmation("");
+    setDeletionError(null);
   }, [
     props.open,
     props.user.avatarColorKey,
@@ -340,7 +352,49 @@ export function AccountSettingsModal(props: {
               Change password
             </button>
           </form>
+          {!props.user.isSuperAdmin && props.loadAccountDeletionPreview && props.onDeleteAccount ? (
+            <section className="account-settings-section account-danger-zone">
+              <h3>Delete account</h3>
+              <p>Review exactly what will be retained or permanently purged before deleting your account.</p>
+              <button
+                className="danger-button"
+                type="button"
+                disabled={props.isBusy}
+                onClick={() => {
+                  setDeletionError(null);
+                  void props.loadAccountDeletionPreview!().then(setDeletionPreview, (error) => setDeletionError((error as Error).message));
+                }}
+              >
+                Review account deletion
+              </button>
+              {deletionError && !deletionPreview ? <div className="error-banner">{deletionError}</div> : null}
+            </section>
+          ) : null}
         </div>
+        {deletionPreview ? (
+          <AccountDeletionDialog
+            preview={deletionPreview}
+            busy={props.isBusy}
+            requirePassword
+            password={deletionPassword}
+            confirmation={deletionConfirmation}
+            errorText={deletionError}
+            onPasswordChange={setDeletionPassword}
+            onConfirmationChange={setDeletionConfirmation}
+            onCancel={() => {
+              setDeletionPreview(null);
+              setDeletionPassword("");
+              setDeletionConfirmation("");
+              setDeletionError(null);
+            }}
+            onConfirm={() => {
+              setDeletionError(null);
+              void props
+                .onDeleteAccount!(deletionPassword, deletionConfirmation, deletionPreview.impactToken)
+                .catch((error) => setDeletionError((error as Error).message));
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

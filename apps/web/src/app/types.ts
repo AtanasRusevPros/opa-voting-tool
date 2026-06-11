@@ -187,6 +187,31 @@ export type PlatformPeopleResponse = {
 
 export type PlatformPeopleSort = "recent" | "oldest" | "alpha" | "alpha-desc";
 
+export type AccountDeletionPreview = {
+  targetUserId: string;
+  email: string;
+  displayName: string;
+  mode: "deactivate_account" | "purge_trial_workspaces";
+  confirmationPhrase: string;
+  impactToken: string;
+  ownedPublicTrialWorkspaces: Array<{
+    id: string;
+    name: string;
+    teamCount: number;
+    memberCount: number;
+    historyEntryCount: number;
+    activeSessionCount: number;
+  }>;
+};
+
+export type AccountDeletionResult = {
+  deletedUserId: string;
+  mode: AccountDeletionPreview["mode"];
+  purgedWorkspaceIds: string[];
+  purgedTeamIds: string[];
+  affectedTeamIds: string[];
+};
+
 export type TeamMemberCandidateResponse = {
   users: UserSummary[];
 };

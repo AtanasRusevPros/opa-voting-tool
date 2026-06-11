@@ -580,4 +580,70 @@ describe("Password and invite HTTP flows", () => {
     });
     expect(updatedLogin.status).toBe(200);
   });
+
+  it("supports confirmed self-deletion, invalidates the session, and permits fresh registration", async () => {
+    const { app } = await loadTestServer();
+    const client = request(app);
+    const email = "self-delete@example-company.com";
+    const cookie = await createRegularUser(client, email, "Self Delete");
+
+    const preview = await client.get("/api/account/deletion-preview").set("Cookie", cookie);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toMatchObject({ mode: "deactivate_account", confirmationPhrase: "DELETE MY ACCOUNT" });
+
+    const wrongPassword = await client.post("/api/account/delete").set("Cookie", cookie).send({
+      currentPassword: "WrongPassword123!",
+      confirmation: "DELETE MY ACCOUNT",
+      impactToken: preview.body.impactToken
+    });
+    expect(wrongPassword.status).toBe(400);
+
+    const deleted = await client.post("/api/account/delete").set("Cookie", cookie).send({
+      currentPassword: "Password123!",
+      confirmation: "DELETE MY ACCOUNT",
+      impactToken: preview.body.impactToken
+    });
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toMatchObject({ mode: "deactivate_account" });
+
+    expect((await client.get("/api/auth/session").set("Cookie", cookie)).status).toBe(401);
+    expect((await client.post("/api/auth/signin-password").send({ email, password: "Password123!" })).status).toBe(401);
+    const replacementCookie = await createRegularUser(client, email, "Self Delete Fresh");
+    expect(replacementCookie).toBeTruthy();
+  });
+
+  it("lets only the super-admin delete another account with exact-email confirmation", async () => {
+    const { app, repository } = await loadTestServer();
+    const client = request(app);
+    const actorCookie = await createRegularUser(client, "delete-route-actor@example-company.com", "Delete Route Actor");
+    const targetEmail = "delete-route-target@example-company.com";
+    await createRegularUser(client, targetEmail, "Delete Route Target");
+    const target = repository.getUserByEmail(targetEmail)!;
+
+    const forbidden = await client.get(`/api/admin/users/${target.id}/deletion-preview`).set("Cookie", actorCookie);
+    expect(forbidden.status).toBe(403);
+
+    const adminSignIn = await client.post("/api/auth/signin-admin").send({
+      username: "platform-admin",
+      password: "PlatformAdmin123!"
+    });
+    const adminCookie = adminSignIn.headers["set-cookie"];
+    const preview = await client.get(`/api/admin/users/${target.id}/deletion-preview`).set("Cookie", adminCookie);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toMatchObject({ confirmationPhrase: targetEmail, mode: "deactivate_account" });
+
+    const wrongConfirmation = await client
+      .delete(`/api/admin/users/${target.id}`)
+      .set("Cookie", adminCookie)
+      .send({ confirmation: "wrong", impactToken: preview.body.impactToken });
+    expect(wrongConfirmation.status).toBe(400);
+    expect(repository.getUserByEmail(targetEmail)).not.toBeNull();
+
+    const deleted = await client
+      .delete(`/api/admin/users/${target.id}`)
+      .set("Cookie", adminCookie)
+      .send({ confirmation: targetEmail, impactToken: preview.body.impactToken });
+    expect(deleted.status).toBe(200);
+    expect(repository.getUserByEmail(targetEmail)).toBeNull();
+  });
 });
