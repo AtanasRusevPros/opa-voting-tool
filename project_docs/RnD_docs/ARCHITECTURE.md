@@ -50,32 +50,14 @@ The system is a structured full-stack repository with:
 21. Minimum participation is evaluated against the current live board participants at reveal/re-evaluation time rather than all team members, so offline members do not block active-room decisions.
 22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
 
-## Optional Public-Trial Workspace Flow
-
-Public-trial mode is an advanced hosted-test-server mode and is disabled by default. Normal self-hosted deployments continue to behave as one default workspace unless the operator explicitly enables `[public_trial]`.
-
-When public trial mode is enabled:
-- a visitor can request a public-trial code only through SMTP-backed delivery
-- signup requires accepting the hosted-trial terms
-- the API creates a global user, one isolated public-trial workspace, workspace membership, and a starter team
-- public-trial users only see teams and autocomplete candidates inside their workspace
-- public-trial collaborator invites are SMTP-only and join the inviter's workspace
-- configurable limits cap public-trial teams, users, revealed rounds per month, signup/code/invite attempts, workspace creation, and public-trial password sign-in attempts
-- policy pages are served at `/public-trial/terms`, `/public-trial/privacy`, `/public-trial/acceptable-use`, and `/public-trial/export-cleanup`
-- deleting a public-trial owner account atomically purges every owned public-trial workspace and its child data, while unrelated users/workspaces survive
-
-This mode is not the normal OSS/self-hosted path and should not be publicly promoted until the Phase 19.1 VPS go/no-go checks pass.
-
 ## Account Deletion Flow
 
-1. The API builds a deletion preview before mutation and distinguishes normal account deactivation from owned public-trial workspace purge.
-2. Self-deletion requires the current password plus `DELETE MY ACCOUNT` or `DELETE MY WORKSPACE`; super-admin deletion requires the selected account's exact email.
+1. The API builds a deletion preview before mutation so destructive effects are explicit before confirmation.
+2. Self-deletion requires the current password plus `DELETE MY ACCOUNT`; super-admin deletion requires the selected account's exact email.
 3. The configured super-admin account is protected from every deletion path.
 4. Normal deactivation invalidates sessions, removes active memberships/state, frees the original email, and preserves shared history as `Name (Deactivated)` without the old email.
-5. Public-trial owner deletion atomically removes only owned `public_trial` workspaces and their teams/history before deactivating the owner.
-6. Default/self-hosted workspaces are never purged by account deletion, and collaborators/unrelated workspaces remain intact.
-7. The database keeps an internal tombstone user for retained foreign-key references; user-facing history never exposes the internal tombstone email.
-8. Existing backup archives and previous exports remain unchanged and may still contain older account data.
+5. The database keeps an internal tombstone user for retained foreign-key references; user-facing history never exposes the internal tombstone email.
+6. Existing backup archives and previous exports remain unchanged and may still contain older account data.
 
 ## SMTP-Free Onboarding Flow
 
@@ -149,8 +131,7 @@ Behavior choices:
 - team deck selection is stored at team level
 - new teams receive their default history-time-popup timezone list from `[history_popup].timezone_keys` in the deployment config, and teams persist that default so team-admin changes are inherited by users without a personal override
 - team names are treated as unique within their workspace after trim/case normalization, including archived teams, while public slugs remain unique enough for direct board links
-- self-hosted/default deployments use a default workspace, while public-trial deployments create isolated public-trial workspaces for first-time trial users
-- public-trial users store accepted terms version and timestamp, and public-trial workspace limits are enforced from deployment config
+- self-hosted/default deployments use a default workspace
 - teams now persist `minimumVotePercentEnabled` and `minimumVotePercent` as part of their settings
 - a new round archives the previous live round for the same team
 - history comments store a persistent `author_signature` in `Name (email)` format so exported/imported history does not depend on the original live user row
@@ -166,20 +147,20 @@ Behavior choices:
 - Allowed login domains come from [`config/allowed-domains.txt`](../../config/allowed-domains.txt).
 - Runtime deployment config prefers ignored `config/deployment.local.toml` when present, then falls back to tracked [`config/deployment.toml`](../../config/deployment.toml).
 - `[history_popup].timezone_keys` in that config is parsed as the global default timezone list for newly created teams.
-- `[public_trial]` is disabled by default; when explicitly enabled for a hosted test server, it controls public-trial mode, signup/invite/login rate limits, workspace user/team limits, and monthly revealed-round limits.
 - Super-admin-managed branding uploads live in [`config/managed-branding`](../../config/managed-branding).
 - The shipped fallback branding assets still live under [`apps/web/public/branding`](../../apps/web/public/branding).
 - The in-app `Platform settings` surface edits admin, SMTP, branding, palette, footer, and demo-mode settings against that deployment config.
 - The same deployment config now also stores Jira Cloud OAuth client credentials plus the currently connected site/token metadata for the single global Jira Cloud binding.
 - SVG is preferred for crisp scaling; PNG is supported for raster replacements.
 - Production email uses generic SMTP settings from the deployment config when present, and otherwise falls back to development logging.
-- Simulator mode is still controlled separately by `SIMULATOR_MODE_ENABLED` for dev-only seeded simulator users and must remain disabled in production unless intentionally needed for test/demo workflows.
+- Simulator mode is still controlled separately by `SIMULATOR_MODE_ENABLED` for dev-only seeded simulator users and must remain disabled in production unless intentionally needed for local simulator workflows.
+- The shipped compose/deployment defaults keep `SIMULATOR_MODE_ENABLED=0`; this does not affect the separate super-admin demo mode, which is implemented server-side through `DemoModeManager`.
 
 ## Runtime And Container Decisions
 
 - The packaged stack is aligned to Podman-first operation for rootless-friendly local deployment.
 - `infra/containers/compose.yaml` is intended to be run through `podman-compose` or `podman compose`.
-- `deploy.sh` is the deployed VPS operator wrapper around the compose stack, Caddy reload/status commands, health checks, logs, diagnostics, backups, and release updates.
+- `deploy.sh` is the deployed/self-hosted server operator wrapper around the compose stack, Caddy reload/status commands, health checks, logs, diagnostics, backups, and release updates.
 - Local dependency, build, packaged stack build, test, and simulator commands require Node.js `22.22.2`, pinned in [`.nvmrc`](../../.nvmrc), on both Linux and macOS. Workspace packages declare the supported range as `node >=22 <23`.
 - `dev.sh` sources nvm when available and runs `nvm use` before dependency, build, `stack:up`, test, and simulator commands, then verifies that the resulting active local Node runtime is Node 22 before continuing.
 - The packaged container image is based on the Node 22 Alpine line so local and container runtime expectations stay aligned.

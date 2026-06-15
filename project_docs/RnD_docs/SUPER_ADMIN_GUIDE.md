@@ -24,7 +24,6 @@ The separate team-admin guide now lives at:
 - SMTP configuration when the customer wants integrated email delivery
 - Jira Cloud OAuth client setup and site binding when the customer wants backlog import
 - demo-mode enable/disable
-- optional public-trial mode only when intentionally operating a hosted test server
 - whole-database snapshot export/import
 - deployed usage/workspace/user reports from `./deploy.sh`
 - demotion of team-admins back to regular members
@@ -48,7 +47,6 @@ Deployment security note:
 - plain HTTP should be used only for certificate automation and redirect at the reverse proxy
 - the app's internal port should not be publicly reachable
 - routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh diagnose`, and `./deploy.sh backup`
-- public-trial mode is disabled by default and should remain disabled for normal self-hosted deployments
 
 ## Super-Admin Account
 
@@ -94,7 +92,6 @@ The in-app `Platform settings` surface currently controls:
 - `App settings`:
   - base URL
   - demo-mode enable/disable
-  - public-trial mode settings if the deployment intentionally exposes a hosted test server
 - `SMTP`:
   - SMTP host, port, username, password, and from-address
 - `Super-admin`:
@@ -163,7 +160,7 @@ Practical operator checklist:
 
 Current alpha validation:
 
-- SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider, including external Gmail inbox checks.
+- SMTP-backed account delivery has been smoke-tested through a real transactional mail provider, including external Gmail inbox checks.
 - Disallowed-domain requests remained blocked as expected.
 - Repeat a small SMTP smoke test after any SMTP provider, sender, DNS, or credential change.
 
@@ -249,40 +246,13 @@ Operational expectations:
 - the sample deployment TOML includes example Jira fields so operators know what to fill in
 - disconnecting Jira removes the active platform-wide Jira Cloud binding and stops team imports until reconnected
 
-## Public-Trial Hosted Server Mode
-
-Public-trial mode is for an owner-operated hosted test server, not for the normal self-hosted setup.
-
-Operational expectations:
-
-- `[public_trial]` stays disabled unless the operator intentionally enables hosted public testing.
-- Open public-trial signup requires SMTP-backed code delivery and terms acceptance.
-- Public-trial signup creates an isolated workspace and starter team for the first user.
-- Public-trial users are limited by configured workspace caps such as teams, users, and monthly revealed rounds.
-- Public-trial collaborator invites are SMTP-only and stay inside the inviter's workspace.
-- Normal self-hosted/no-SMTP teams keep the manual-share invite/reset behavior documented below.
-- Policy pages for hosted public trial users live at `/public-trial/terms`, `/public-trial/privacy`, `/public-trial/acceptable-use`, and `/public-trial/export-cleanup`.
-- Do not promote a hosted public trial until SMTP, terms, isolation, limits, reporting, and emergency-disable checks have passed on the VPS.
-
-Useful deployed reporting commands:
-
-```bash
-./deploy.sh usage
-./deploy.sh usage:json
-./deploy.sh users:export
-./deploy.sh workspaces:export
-```
-
-These commands are intended for operator review and must not expose passwords, tokens, SMTP secrets, Jira secrets, or deployment secrets.
-
-## Account Deletion And Trial Workspace Purge
+## Account Deletion
 
 - Any normal user can delete their own account from `Account settings`; self-deletion requires the current password and an explicit typed confirmation.
 - The super-admin can delete another normal account from `Platform settings -> People`; the action requires typing the selected account's exact email.
 - The configured super-admin account can never be deleted.
-- If the account owns no public-trial workspace, access and memberships are removed while retained shared history shows `Name (Deactivated)` and no original email.
-- If the account owns one or more public-trial workspaces, the preview warns that those workspaces, teams, history, comments, and workspace data will be permanently purged.
-- Account deletion never purges the default/self-hosted workspace.
+- Shared history is retained as `Name (Deactivated)` and the original email is no longer exposed through normal product surfaces.
+- The deletion preview explains the destructive impact before confirmation.
 - Existing backups and previous exports may still contain pre-deletion data and are not rewritten automatically.
 
 After deleting an account, verify `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh usage`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export`.
@@ -355,6 +325,7 @@ Operational note:
 - Demo mode is super-admin-only.
 - When disabled, demo teams remain hidden and the synthetic activity remains dormant.
 - When enabled, demo teams appear only for the super-admin.
+- Demo mode is separate from the dev-only `SIMULATOR_MODE_ENABLED` API paths; keeping the simulator API disabled in production does not remove this in-app demo capability.
 - This mode is intended for demos, validation, and pre-deployment confidence checks, not for normal user operation.
 
 ## After-Change Verification Discipline

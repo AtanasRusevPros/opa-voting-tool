@@ -31,6 +31,10 @@ For a real VPS, do not open public firewall access to port `3001`. Caddy should 
 
 Before broad public use, rehearse backup/restore and decide how deployment-local config should be preserved across updates.
 
+The shipped compose/deployment defaults should keep the dev-only simulator API disabled. This is separate from the in-app super-admin demo mode: demo mode may still be enabled later for operator-controlled large-room testing without exposing the simulator login/bootstrap endpoints on the VPS by default.
+
+This public runbook covers the normal self-hosted server path only.
+
 ## 1. First SSH Login
 
 From the local machine:
@@ -464,59 +468,11 @@ If the update looks unhealthy, diagnose before changing Caddy or firewall settin
 ./deploy.sh caddy:logs
 ```
 
-For public-trial or longer-running test deployments, also run:
+For ongoing operator visibility, also run:
 
 ```bash
 ./deploy.sh usage
 ```
-
-### Optional Public-Trial Validation
-
-Public-trial mode is disabled by default and is not required for normal self-hosted deployments. Only enable it on a test VPS or intentionally hosted public-test server after SMTP is configured and the normal smoke test is green.
-
-Before enabling:
-- run `./deploy.sh backup`
-- confirm `./deploy.sh public-health` is green
-- confirm SMTP invite/reset delivery already works
-- review `[public_trial]` in `config/deployment.local.toml`
-
-Temporary validation flow:
-1. enable public trial/open signup in `config/deployment.local.toml`
-2. run `./deploy.sh restart`
-3. open the app in a private browser session
-4. use `Start free public trial`
-5. accept the terms, receive the SMTP code, and complete signup
-6. confirm the new user lands in `My First Team`
-7. create a second unrelated trial user and confirm they cannot see the first user's workspace, teams, users, autocomplete results, history, or notifications
-8. invite a collaborator from the first workspace and confirm the collaborator sees only that workspace
-9. confirm configured team/user/revealed-round limits stop excessive hosted-trial usage
-10. run `./deploy.sh usage`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export`
-11. create a disposable normal user, delete it from `Account settings`, and confirm the same email can register as a fresh account
-12. create a disposable public-trial owner, review the purge warning, delete it, and confirm only that owned trial workspace disappears
-13. repeat one disposable-user deletion from `Platform settings -> People` and confirm exact-email confirmation is required
-14. rerun health, usage, user-export, and workspace-export checks after deletion
-
-Policy pages to spot-check:
-
-```text
-https://vote.example.com/public-trial/terms
-https://vote.example.com/public-trial/privacy
-https://vote.example.com/public-trial/acceptable-use
-https://vote.example.com/public-trial/export-cleanup
-```
-
-Emergency disable test:
-- set `public_trial.enabled = false`
-- run `./deploy.sh restart`
-- confirm normal admin access still works and public trial signup is no longer available
-
-Do not promote the VPS as a public self-service demo until public-trial signup, SMTP delivery, terms acceptance, workspace isolation, limits, operator reports, and emergency disable have all passed.
-
-Account-deletion safety notes:
-- take a fresh backup before the first VPS deletion rehearsal
-- account deletion never rewrites old backup archives or previous exports
-- never use real user/workspace data for the purge rehearsal
-- default/self-hosted workspaces must survive every account deletion path
 
 ### Backup And Restore Rehearsal
 

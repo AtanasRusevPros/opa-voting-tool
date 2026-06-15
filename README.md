@@ -132,7 +132,7 @@ Local dependency, build, packaged stack build, test, and simulator commands requ
 - First access or password reset: request a 16-digit code, verify it, then set a real password.
 - Returning sign-in: enter email and password.
 - Signed-in users can change their password from the in-app `Account settings` modal.
-- Any normal user can delete their own account from `Account settings`; the confirmation preview explains whether shared history will be retained under `Name (Deactivated)` or an owned public-trial workspace will be permanently purged.
+- Any normal user can delete their own account from `Account settings`; the confirmation preview explains the deletion impact before commit.
 - The super-admin can delete normal accounts from `Platform settings -> People`, but the configured super-admin account can never be deleted.
 - Signed-in users can also personalize the history date popup from `Account settings`: the popup starts from the current team's default timezone list, but each user can save a different list for that team or return that team back to its default later.
 - The login screen now includes `Forgot password`; when SMTP/debug-code delivery is unavailable, it explicitly directs the user to a team admin or the super-admin for manual reset.
@@ -209,7 +209,6 @@ Local default behavior:
 - before starting the packaged stack or a real deployment, create ignored `config/deployment.local.toml` with `./deploy.sh config:migrate` or by copying `config/deployment.sample.toml`
 - set `[admin].username` and `[admin].password` in `config/deployment.local.toml`; startup fails with a clear message until those values are configured
 - `[history_popup].timezone_keys` defines the global Issues List date-popup timezone rows used when new teams are created; team-admin changes override that team default later
-- `[public_trial]` is disabled by default; it is an advanced hosted-test-server mode with configurable teams/users/monthly-reveal caps plus signup/invite/login rate limits, and should stay off for normal self-hosted deployments
 - the shipped default is intentionally `no SMTP`, so you can test the manual-share onboarding and reset flows without extra setup
 
 Super-admins can edit the deployment configuration from the in-app `Platform settings` modal, including:
@@ -350,6 +349,7 @@ Default behavior:
 - creates 12 live demo teams with sizes `10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 150, 400`
 - keeps bots connected through the real API and WebSocket contracts
 - bots vote on active rounds with 80% probability and never reveal
+- the packaged local `./dev.sh stack:up` flow opts the stack into simulator mode automatically for developer convenience, while the underlying compose/deployment defaults keep the simulator API disabled unless you intentionally enable it
 
 Commands:
 - `./dev.sh sim:seed`
@@ -384,6 +384,8 @@ Runtime settings:
 
 Production note:
 - simulator mode must remain disabled in production
+- the shipped compose/deployment defaults now keep `SIMULATOR_MODE_ENABLED=0`
+- this does not disable the separate super-admin demo mode used for in-app large-room validation
 
 ### Operational Notes
 

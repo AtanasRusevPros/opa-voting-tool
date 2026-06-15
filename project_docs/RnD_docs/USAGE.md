@@ -103,7 +103,7 @@ Backup retention:
 - It keeps the newest `20` backups by default; set `BACKUP_PRUNE_KEEP=10` or another positive number to change the retention count.
 - Set `BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune` to preview which archives would be deleted.
 
-Public-trial/operator reporting:
+Operator reporting:
 - `./deploy.sh usage` prints a human-readable summary of users, workspaces, teams, active sessions, current-month reveals/votes, and database size.
 - `./deploy.sh usage:json`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export` print machine-readable JSON for operator review; exports intentionally avoid passwords, tokens, sessions, SMTP secrets, Jira secrets, and deployment secrets.
 
@@ -153,6 +153,7 @@ Behavior:
 - when a round becomes active, each bot votes with 80% probability using a random card from the team deck
 - bots never reveal; the human observer reveals manually
 - `Sim Team ...` rooms are now shown only while the simulator sidecar is alive and sending heartbeats; if the sidecar is stopped, those rooms disappear from the normal product UI until it comes back, and the chooser/board flows now converge automatically instead of needing a manual app reset to notice that runtime change
+- the raw compose/deployed stack defaults now keep simulator mode off, while `./dev.sh stack:up` intentionally enables it for local simulator workflows unless you explicitly override `SIMULATOR_MODE_ENABLED=0`
 
 Required runtime settings:
 - `SIMULATOR_MODE_ENABLED=1`
@@ -176,6 +177,7 @@ Troubleshooting:
 - if `sim:status` says the simulator is not running, check [`.simulator/simulator.log`](../../.simulator/simulator.log)
 - if you want a quiet manual login flow first, run `./dev.sh sim:down` and test without bots
 - simulator mode is dev-only and must remain disabled in production
+- disabling simulator mode does not affect the separate super-admin demo mode used for in-app large-user testing
 
 ## Operator Guides
 
@@ -201,7 +203,7 @@ Production deployment note:
 
 - Normal users can open `Account settings -> Delete account` to review and confirm account deletion.
 - Deleting a non-owner account removes access, sessions, memberships, and the original email while preserving shared voting/comment history as `Name (Deactivated)`.
-- Deleting a public-trial workspace owner permanently purges every owned public-trial workspace and its teams/history. Default/self-hosted workspaces are never purged by account deletion.
+- The deletion preview explains the destructive impact before the action is confirmed.
 - The original email can register again as a completely fresh account. Existing backups and previously exported files are not rewritten automatically.
 - The configured super-admin account cannot be deleted.
 
@@ -287,7 +289,6 @@ Operational notes:
 20. automated packaged e2e/perf/simulator runs now use isolated packaged-stack data so old test teams should not leak back into the normal local stack after verification runs
 21. both deployment TOML files now include a `[jira]` section; local defaults leave Jira disconnected, while the sample file shows the fields a real Jira Cloud setup needs
 22. `[history_popup].timezone_keys` in the deployment TOML is the global date-popup timezone default used when new teams are created; team-admin defaults and per-team personal overrides take precedence later
-23. `[public_trial]` remains disabled by default for normal self-hosted deployments; it is an advanced hosted-test-server mode with configurable teams/users/monthly-reveal caps, signup/invite/login rate limits, and public-trial policy pages that should only be enabled after public-trial safety checks pass
 
 ## Main Board Notes
 

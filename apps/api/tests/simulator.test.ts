@@ -14,6 +14,23 @@ function createEnvDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "planning-poker-sim-"));
   tempDirs.push(dir);
   fs.writeFileSync(path.join(dir, "allowed-domains.txt"), "example-company.com\nexample-partner.com\n");
+  fs.writeFileSync(
+    path.join(dir, "deployment.toml"),
+    [
+      "[app]",
+      'base_url = "http://localhost:3001"',
+      `allowed_domains_path = "${path.join(dir, "allowed-domains.txt").replace(/\\/g, "\\\\")}"`,
+      "",
+      "[admin]",
+      'username = "platform-admin"',
+      'password = "PlatformAdmin123!"',
+      'display_name = "Platform Admin"',
+      "",
+      "[demo]",
+      "enabled = false",
+      ""
+    ].join("\n")
+  );
   return dir;
 }
 
@@ -25,7 +42,10 @@ async function loadTestServer(options: { simulatorModeEnabled: boolean }) {
   process.env.DATA_DIR = dir;
   process.env.DATABASE_PATH = path.join(dir, "test.db");
   process.env.ALLOWED_DOMAINS_PATH = path.join(dir, "allowed-domains.txt");
+  process.env.DEPLOYMENT_CONFIG_PATH = path.join(dir, "deployment.toml");
+  process.env.MANAGED_BRANDING_DIR = path.join(dir, "managed-branding");
   process.env.DEBUG_TOOLS_ENABLED = "1";
+  process.env.APP_BASE_URL = "http://localhost:3001";
   process.env.SIMULATOR_MODE_ENABLED = options.simulatorModeEnabled ? "1" : "0";
   process.env.SIMULATOR_SHARED_SECRET = "test-secret";
   vi.resetModules();
@@ -57,7 +77,10 @@ afterEach(() => {
   delete process.env.DATA_DIR;
   delete process.env.DATABASE_PATH;
   delete process.env.ALLOWED_DOMAINS_PATH;
+  delete process.env.DEPLOYMENT_CONFIG_PATH;
+  delete process.env.MANAGED_BRANDING_DIR;
   delete process.env.DEBUG_TOOLS_ENABLED;
+  delete process.env.APP_BASE_URL;
   delete process.env.SIMULATOR_MODE_ENABLED;
   delete process.env.SIMULATOR_SHARED_SECRET;
 });

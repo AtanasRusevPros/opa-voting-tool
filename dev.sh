@@ -369,8 +369,8 @@ EOF
 fresh_stack_up() {
   ensure_local_super_admin_credentials
   run_packaged_stack_down --remove-orphans || true
-  run_podman_compose build --no-cache
-  run_podman_compose_with_network_fallback up --force-recreate
+  SIMULATOR_MODE_ENABLED="${SIMULATOR_MODE_ENABLED:-1}" run_podman_compose build --no-cache
+  SIMULATOR_MODE_ENABLED="${SIMULATOR_MODE_ENABLED:-1}" run_podman_compose_with_network_fallback up --force-recreate
 }
 
 wait_for_stack_health() {
@@ -405,7 +405,7 @@ ensure_packaged_stack() {
   else
     ensure_local_super_admin_credentials
   fi
-  DATA_DIR="$isolated_stack_data_dir" run_podman_compose_with_network_fallback up -d --build
+  SIMULATOR_MODE_ENABLED="${SIMULATOR_MODE_ENABLED:-1}" DATA_DIR="$isolated_stack_data_dir" run_podman_compose_with_network_fallback up -d --build
   wait_for_stack_health
 }
 

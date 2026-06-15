@@ -102,13 +102,13 @@ Important limitation:
 
 ## SMTP And Manual Credential Sharing
 
-Normal self-hosted teams support both SMTP delivery and manual-share fallback. Hosted public-trial workspaces are stricter: collaborator invites are SMTP-only, stay inside the inviter's workspace, and are subject to the public-trial user/team/rate limits configured by the operator.
+Normal self-hosted teams support both SMTP delivery and manual-share fallback.
 
 ### If SMTP is configured
 
 - the app can send invitation/reset mail through the configured SMTP service
 - the team-admin should still verify the right email was used before sending
-- SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider
+- SMTP-backed account delivery has been smoke-tested through a real transactional mail provider
 - repeat a small invite/reset smoke test after changing SMTP provider, sender, DNS, or credentials
 
 ### If SMTP is not configured

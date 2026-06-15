@@ -12,7 +12,7 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run tests/unit.test.ts tests/email.test.ts tests/phase11-live-sync.test.ts tests/phase12-room-engine.test.ts tests/phase12-scheduler.test.ts",
-    "test:int": "vitest run tests/integration.test.ts tests/admin-config.test.ts tests/demo-mode.test.ts tests/auth-password.test.ts tests/phase6-history-import-export.test.ts tests/jira-cloud.test.ts tests/usage-report-cli.test.ts"
+    "test:int": "vitest run tests/integration.test.ts tests/admin-config.test.ts tests/demo-mode.test.ts tests/simulator.test.ts tests/auth-password.test.ts tests/phase6-history-import-export.test.ts tests/jira-cloud.test.ts tests/usage-report-cli.test.ts"
   },
   "dependencies": {
     "@planning-poker/shared": "workspace:*",
