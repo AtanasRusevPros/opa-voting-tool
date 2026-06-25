@@ -5,6 +5,7 @@ coverage
 .turbo
 *.log
 config/deployment.local.toml
+config/deploy.local.toml
 config/managed-branding/*
 !config/managed-branding/.gitkeep
 apps/api/data

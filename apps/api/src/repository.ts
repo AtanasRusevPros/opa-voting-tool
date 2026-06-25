@@ -267,6 +267,21 @@ export class Repository {
     this.ensureDefaultWorkspaceBackfill();
   }
 
+  getHealthSnapshot(): {
+    ok: boolean;
+    checks: {
+      database: "ok";
+    };
+  } {
+    this.db.prepare("SELECT 1 as ok").get();
+    return {
+      ok: true,
+      checks: {
+        database: "ok"
+      }
+    };
+  }
+
   getBrandingManifest() {
     return BRANDING_MANIFEST;
   }

@@ -19,6 +19,7 @@ The separate team-admin guide now lives at:
 
 - initial platform setup
 - `config/deployment.local.toml` maintenance for real deployments
+- `config/deploy.local.toml` maintenance only when a non-default keep-alive mode is needed
 - `config/allowed-domains.txt` maintenance
 - branding uploads and global palette/footer settings
 - SMTP configuration when the customer wants integrated email delivery
@@ -34,7 +35,9 @@ The separate team-admin guide now lives at:
 - First VPS deployment runbook: [`FIRST_VPS_DEPLOYMENT_RUNBOOK.md`](../../project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md)
 - Deployed VPS operator helper: [`deploy.sh`](../../deploy.sh)
 - Deployment config override: `config/deployment.local.toml`
+- Keep-alive override: `config/deploy.local.toml`
 - Tracked local-development config: [`config/deployment.toml`](../../config/deployment.toml)
+- Tracked keep-alive defaults: [`config/deploy.toml`](../../config/deploy.toml)
 - Deployment config example template: [`config/deployment.sample.toml`](../../config/deployment.sample.toml)
 - Allowed domains: [`config/allowed-domains.txt`](../../config/allowed-domains.txt)
 - Managed branding uploads: [`config/managed-branding`](../../config/managed-branding)
@@ -46,7 +49,7 @@ Deployment security note:
 - production app content should be reachable through HTTPS only
 - plain HTTP should be used only for certificate automation and redirect at the reverse proxy
 - the app's internal port should not be publicly reachable
-- routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh diagnose`, and `./deploy.sh backup`
+- routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh watchdog:status`, `./deploy.sh incidents`, `./deploy.sh diagnose`, and `./deploy.sh backup`
 
 ## Super-Admin Account
 
@@ -61,6 +64,7 @@ Deployment security note:
 
 - The repo ships a tracked `config/deployment.toml` template, but super-admin username/password are intentionally blank for safety.
 - Ignored `config/deployment.local.toml` takes priority when present and is the right place for real deployment settings.
+- Tracked `config/deploy.toml` holds the default keep-alive policy, and ignored `config/deploy.local.toml` is only needed when you want a non-default startup backend, watchdog interval, or incident path.
 - The repo also ships `config/deployment.sample.toml` as the example template to keep as a reference when preparing a real deployment.
 - The shipped default intentionally leaves SMTP blank, so the local stack starts in the supported no-SMTP/manual-share mode.
 - Startup refuses to continue until `[admin].username` and `[admin].password` are configured.

@@ -154,7 +154,7 @@ On restricted local Linux environments where rootless Podman cannot create a `ne
 `./dev.sh stack:up` now takes the stricter freshness path on every run: it first tears down any existing compose-managed stack for this project without deleting the named data volume, then rebuilds the image with `--no-cache`, and finally starts the stack with `--force-recreate` so stale containers and stale image layers are not reused.
 The packaged compose service publishes the app on host-local `127.0.0.1:3001` and uses a container restart policy so local checks and host-level reverse proxies can reach it without exposing the app port to the wider network.
 
-For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh logs`, `./deploy.sh caddy:reload`, `./deploy.sh diagnose`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
+For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh startup:enable`, `./deploy.sh startup:disable`, `./deploy.sh watchdog:status`, `./deploy.sh watchdog:run`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
 
 ## Deployment Edits Before First Use
 
@@ -173,7 +173,7 @@ New release/update on the VPS:
 - run `./deploy.sh public-health`
 - do a short login/team/vote/reveal browser smoke test
 
-When migrating or replacing an existing deployment checkout, make a backup first and preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and any `config/managed-branding` uploads.
+When migrating or replacing an existing deployment checkout, make a backup first and preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/deploy.local.toml`, `config/allowed-domains.txt`, and any `config/managed-branding` uploads.
 
 ### Allowed Domains
 
@@ -197,6 +197,10 @@ test1.com
 Runtime configuration priority:
 - ignored local override: `config/deployment.local.toml`
 - tracked local-development default: [`config/deployment.toml`](config/deployment.toml)
+
+Deploy/operator keep-alive supervision priority:
+- ignored local override: `config/deploy.local.toml`
+- tracked default: [`config/deploy.toml`](config/deploy.toml)
 
 The repo-shipped sample/template file is:
 - [`config/deployment.sample.toml`](config/deployment.sample.toml)
@@ -246,7 +250,16 @@ Operator convenience:
 - keep `config/deployment.sample.toml` as the untouched example template
 - keep `config/deployment.toml` as the tracked local-development default
 - use ignored `config/deployment.local.toml` for real deployment values so `git pull` / `./deploy.sh update` does not overwrite or conflict with server-specific settings
+- keep `config/deploy.toml` as the tracked default keep-alive policy
+- use ignored `config/deploy.local.toml` only when you need a non-default startup/watchdog backend, interval, or incident path
 - the deployment config files include a `[jira]` block so Jira Cloud setup is visible and easy to fill in later
+
+Keep-alive defaults:
+- on the first real deployed `./deploy.sh up`, `./deploy.sh rebuild`, `./deploy.sh restart`, `./deploy.sh restore`, or `./deploy.sh update`, the helper tries to install automatic startup plus watchdog automatically
+- it prefers a user-level `systemd` backend when available and falls back to `cron` otherwise
+- in the normal case, no extra post-install command is required
+- `./deploy.sh startup:disable` turns the keep-alive layer off completely and persists that choice in `config/deploy.local.toml`
+- `./deploy.sh startup:enable` turns the default keep-alive layer back on
 
 The super-admin guide lives at:
 - [`project_docs/RnD_docs/SUPER_ADMIN_GUIDE.md`](project_docs/RnD_docs/SUPER_ADMIN_GUIDE.md)
@@ -327,9 +340,16 @@ Jira Cloud:
 - `./deploy.sh rebuild` builds the deployed image with `--no-cache`, recreates the service, and waits for local health
 - `./deploy.sh update` backs up the current deployment, pulls the latest Git commit with `--ff-only`, rebuilds, recreates, and waits for local health
 - `./deploy.sh config:migrate` creates ignored `config/deployment.local.toml` from the tracked config so live deployment settings survive future pulls
-- `./deploy.sh health` checks local app health on `127.0.0.1:3001`
-- `./deploy.sh public-health` checks the public HTTPS health endpoint through Caddy
-- `./deploy.sh diagnose` prints local/public health, compose status, app logs, Caddy status/logs, disk, and firewall details
+- `./deploy.sh health` prints local API/web health plus startup/watchdog/incident summary
+- `./deploy.sh public-health` checks the public HTTPS health endpoint through Caddy and prints the same keep-alive summary
+- `./deploy.sh startup:status` shows the selected/effective autostart backend, install state, and watchdog state
+- `./deploy.sh startup:enable` enables default keep-alive with `systemd` or `cron`
+- `./deploy.sh startup:disable` disables autostart plus the scheduled watchdog and persists that non-default choice
+- `./deploy.sh watchdog:status` shows the watchdog cadence and last run summary
+- `./deploy.sh watchdog:run` runs one watchdog cycle immediately
+- `./deploy.sh incidents` prints the retained incident summary, counters, and log paths
+- `./deploy.sh incidents:ack` clears the current unacknowledged incident marker without deleting the retained evidence
+- `./deploy.sh diagnose` prints local/public health, keep-alive state, incident summary, compose status, app logs, Caddy status/logs, disk, and firewall details
 - `./deploy.sh caddy:reload` validates and reloads the Caddyfile
 - `./deploy.sh backup` creates a timestamped archive of app data plus deployment config and branding files
 - `./deploy.sh backup:list` lists recent backup archives

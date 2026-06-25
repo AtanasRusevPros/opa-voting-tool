@@ -111,6 +111,20 @@ afterEach(() => {
 });
 
 describe("Password and invite HTTP flows", () => {
+  it("reports API health with database readiness", async () => {
+    const { app } = await loadTestServer();
+    const client = request(app);
+
+    const response = await client.get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.checks).toEqual({
+      database: "ok"
+    });
+    expect(typeof response.body.time).toBe("string");
+  });
+
   it("keeps public trial signup disabled by default", async () => {
     const { app } = await loadTestServer();
     const client = request(app);

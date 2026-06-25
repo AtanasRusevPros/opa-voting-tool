@@ -218,7 +218,21 @@ export function registerRoutes({
   noteTeamVoteChanged
 }: RegisterRoutesDeps): void {
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, time: new Date().toISOString() });
+    try {
+      const snapshot = repository.getHealthSnapshot();
+      res.json({ ...snapshot, time: new Date().toISOString() });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown database health failure.";
+      res.status(503).json({
+        ok: false,
+        time: new Date().toISOString(),
+        checks: {
+          database: "failed"
+        },
+        errorCode: "db_unhealthy",
+        error: message
+      });
+    }
   });
 
   app.get("/public-trial/terms", (_req, res) => {

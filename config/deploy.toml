@@ -1,0 +1,20 @@
+# Repo-shipped safe deploy/operator supervision defaults.
+#
+# Copy this file to ignored config/deploy.local.toml only when you need a
+# non-default keep-alive configuration. In the normal case, deploy.sh should
+# auto-install the default backend and watchdog without requiring local edits.
+
+[startup]
+backend = "auto"
+
+[watchdog]
+enabled = true
+interval_minutes = 1
+
+[incidents]
+dir = "../incidents"
+summary_cap_mb = 5
+
+[health]
+local_url = ""
+public_url = ""

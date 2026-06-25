@@ -146,6 +146,7 @@ Behavior choices:
 
 - Allowed login domains come from [`config/allowed-domains.txt`](../../config/allowed-domains.txt).
 - Runtime deployment config prefers ignored `config/deployment.local.toml` when present, then falls back to tracked [`config/deployment.toml`](../../config/deployment.toml).
+- Deploy/operator keep-alive config prefers ignored `config/deploy.local.toml` when present, then falls back to tracked [`config/deploy.toml`](../../config/deploy.toml).
 - `[history_popup].timezone_keys` in that config is parsed as the global default timezone list for newly created teams.
 - Super-admin-managed branding uploads live in [`config/managed-branding`](../../config/managed-branding).
 - The shipped fallback branding assets still live under [`apps/web/public/branding`](../../apps/web/public/branding).
@@ -161,6 +162,7 @@ Behavior choices:
 - The packaged stack is aligned to Podman-first operation for rootless-friendly local deployment.
 - `infra/containers/compose.yaml` is intended to be run through `podman-compose` or `podman compose`.
 - `deploy.sh` is the deployed/self-hosted server operator wrapper around the compose stack, Caddy reload/status commands, health checks, logs, diagnostics, backups, and release updates.
+- The same deployed helper now also owns automatic startup/watchdog installation, bounded incident evidence, and keep-alive status reporting while intentionally staying outside the in-app product UI.
 - Local dependency, build, packaged stack build, test, and simulator commands require Node.js `22.22.2`, pinned in [`.nvmrc`](../../.nvmrc), on both Linux and macOS. Workspace packages declare the supported range as `node >=22 <23`.
 - `dev.sh` sources nvm when available and runs `nvm use` before dependency, build, `stack:up`, test, and simulator commands, then verifies that the resulting active local Node runtime is Node 22 before continuing.
 - The packaged container image is based on the Node 22 Alpine line so local and container runtime expectations stay aligned.

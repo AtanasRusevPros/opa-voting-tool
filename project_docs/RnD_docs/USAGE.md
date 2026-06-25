@@ -55,6 +55,13 @@ Common commands:
 - `./deploy.sh restart`
 - `./deploy.sh health`
 - `./deploy.sh public-health`
+- `./deploy.sh startup:status`
+- `./deploy.sh startup:enable`
+- `./deploy.sh startup:disable`
+- `./deploy.sh watchdog:status`
+- `./deploy.sh watchdog:run`
+- `./deploy.sh incidents`
+- `./deploy.sh incidents:ack`
 - `./deploy.sh ps`
 - `./deploy.sh logs`
 - `./deploy.sh logs:follow`
@@ -71,7 +78,15 @@ Common commands:
 - `./deploy.sh update`
 - `./deploy.sh config:migrate`
 
-The helper reads the public URL from ignored `config/deployment.local.toml` when present, then falls back to tracked `config/deployment.toml`. Override with `APP_URL=https://your-host ./deploy.sh public-health` if needed.
+The helper reads the public URL from `APP_URL` first, then ignored `config/deploy.local.toml`, then ignored `config/deployment.local.toml`, and finally tracked `config/deployment.toml`. Override with `APP_URL=https://your-host ./deploy.sh public-health` if needed.
+
+Keep-alive defaults:
+- the first real deployed `./deploy.sh up`, `./deploy.sh rebuild`, `./deploy.sh restart`, `./deploy.sh restore`, or `./deploy.sh update` tries to install automatic startup plus watchdog without requiring an extra post-install command
+- the default backend selection is `systemd` when available, otherwise `cron`
+- the tracked keep-alive defaults live in `config/deploy.toml`
+- use ignored `config/deploy.local.toml` only for non-default backend, watchdog interval, health URL, or incident-directory overrides
+- `./deploy.sh startup:disable` turns keep-alive off completely and persists that choice
+- `./deploy.sh startup:enable` turns the default keep-alive layer back on
 
 Use `./dev.sh version` locally or `./deploy.sh version` on a deployed checkout to print the project version and current Git commit. See [`VERSIONING_AND_RELEASES.md`](VERSIONING_AND_RELEASES.md) for the alpha release policy.
 
@@ -85,7 +100,7 @@ New release/update flow on the VPS:
 
 Migration note for replacing or moving an existing deployment checkout:
 - take a backup before changing the checkout
-- preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`
+- preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/deploy.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`
 - do not copy historical untracked compose/config scratch folders into the replacement checkout
 
 Backup/restore rehearsal on a test deployment:
@@ -106,6 +121,14 @@ Backup retention:
 Operator reporting:
 - `./deploy.sh usage` prints a human-readable summary of users, workspaces, teams, active sessions, current-month reveals/votes, and database size.
 - `./deploy.sh usage:json`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export` print machine-readable JSON for operator review; exports intentionally avoid passwords, tokens, sessions, SMTP secrets, Jira secrets, and deployment secrets.
+
+Keep-alive operator checks:
+- `./deploy.sh health` now prints the local API/web result plus startup backend, watchdog state, and latest retained incident summary
+- `./deploy.sh public-health` prints the same keep-alive summary while checking the public HTTPS `/health` path through Caddy
+- `./deploy.sh startup:status` shows whether automatic startup is installed and which backend is active
+- `./deploy.sh watchdog:status` shows the configured cadence and the last watchdog run summary
+- `./deploy.sh incidents` shows the retained incident summary, failure counters, and current/previous bounded runtime logs
+- `./deploy.sh incidents:ack` acknowledges the current retained incident marker without deleting the stored evidence
 
 ## Command Use Guide
 
@@ -249,6 +272,10 @@ Local verification:
 Runtime config priority:
 - ignored deployment/local override: `config/deployment.local.toml`
 - tracked local-development default: [`config/deployment.toml`](../../config/deployment.toml)
+
+Deploy/operator keep-alive config priority:
+- ignored override: `config/deploy.local.toml`
+- tracked default: [`config/deploy.toml`](../../config/deploy.toml)
 
 Example template:
 - [`config/deployment.sample.toml`](../../config/deployment.sample.toml)

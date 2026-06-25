@@ -347,6 +347,13 @@ Then build and run fresh:
 ./deploy.sh rebuild
 ```
 
+Default keep-alive behavior after the first real deployed run:
+- `./deploy.sh rebuild`, `./deploy.sh up`, `./deploy.sh restart`, `./deploy.sh restore`, and `./deploy.sh update` try to install automatic startup plus watchdog automatically
+- the helper prefers a user-level `systemd` backend when available and falls back to `cron` otherwise
+- in the normal case, you do not need a separate post-install keep-alive command
+- if you intentionally want to turn that layer off later, run `./deploy.sh startup:disable`
+- to turn it back on, run `./deploy.sh startup:enable`
+
 On later updates or shutdowns, after the stack exists, stop it with:
 
 ```bash
@@ -359,6 +366,8 @@ Verify locally on the VPS:
 
 ```bash
 ./deploy.sh health
+./deploy.sh startup:status
+./deploy.sh watchdog:status
 ```
 
 Verify publicly:
@@ -445,12 +454,14 @@ cd /opt/opa-voting-tool/app
 
 What `./deploy.sh update` does:
 - preserves deployment-local settings in ignored `config/deployment.local.toml`
+- preserves ignored keep-alive overrides in `config/deploy.local.toml`
 - creates a timestamped backup first
 - lets you prune old update backups later with `./deploy.sh backup:prune`
 - runs `git pull --ff-only`
 - rebuilds the container image with `--no-cache`
 - recreates the service with the latest image
 - waits for local health on `127.0.0.1:3001`
+- re-applies the configured automatic startup/watchdog backend when the default keep-alive layer is enabled
 
 After every update:
 - open `https://vote.example.com`
