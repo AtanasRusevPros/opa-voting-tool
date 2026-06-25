@@ -588,6 +588,10 @@ if [[ ! -f "$fake_host_dir/incidents/latest.json" ]]; then
   exit 1
 fi
 assert_contains "$(cat "$fake_host_dir/incidents/counters.json")" '"api_unhealthy":1' "deploy.sh watchdog counters"
+if [[ -f "$fake_host_dir/incidents/unacknowledged" ]]; then
+  echo "deploy.sh watchdog:run kept the unacknowledged marker after successful recovery." >&2
+  exit 1
+fi
 
 deploy_incidents_output="$(
   PATH="$fake_bin_dir:$PATH" \
@@ -596,7 +600,7 @@ deploy_incidents_output="$(
   FAKE_STATE_DIR="$fake_state_dir" \
   ./deploy.sh incidents
 )"
-assert_contains "$deploy_incidents_output" "Incident status: unacknowledged unexpected failure" "deploy.sh incidents status"
+assert_contains "$deploy_incidents_output" "Incident status: acknowledged retained incident" "deploy.sh incidents status"
 assert_contains "$deploy_incidents_output" "Failure counters:" "deploy.sh incidents counters"
 
 deploy_ack_output="$(

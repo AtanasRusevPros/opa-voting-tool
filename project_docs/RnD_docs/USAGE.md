@@ -61,7 +61,7 @@ Common commands:
 - `./deploy.sh watchdog:status`
 - `./deploy.sh watchdog:run`
 - `./deploy.sh incidents`
-- `./deploy.sh incidents:ack`
+- `./deploy.sh incidents:ack` optionally clears a still-unacknowledged retained incident marker
 - `./deploy.sh ps`
 - `./deploy.sh logs`
 - `./deploy.sh logs:follow`
@@ -128,7 +128,7 @@ Keep-alive operator checks:
 - `./deploy.sh startup:status` shows whether automatic startup is installed and which backend is active
 - `./deploy.sh watchdog:status` shows the configured cadence and the last watchdog run summary
 - `./deploy.sh incidents` shows the retained incident summary, failure counters, and current/previous bounded runtime logs
-- `./deploy.sh incidents:ack` acknowledges the current retained incident marker without deleting the stored evidence
+- `./deploy.sh incidents:ack` optionally clears the current unacknowledged retained incident marker without deleting the stored evidence
 
 ## Command Use Guide
 

@@ -794,6 +794,12 @@ unacknowledged_incident_marker() {
   echo "$incident_dir/unacknowledged"
 }
 
+clear_unacknowledged_incident_marker() {
+  load_operator_settings
+  ensure_incident_structure
+  rm -f "$(unacknowledged_incident_marker)"
+}
+
 json_escape() {
   printf '%s' "$1" | sed ':a;N;$!ba;s/\\/\\\\/g;s/"/\\"/g;s/\r/\\r/g;s/\n/\\n/g'
 }
@@ -822,6 +828,12 @@ mark_planned_action() {
   local expires_at
   expires_at="$(( $(date +%s) + planned_action_ttl_seconds ))"
   write_key_value_state "$(planned_action_file)" "action=$action" "expires_at=$expires_at"
+}
+
+clear_planned_action() {
+  load_operator_settings
+  ensure_incident_structure
+  rm -f "$(planned_action_file)"
 }
 
 planned_action_active() {
@@ -991,14 +1003,16 @@ EOF
 
   cp "$json_file" "$(latest_incident_json)"
   cp "$text_file" "$(latest_incident_text)"
-  printf '%s\n' "$timestamp $failure_type $summary" >"$(unacknowledged_incident_marker)"
+  if [[ "$restart_succeeded" == "true" ]]; then
+    clear_unacknowledged_incident_marker
+  else
+    printf '%s\n' "$timestamp $failure_type $summary" >"$(unacknowledged_incident_marker)"
+  fi
   prune_incident_summaries
 }
 
 acknowledge_incident() {
-  load_operator_settings
-  ensure_incident_structure
-  rm -f "$(unacknowledged_incident_marker)"
+  clear_unacknowledged_incident_marker
   echo "Acknowledged current incident."
 }
 
@@ -1038,14 +1052,16 @@ note_restart_attempt() {
 }
 
 restart_stack_for_watchdog() {
-  local container_id
-  container_id="$(service_container_id)"
   mark_planned_action "watchdog-recovery"
+  local container_id status=0
+  container_id="$(service_container_id)"
   if [[ -n "$container_id" ]]; then
-    run_podman_compose restart "$service_name"
-    return
+    run_podman_compose restart "$service_name" || status=$?
+  else
+    run_podman_compose up -d || status=$?
   fi
-  run_podman_compose up -d
+  clear_planned_action
+  return "$status"
 }
 
 can_manage_caddy_without_prompt() {
@@ -1274,6 +1290,7 @@ run_watchdog() {
   probe_public_health
 
   if [[ "$LOCAL_API_OK" == "true" && "$LOCAL_WEB_OK" == "true" && ( "$PUBLIC_OK" == "true" || "$PUBLIC_OK" == "skipped" ) ]]; then
+    clear_unacknowledged_incident_marker
     write_watchdog_status "success" "Local and public health are OK."
     echo "Watchdog: healthy."
     return 0
@@ -1389,7 +1406,7 @@ Health and diagnostics:
   ./deploy.sh watchdog:status Show watchdog cadence and last run summary
   ./deploy.sh watchdog:run    Run one watchdog cycle immediately
   ./deploy.sh incidents       Show the retained incident summary and counters
-  ./deploy.sh incidents:ack   Acknowledge the current retained incident marker
+  ./deploy.sh incidents:ack   Optionally clear the current unacknowledged incident marker
   ./deploy.sh usage           Show public-trial/operator usage summary
   ./deploy.sh usage:json      Show usage summary as JSON
   ./deploy.sh users:export    Export registered-user summary JSON
@@ -1615,6 +1632,7 @@ restore_backup() {
   run_podman_compose up -d
   wait_for_local_health
   maybe_auto_enable_keepalive || true
+  clear_planned_action
   echo "Restore complete."
 }
 
@@ -1631,10 +1649,12 @@ case "$cmd" in
     run_podman_compose up -d
     wait_for_local_health
     maybe_auto_enable_keepalive || true
+    clear_planned_action
     ;;
   down)
     mark_planned_action "down"
     run_podman_compose down
+    clear_planned_action
     ;;
   restart)
     ensure_super_admin_credentials
@@ -1642,6 +1662,7 @@ case "$cmd" in
     run_podman_compose restart "$service_name"
     wait_for_local_health
     maybe_auto_enable_keepalive || true
+    clear_planned_action
     ;;
   rebuild)
     ensure_super_admin_credentials
@@ -1650,6 +1671,7 @@ case "$cmd" in
     run_podman_compose up -d --force-recreate
     wait_for_local_health
     maybe_auto_enable_keepalive || true
+    clear_planned_action
     ;;
   update)
     prepare_git_update_config
@@ -1661,6 +1683,7 @@ case "$cmd" in
     run_podman_compose up -d --force-recreate
     wait_for_local_health
     maybe_auto_enable_keepalive || true
+    clear_planned_action
     ;;
   ps)
     run_podman_compose ps

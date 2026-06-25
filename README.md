@@ -348,7 +348,7 @@ Jira Cloud:
 - `./deploy.sh watchdog:status` shows the watchdog cadence and last run summary
 - `./deploy.sh watchdog:run` runs one watchdog cycle immediately
 - `./deploy.sh incidents` prints the retained incident summary, counters, and log paths
-- `./deploy.sh incidents:ack` clears the current unacknowledged incident marker without deleting the retained evidence
+- `./deploy.sh incidents:ack` optionally clears the current unacknowledged incident marker without deleting the retained evidence
 - `./deploy.sh diagnose` prints local/public health, keep-alive state, incident summary, compose status, app logs, Caddy status/logs, disk, and firewall details
 - `./deploy.sh caddy:reload` validates and reloads the Caddyfile
 - `./deploy.sh backup` creates a timestamped archive of app data plus deployment config and branding files
