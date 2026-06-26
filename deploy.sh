@@ -1054,11 +1054,15 @@ note_restart_attempt() {
 restart_stack_for_watchdog() {
   mark_planned_action "watchdog-recovery"
   local container_id status=0
-  container_id="$(service_container_id)"
-  if [[ -n "$container_id" ]]; then
-    run_podman_compose restart "$service_name" || status=$?
+  if [[ "$effective_startup_backend" == "systemd" && "$(systemd_keepalive_installed)" == "yes" ]] && systemd_user_available; then
+    systemctl --user restart "$stack_unit_name" >/dev/null || status=$?
   else
-    run_podman_compose up -d || status=$?
+    container_id="$(service_container_id)"
+    if [[ -n "$container_id" ]]; then
+      run_podman_compose restart "$service_name" || status=$?
+    else
+      run_podman_compose up -d || status=$?
+    fi
   fi
   clear_planned_action
   return "$status"

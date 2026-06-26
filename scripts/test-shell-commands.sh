@@ -315,6 +315,15 @@ fi
 if [[ "${1:-}" == "--user" && "${2:-}" == "status" ]]; then
   exit 0
 fi
+if [[ "${1:-}" == "--user" && "${2:-}" == "restart" ]]; then
+  shift 2
+  while [[ "$#" -gt 0 ]]; do
+    touch "$state_dir/systemd/$1.restarted"
+    touch "$state_dir/restarted"
+    shift
+  done
+  exit 0
+fi
 exit 0
 EOF
     chmod +x "$fake_bin_dir/systemctl"
@@ -531,6 +540,27 @@ deploy_health_output="$(
 assert_contains "$deploy_health_output" "Local API: true" "deploy.sh health local api"
 assert_contains "$deploy_health_output" "Public health: true" "deploy.sh health public"
 assert_contains "$deploy_health_output" "Watchdog enabled: true" "deploy.sh health watchdog"
+
+rm -f "$fake_state_dir/restarted"
+
+deploy_systemd_watchdog_output="$(
+  PATH="$fake_bin_dir:$PATH" \
+  HOME="$fake_host_dir/home" \
+  XDG_CONFIG_HOME="$fake_host_dir/xdg" \
+  FAKE_STATE_DIR="$fake_state_dir" \
+  APP_URL="https://vote.example.com" \
+  HEALTH_WAIT_RETRIES=2 \
+  HEALTH_WAIT_SLEEP_SECONDS=0 \
+  FAKE_LOCAL_HEALTH_RESULT='503|{"ok":false,"errorCode":"api_unhealthy","error":"boom"}|0' \
+  FAKE_HEALTH_RECOVER_ON_RESTART=1 \
+  ./deploy.sh watchdog:run
+)"
+assert_contains "$deploy_systemd_watchdog_output" "Watchdog incident recorded: api_unhealthy" "deploy.sh systemd watchdog incident"
+if [[ ! -f "$fake_state_dir/systemd/opavotingtool-stack.service.restarted" ]]; then
+  echo "deploy.sh watchdog:run did not restart the systemd stack unit." >&2
+  exit 1
+fi
+assert_not_contains "$(cat "$fake_state_dir/podman.log")" "compose restart" "deploy.sh systemd watchdog restart path"
 
 rm -rf "$fake_host_dir"
 fake_host_dir=""
