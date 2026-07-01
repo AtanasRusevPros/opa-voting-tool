@@ -119,7 +119,8 @@ function buildTeamState(activeParticipantCount: number): TeamStateResponse {
       roundId: null,
       roundVersion: 0,
       voteVersion: 0
-    }
+    },
+    serverTime: "2026-04-06T12:00:00.000Z"
   };
 }
 

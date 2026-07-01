@@ -31,6 +31,14 @@ function getTimerRemainingSeconds(expiresAt: string | null, nowMs: number): numb
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - nowMs) / 1000));
 }
 
+function getServerClockOffsetMs(serverTime: string | null | undefined): number {
+  if (!serverTime) {
+    return 0;
+  }
+  const serverTimeMs = new Date(serverTime).getTime();
+  return Number.isFinite(serverTimeMs) ? serverTimeMs - Date.now() : 0;
+}
+
 function formatTimerSeconds(seconds: number | null): string {
   if (seconds == null) {
     return "Off";
@@ -172,9 +180,11 @@ const ParticipantTile = memo(function ParticipantTile(props: {
 export const BoardTimerDisplay = memo(function BoardTimerDisplay(props: {
   teamTimerSeconds: TeamTimerSeconds | null;
   activeRound: RoundState | null;
+  serverTime?: string | null;
 }) {
   const activeTimerExpiresAt = props.activeRound?.status === "active" ? props.activeRound.timerExpiresAt : null;
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(() => getServerClockOffsetMs(props.serverTime));
+  const [nowMs, setNowMs] = useState(() => Date.now() + getServerClockOffsetMs(props.serverTime));
   const timerRemainingSeconds = getTimerRemainingSeconds(activeTimerExpiresAt, nowMs);
   const timerState = props.teamTimerSeconds == null ? "off" : activeTimerExpiresAt && timerRemainingSeconds != null ? "active" : "idle";
   const timerDisplayText =
@@ -185,8 +195,10 @@ export const BoardTimerDisplay = memo(function BoardTimerDisplay(props: {
         : `Timer ${formatTimerSeconds(props.teamTimerSeconds)}`;
 
   useEffect(() => {
-    setNowMs(Date.now());
-  }, [activeTimerExpiresAt, props.teamTimerSeconds]);
+    const nextServerClockOffsetMs = getServerClockOffsetMs(props.serverTime);
+    setServerClockOffsetMs(nextServerClockOffsetMs);
+    setNowMs(Date.now() + nextServerClockOffsetMs);
+  }, [activeTimerExpiresAt, props.serverTime, props.teamTimerSeconds]);
 
   useEffect(() => {
     if (!activeTimerExpiresAt) {
@@ -194,13 +206,15 @@ export const BoardTimerDisplay = memo(function BoardTimerDisplay(props: {
     }
     let timeoutId = 0;
     const tick = () => {
-      setNowMs(Date.now());
-      const delay = Math.max(200, 1000 - (Date.now() % 1000));
+      const nextNowMs = Date.now() + serverClockOffsetMs;
+      setNowMs(nextNowMs);
+      const currentSecondRemainder = ((nextNowMs % 1000) + 1000) % 1000;
+      const delay = Math.max(200, 1000 - currentSecondRemainder);
       timeoutId = window.setTimeout(tick, delay);
     };
     tick();
     return () => window.clearTimeout(timeoutId);
-  }, [activeTimerExpiresAt]);
+  }, [activeTimerExpiresAt, serverClockOffsetMs]);
 
   return (
     <div className={`board-timer board-timer-${timerState}`} aria-live="polite">
@@ -269,6 +283,7 @@ export const BoardStageContent = memo(function BoardStageContent(props: {
   selectedVoteValue: string | null;
   onVote: (value: string) => Promise<void>;
   teamTimerSeconds: TeamTimerSeconds | null;
+  serverTime?: string | null;
   pendingIssues: Array<{
     id: string;
     issueKey: string;
@@ -312,7 +327,7 @@ export const BoardStageContent = memo(function BoardStageContent(props: {
               compactTileProbeRef={props.compactTileProbeRef}
             />
 
-            <BoardTimerDisplay teamTimerSeconds={props.teamTimerSeconds} activeRound={props.activeRound} />
+            <BoardTimerDisplay teamTimerSeconds={props.teamTimerSeconds} activeRound={props.activeRound} serverTime={props.serverTime} />
 
             <div ref={props.centerPanelRef} className="center-panel">
               <div className="center-control-card">

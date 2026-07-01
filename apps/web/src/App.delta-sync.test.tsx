@@ -110,6 +110,7 @@ function buildBoardState(overrides?: Partial<TeamStateResponse>): TeamStateRespo
       roundVersion: 1,
       voteVersion: 0
     },
+    serverTime: "2026-04-27T14:00:00.000Z",
     ...overrides
   };
 }

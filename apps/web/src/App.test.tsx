@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, describe, vi } from "vitest";
 import App, {
   HistoryTimestamp,
@@ -186,6 +186,7 @@ function buildBoardState(overrides?: Partial<TeamStateResponse>): TeamStateRespo
       roundVersion: 1,
       voteVersion: 0
     },
+    serverTime: "2026-04-13T08:10:00.000Z",
     ...overrides
   };
 }
@@ -1721,6 +1722,7 @@ describe("App", () => {
         roundVersion: 2,
         voteVersion: 3
       },
+      serverTime: "2026-04-13T08:20:00.000Z",
       historyEntry: {
         id: "history-2",
         teamId: "team-1",
@@ -1750,6 +1752,7 @@ describe("App", () => {
     expect(next.pendingIssues).toEqual([]);
     expect(next.history[0]?.id).toBe("history-2");
     expect(next.activeRound?.status).toBe("revealed");
+    expect(next.serverTime).toBe("2026-04-13T08:20:00.000Z");
   });
 
   it("applies a vote-only round update without touching history", () => {
@@ -1767,13 +1770,15 @@ describe("App", () => {
         roundId: current.activeRound!.id,
         roundVersion: 1,
         voteVersion: 2
-      }
+      },
+      serverTime: "2026-04-13T08:10:02.000Z"
     });
 
     expect(next.history).toEqual(current.history);
     expect(next.activeRound?.votes).toHaveLength(2);
     expect(next.activeRound?.votes[0]?.value).toBe("5");
     expect(next.activeRound?.votes[1]?.value).toBe("hidden");
+    expect(next.serverTime).toBe("2026-04-13T08:10:02.000Z");
   });
 
   it("lets authoritative vote deltas reduce stale inflated voted counts", () => {
@@ -1798,7 +1803,8 @@ describe("App", () => {
         roundId: current.activeRound!.id,
         roundVersion: 1,
         voteVersion: 2
-      }
+      },
+      serverTime: "2026-04-13T08:10:02.000Z"
     });
 
     expect(next.activeRound?.votes).toHaveLength(2);
@@ -2342,6 +2348,69 @@ describe("App", () => {
     fireEvent.keyDown(commentField, { key: "r" });
 
     expect(onReveal).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders an active team countdown from server time even when the browser clock is ahead", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-13T08:10:30.000Z"));
+    HTMLElement.prototype.scrollTo = vi.fn();
+
+    const rendered = render(
+      <TeamBoard
+        state={buildBoardState({
+          team: {
+            ...buildBoardState().team,
+            timerSeconds: 10
+          },
+          activeRound: {
+            ...buildBoardState().activeRound!,
+            timerStartedAt: "2026-04-13T08:10:00.000Z",
+            timerExpiresAt: "2026-04-13T08:10:10.000Z"
+          },
+          serverTime: "2026-04-13T08:10:00.000Z"
+        })}
+        onSelectTeam={vi.fn()}
+        onOpenTeamChooser={vi.fn()}
+        onOpenMemberDirectory={vi.fn()}
+        notificationFeed={null}
+        onOpenNotifications={vi.fn(async () => {})}
+        onAdmitJoinRequest={vi.fn(async () => {})}
+        onDenyJoinRequest={vi.fn(async () => {})}
+        onAdmitPlatformAccessRequest={vi.fn(async () => buildPlatformAccessActionResponse())}
+        onDenyPlatformAccessRequest={vi.fn(async () => {})}
+        onCreateRound={vi.fn(async () => {})}
+        onVote={vi.fn(async () => {})}
+        onReveal={vi.fn(async () => {})}
+        onVoteAgain={vi.fn(async () => {})}
+        onAddHistoryComment={vi.fn(async () => {})}
+        onEditHistoryComment={vi.fn(async () => {})}
+        onDeleteHistoryComment={vi.fn(async () => {})}
+        onUpdateDeckSettings={vi.fn(async () => {})}
+        onUpdateTimer={vi.fn(async () => {})}
+        onUpdateHistoryTimezoneSettings={vi.fn(async () => {})}
+        onRenameTeam={vi.fn(async () => {})}
+        onLeaveCurrentTeam={vi.fn(async () => {})}
+        onOpenAccountSettings={vi.fn()}
+        status={{ tone: "neutral", text: "Ready." }}
+        isBusy={false}
+      />
+    );
+
+    try {
+      expect(document.querySelector(".board-timer-active")).toHaveTextContent("10s");
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(document.querySelector(".board-timer-active")).toHaveTextContent("9s");
+    } finally {
+      rendered.unmount();
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      vi.useRealTimers();
+    }
   });
 
   it("supports revealed-round shortcuts and exposes shortcut help in both menu and modal", async () => {

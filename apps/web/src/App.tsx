@@ -1216,7 +1216,8 @@ export function applyTeamRoundUpdateToState(state: TeamStateResponse, next: Team
     activeRound: next.activeRound,
     history: mergeLatestHistoryEntry(state.history, next.historyEntry),
     pendingIssues: nextPendingIssues,
-    liveSync: next.liveSync
+    liveSync: next.liveSync,
+    serverTime: next.serverTime ?? state.serverTime ?? null
   };
 
   return sameTeamStateResponse(state, nextState) ? state : nextState;
@@ -1348,14 +1349,16 @@ export function applyTeamRoundVoteUpdateToState(state: TeamStateResponse, next: 
     }
     return {
       ...state,
-      liveSync: next.liveSync
+      liveSync: next.liveSync,
+      serverTime: next.serverTime ?? state.serverTime ?? null
     };
   }
 
   const nextState = {
     ...state,
     activeRound: nextActiveRound,
-    liveSync: next.liveSync
+    liveSync: next.liveSync,
+    serverTime: next.serverTime ?? state.serverTime ?? null
   };
   teamStateBoardCache.set(nextState, {
     memberByIndex: boardCache.memberByIndex,
@@ -1584,7 +1587,8 @@ function sameTeamStateResponse(left: TeamStateResponse | null, right: TeamStateR
     sameHistoryEntryArray(left.history, right.history) &&
     sameCurrentUserSummary(left.currentUser, right.currentUser) &&
     left.currentUserRole === right.currentUserRole &&
-    sameLiveSyncState(left.liveSync, right.liveSync)
+    sameLiveSyncState(left.liveSync, right.liveSync) &&
+    (left.serverTime ?? null) === (right.serverTime ?? null)
   );
 }
 
@@ -4124,6 +4128,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
         selectedVoteValue={selectedVoteValue}
         onVote={props.onVote}
         teamTimerSeconds={props.state.team.timerSeconds}
+        serverTime={props.state.serverTime}
         pendingIssues={pendingIssues.map((issue) => ({
           id: issue.id,
           issueKey: issue.issueKey,

@@ -546,6 +546,7 @@ function withActiveParticipants(state: TeamStateResponse, teamId: string): TeamS
 function buildTeamState(teamId: string, userId: string, options?: { includeHistory?: boolean }): TeamStateResponse {
   const context = roomEngineManager.getViewerContext(teamId, userId);
   const snapshot = roomEngineManager.getSnapshotRef(teamId);
+  const serverTime = new Date().toISOString();
   const state = withActiveParticipants(
     {
       team: snapshot.team,
@@ -558,13 +559,15 @@ function buildTeamState(teamId: string, userId: string, options?: { includeHisto
       history: options?.includeHistory === false ? [] : snapshot.history,
       currentUser: context.currentUser,
       currentUserRole: context.currentUserRole,
-      liveSync: snapshot.liveSync
+      liveSync: snapshot.liveSync,
+      serverTime
     },
     teamId
   );
   return {
     ...state,
-    liveSync: snapshot.liveSync
+    liveSync: snapshot.liveSync,
+    serverTime
   };
 }
 
@@ -676,6 +679,7 @@ function buildTeamStateFromBroadcastSnapshot(snapshot: TeamBroadcastSnapshot, us
       : snapshot.team.demo && currentUser.isSuperAdmin && config.demoModeEnabled
         ? "team_admin"
         : "none";
+  const serverTime = new Date().toISOString();
 
   return {
     team: snapshot.team,
@@ -688,7 +692,8 @@ function buildTeamStateFromBroadcastSnapshot(snapshot: TeamBroadcastSnapshot, us
     history: snapshot.history,
     currentUser,
     currentUserRole: effectiveRole,
-    liveSync: snapshot.liveSync
+    liveSync: snapshot.liveSync,
+    serverTime
   };
 }
 
@@ -697,7 +702,8 @@ function buildTeamRoundUpdatePayload(snapshot: TeamRoundBroadcastSnapshot, userI
     teamId: snapshot.teamId,
     activeRound: personalizeRoundForBroadcast(snapshot.activeRound, snapshot.revealedOrHiddenVoteValuesByUserId, userId),
     historyEntry: snapshot.latestHistoryEntry,
-    liveSync: snapshot.liveSync
+    liveSync: snapshot.liveSync,
+    serverTime: new Date().toISOString()
   };
 }
 
@@ -710,7 +716,8 @@ function buildTeamRoundVoteUpdatePayload(snapshot: TeamVoteBroadcastSnapshot, us
     votedCount: snapshot.votedCount,
     notVotedCount: snapshot.notVotedCount,
     viewerVoteValue: snapshot.voteValuesByUserId.get(userId) ?? null,
-    liveSync: snapshot.liveSync
+    liveSync: snapshot.liveSync,
+    serverTime: new Date().toISOString()
   };
 }
 

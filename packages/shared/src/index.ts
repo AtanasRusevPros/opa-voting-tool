@@ -554,6 +554,7 @@ export interface TeamStateResponse {
   currentUser: CurrentUserSummary;
   currentUserRole: TeamUserRole;
   liveSync: TeamLiveSyncState;
+  serverTime?: string | null;
 }
 
 export interface TeamLiveSyncState {
@@ -568,6 +569,7 @@ export interface TeamRoundUpdatePayload {
   activeRound: RoundState | null;
   historyEntry: HistoryEntry | null;
   liveSync: TeamLiveSyncState;
+  serverTime?: string | null;
 }
 
 export interface TeamRoundVoteUpdatePayload {
@@ -579,6 +581,7 @@ export interface TeamRoundVoteUpdatePayload {
   notVotedCount: number;
   viewerVoteValue: string | null;
   liveSync: TeamLiveSyncState;
+  serverTime?: string | null;
 }
 
 export interface BrandingManifest {

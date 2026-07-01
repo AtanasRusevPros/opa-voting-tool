@@ -595,6 +595,12 @@ async function expectRevealedAverage(page: Page, score: string) {
   );
 }
 
+async function readActiveBoardTimerSeconds(page: Page) {
+  const timerText = (await page.locator(".board-timer-active").textContent())?.trim() ?? "";
+  const match = timerText.match(/(\d+)s$/);
+  return match ? Number.parseInt(match[1]!, 10) : null;
+}
+
 function memberVoteCard(page: Page, displayName: string) {
   return page.locator(".member-tile", { has: page.locator("strong", { hasText: displayName }) }).locator(".vote-card");
 }
@@ -1480,10 +1486,19 @@ test("team timer auto-reveals across reconnects and resets for vote again", asyn
     await expect(ownerPage.locator(".board-timer-active")).toBeVisible();
     await expect(memberPage.locator(".board-timer-active")).toBeVisible();
     await expect(ownerPage.locator(".board-timer-active")).not.toContainText("Timer 10s");
+    await expect(ownerPage.locator(".board-timer-active")).toContainText(/[1-9]\d*s/);
+    await expect(memberPage.locator(".board-timer-active")).toContainText(/[1-9]\d*s/);
+    const ownerStartingSeconds = await readActiveBoardTimerSeconds(ownerPage);
+    const memberStartingSeconds = await readActiveBoardTimerSeconds(memberPage);
+    expect(ownerStartingSeconds).not.toBeNull();
+    expect(memberStartingSeconds).not.toBeNull();
+    await expect.poll(async () => readActiveBoardTimerSeconds(ownerPage)).toBeLessThan(ownerStartingSeconds!);
+    await expect.poll(async () => readActiveBoardTimerSeconds(memberPage)).toBeLessThan(memberStartingSeconds!);
 
     await memberPage.reload();
     await expect(memberPage.getByRole("heading", { name: teamName })).toBeVisible({ timeout: 15000 });
     await expect(memberPage.locator(".board-timer-active")).toBeVisible();
+    await expect(memberPage.locator(".board-timer-active")).toContainText(/[1-9]\d*s/);
 
     await expectRevealedAverage(ownerPage, "4");
     await expectRevealedAverage(memberPage, "4");
@@ -1496,6 +1511,8 @@ test("team timer auto-reveals across reconnects and resets for vote again", asyn
     await expect(ownerPage.getByRole("heading", { name: "TIMER-101" })).toBeVisible();
     await expect(ownerPage.locator(".board-timer-active")).toBeVisible();
     await expect(memberPage.locator(".board-timer-active")).toBeVisible();
+    await expect(ownerPage.locator(".board-timer-active")).toContainText(/[1-9]\d*s/);
+    await expect(memberPage.locator(".board-timer-active")).toContainText(/[1-9]\d*s/);
 
     await ownerPage.getByRole("button", { name: "8", exact: true }).click();
     await memberPage.getByRole("button", { name: "8", exact: true }).click();
