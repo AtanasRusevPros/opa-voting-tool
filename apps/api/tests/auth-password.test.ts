@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import WebSocket from "ws";
+import { once } from "node:events";
 
 const { sendMailMock, createTransportMock } = vi.hoisted(() => {
   const sendMail = vi.fn(async () => undefined);
@@ -218,8 +220,44 @@ describe("Password and invite HTTP flows", () => {
     expect(duplicateCodeResponse.status).toBe(409);
   });
 
-  it("fails closed for public trial collaborator invites when SMTP is unavailable", async () => {
-    const { app } = await loadTestServer({ publicTrial: true });
+  it("returns actionable quota errors for new rounds, votes and reveals while retaining history", async () => {
+    const { app, repository } = await loadTestServer({ publicTrial: true });
+    const client = request(app);
+    const email = "quota-http@trial.example";
+    const code = await client.post("/api/auth/public-trial/request-code").send({ email });
+    const signup = await client.post("/api/auth/public-trial/signup").send({
+      email, code: code.body.debugCode, displayName: "Quota User", avatarIconKey: "bear", avatarColorKey: "azure",
+      password: "Password123!", acceptedTerms: true, acceptedTermsVersion: code.body.termsVersion
+    });
+    expect(signup.status).toBe(201);
+    const cookie = signup.headers["set-cookie"];
+    const teamId = signup.body.team.id;
+    const userId = signup.body.user.id;
+    const second = repository.createTeam(userId, "Quota side team");
+    const pending = repository.createRound(second.id, "Pending round");
+    const limit = repository.getPublicTrialWorkspaces(userId)[0]!.monthlyLimit;
+    expect(limit).toBe(80);
+    for (let index = 0; index < limit; index++) {
+      const round = repository.createRound(teamId, `Round ${index}`);
+      repository.revealRound(round.id);
+    }
+    for (const [url, body] of [
+      [`/api/teams/${teamId}/rounds`, {title: "Over limit"}],
+      [`/api/teams/${second.id}/rounds/${pending.id}/vote`, {value: "5"}],
+      [`/api/teams/${second.id}/rounds/${pending.id}/reveal`, {}]
+    ] as const) {
+      const response = await client.post(url).set("Cookie", cookie).send(body);
+      expect(response.status).toBe(409);
+      expect(response.body.error).toContain("used all 80");
+      expect(response.body.error).toContain("UTC");
+    }
+    expect(repository.getHistory(teamId)).toHaveLength(80);
+    const usage = await client.get("/api/workspaces/trial").set("Cookie", cookie);
+    expect(usage.body.workspaces[0].revealedRounds).toBe(80);
+  });
+
+  it("requires SMTP only for new trial users and immediately revokes removed members sockets", async () => {
+    const { app, server } = await loadTestServer({ publicTrial: true });
     const client = request(app);
 
     const codeResponse = await client.post("/api/auth/public-trial/request-code").send({
@@ -247,6 +285,46 @@ describe("Password and invite HTTP flows", () => {
 
     expect(inviteResponse.status).toBe(503);
     expect(inviteResponse.body.error).toContain("require SMTP");
+
+    const existingEmail = "existing-trial-member@gmail.com";
+    const existingCode = await client.post("/api/auth/public-trial/request-code").send({ email: existingEmail });
+    const existingSignup = await client.post("/api/auth/public-trial/signup").send({
+      email: existingEmail, code: existingCode.body.debugCode, displayName: "Existing Member",
+      avatarIconKey: "bear", avatarColorKey: "azure", password: "Password123!",
+      acceptedTerms: true, acceptedTermsVersion: existingCode.body.termsVersion
+    });
+    expect(existingSignup.status).toBe(201);
+    const added = await client.post(`/api/teams/${teamId}/members`).set("Cookie", ownerCookie).send({ email: existingEmail });
+    expect(added.status).toBe(201);
+    expect(added.body.invitationDelivery).toBe("existing-user");
+    expect(added.body.temporaryPassword).toBeNull();
+    const existingCookie = existingSignup.headers["set-cookie"];
+    const session = await client.get("/api/auth/session").set("Cookie", existingCookie);
+    expect(session.body.memberships.map((team: { id: string }) => team.id)).toEqual(expect.arrayContaining([teamId, existingSignup.body.team.id]));
+    expect((await client.get(`/api/teams/${teamId}/state`).set("Cookie", existingCookie)).status).toBe(200);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as { port: number };
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws?teamId=${teamId}`, {
+      headers: { Cookie: (Array.isArray(existingCookie) ? existingCookie : [existingCookie]).map((value: string) => value.split(";")[0]).join("; ") }
+    });
+    try {
+      await once(socket, "open");
+      const closed = once(socket, "close");
+      const removed = await client.post(`/api/teams/${teamId}/members/${added.body.user.id}/remove`).set("Cookie", ownerCookie);
+      expect(removed.status).toBe(200);
+      expect((await closed)[0]).toBe(1008);
+      expect((await client.get(`/api/teams/${teamId}/state`).set("Cookie", existingCookie)).status).toBe(403);
+      const workspaceList = await client.get("/api/workspaces/trial").set("Cookie", existingCookie);
+      expect(workspaceList.body.workspaces).toHaveLength(2);
+      const joined = workspaceList.body.workspaces.find((workspace: {isOwner: boolean}) => !workspace.isOwner);
+      expect((await client.post(`/api/workspaces/${joined.id}/leave`).set("Cookie", existingCookie)).status).toBe(200);
+      expect((await client.get("/api/workspaces/trial").set("Cookie", existingCookie)).body.workspaces).toHaveLength(1);
+    } finally {
+      socket.terminate();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+
+
   });
 
   it("uses SMTP-only public trial invites for external emails without exposing manual-share passwords", async () => {

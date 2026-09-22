@@ -681,3 +681,27 @@ not rewritten; assess fresh rounds when verifying the fix. After cleanup, expect
 Demo Team 10 and Demo Team 400 rounds, refresh/reconnect, and at least five repeated
 reveals; recheck after a demo-mode toggle or restart. Synthetic voting now uses only
 the canonical seed IDs assigned to each team, even before cleanup.
+
+## Updating hosted-trial collaboration policy
+
+After deploying this change, explicit existing limits are preserved. To raise an
+existing hosted demo from 40 to 80 reveals per month, edit the existing
+`[public_trial]` section in `config/deployment.local.toml` (do not duplicate it):
+
+```toml
+max_revealed_rounds_per_workspace_per_month = 80
+```
+
+Restart with `./deploy.sh restart`, then check local/public health. The workspace
+usage panel must show 80 as its monthly limit. Default/private self-hosted workspaces
+are unaffected by hosted-trial caps. Monthly usage now counts actual revealed rounds,
+including vote-again rounds, rather than distinct saved history entries; prior reveals
+still present in the database count for the current UTC month.
+
+Verify with disposable accounts: invite an existing trial owner into a second
+workspace, reject a third invite with an actionable message, leave the collaborator
+workspace and retry the invite. Verify owner-leave rejection and retained history.
+Remove a member while their board is open: it must return to the team chooser and
+stop receiving board updates. Quota exhaustion and next-month reset have automated
+coverage; test a reduced cap only on a disposable deployment, not by changing the
+live server clock or unnecessarily lowering the shared public-demo allowance.

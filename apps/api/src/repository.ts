@@ -196,6 +196,8 @@ export class RoundNotActiveError extends Error {
   }
 }
 
+export class TrialQuotaExceededError extends Error {}
+
 export class Repository {
   private db!: DatabaseSync;
   private simulatorHeartbeatAt = 0;
@@ -1104,6 +1106,49 @@ export class Repository {
 
   getPublicTrialTermsVersion(): string {
     return PUBLIC_TRIAL_TERMS_VERSION;
+  }
+
+  getPublicTrialWorkspaces(userId: string) {
+    const rows = this.db.prepare(`SELECT w.id, w.name, w.created_by, wm.role
+      FROM workspaces w JOIN workspace_memberships wm ON wm.workspace_id = w.id
+      WHERE wm.user_id = ? AND w.kind = 'public_trial' ORDER BY w.created_at, w.id`).all(userId) as Array<{id: string; name: string; created_by: string; role: string}>;
+    const now = new Date();
+    return rows.map((row) => ({
+      id: row.id, name: row.name, isOwner: row.created_by === userId || row.role === "owner",
+      revealedRounds: this.countWorkspaceMonthlyReveals(row.id, now.toISOString()),
+      monthlyLimit: this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth,
+      resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString(),
+      teams: (this.db.prepare(`SELECT t.id, t.name FROM teams t JOIN team_memberships tm ON tm.team_id = t.id
+        WHERE t.workspace_id = ? AND tm.user_id = ? ORDER BY t.name`).all(row.id, userId) as Array<{id: string; name: string}>)
+    }));
+  }
+
+  leavePublicTrialWorkspace(userId: string, workspaceId: string): string[] {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const workspace = this.getPublicTrialWorkspaces(userId).find((item) => item.id === workspaceId);
+      if (!workspace) throw new Error("Workspace membership not found.");
+      if (workspace.isOwner) throw new Error("Owners cannot leave their trial workspace. Account settings explains account deletion and permanent removal of owned trial workspaces.");
+      const teamIds = (this.db.prepare("SELECT id FROM teams WHERE workspace_id = ?").all(workspaceId) as Array<{id: string}>).map((row) => row.id);
+      for (const teamId of teamIds) {
+        this.db.prepare("DELETE FROM votes WHERE user_id = ? AND round_id IN (SELECT id FROM rounds WHERE team_id = ? AND status = 'active')").run(userId, teamId);
+        this.db.prepare("DELETE FROM team_memberships WHERE user_id = ? AND team_id = ?").run(userId, teamId);
+        this.db.prepare("DELETE FROM team_join_requests WHERE user_id = ? AND team_id = ?").run(userId, teamId);
+        this.db.prepare("DELETE FROM user_team_preferences WHERE user_id = ? AND team_id = ?").run(userId, teamId);
+      }
+      this.db.prepare("DELETE FROM workspace_memberships WHERE user_id = ? AND workspace_id = ?").run(userId, workspaceId);
+      this.recordPlatformAudit("trial_workspace_left", "Trial workspace left", "A collaborator left a hosted-trial workspace.", userId);
+      this.db.exec("COMMIT");
+      return teamIds;
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+  }
+
+  private assertTrialRoundAllowance(teamId: string): void {
+    const workspaceId = this.getWorkspaceIdForTeam(teamId);
+    if (workspaceId && this.getWorkspaceKind(workspaceId) === "public_trial" &&
+        this.countWorkspaceMonthlyReveals(workspaceId, nowIso()) >= this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth) {
+      throw new TrialQuotaExceededError(`This hosted-trial workspace has used all ${this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} revealed rounds this month. Voting resumes on the first day of next month (UTC). History remains available. Self-host for use without hosted-demo limits.`);
+    }
   }
 
   userHasPublicTrialWorkspace(userId: string): boolean {
@@ -2174,6 +2219,7 @@ export class Repository {
 
   createRound(teamId: string, title: string, revoteHistoryEntryId: string | null = null, pendingIssueId: string | null = null): RoundState {
     return perfTracker.measure("repository.createRound", () => {
+      this.assertTrialRoundAllowance(teamId);
       this.db.prepare("UPDATE rounds SET status = 'archived' WHERE team_id = ? AND status IN ('active', 'revealed')").run(teamId);
 
       const team = this.getTeam(teamId);
@@ -2250,6 +2296,7 @@ export class Repository {
         throw new RoundNotActiveError();
       }
 
+      this.assertTrialRoundAllowance(round.teamId);
       this.db
         .prepare(
           `
@@ -2290,6 +2337,7 @@ export class Repository {
         throw new RoundNotActiveError();
       }
 
+      this.assertTrialRoundAllowance(round.team_id);
       this.db
         .prepare(
           `
@@ -2339,16 +2387,7 @@ export class Repository {
         return this.getRoundState(roundId)!;
       }
 
-      const workspaceId = this.getWorkspaceIdForTeam(round.teamId);
-      if (
-        workspaceId &&
-        this.getWorkspaceKind(workspaceId) === "public_trial" &&
-        this.countWorkspaceMonthlyReveals(workspaceId, revealedAt) >= this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth
-      ) {
-        throw new Error(
-          `Public trial workspaces can reveal at most ${this.config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} rounds per month.`
-        );
-      }
+      this.assertTrialRoundAllowance(round.teamId);
 
       const result = this.db
         .prepare(
@@ -3339,9 +3378,9 @@ export class Repository {
       .prepare(
         `
         SELECT COUNT(*) AS count
-        FROM history_entries he
-        JOIN teams t ON t.id = he.team_id
-        WHERE t.workspace_id = ? AND he.completed_at >= ? AND he.completed_at < ?
+        FROM rounds r
+        JOIN teams t ON t.id = r.team_id
+        WHERE t.workspace_id = ? AND r.revealed_at >= ? AND r.revealed_at < ?
       `
       )
       .get(workspaceId, monthStart, nextMonthStart) as { count: number };
@@ -3371,8 +3410,8 @@ export class Repository {
       .prepare("SELECT role FROM workspace_memberships WHERE workspace_id = ? AND user_id = ?")
       .get(workspaceId, userId) as { role: WorkspaceUserRole } | undefined;
     if (!existingMembership && this.getWorkspaceKind(workspaceId) === "public_trial" && !this.isSuperAdmin(userId)) {
-      if (this.userHasPublicTrialWorkspace(userId)) {
-        throw new Error("Free public trial users can belong to only one public trial workspace.");
+      if (this.getPublicTrialWorkspaces(userId).length >= 2) {
+        throw new Error("This person already participates in two hosted-trial workspaces. They must leave one workspace in the team chooser, or delete their owned trial workspace through Account settings, before accepting another invitation. Leaving only a team does not free a workspace slot.");
       }
       if (this.countWorkspaceMembers(workspaceId) >= this.config.publicTrial.maxUsersPerWorkspace) {
         throw new Error(`Public trial workspaces can have at most ${this.config.publicTrial.maxUsersPerWorkspace} users.`);

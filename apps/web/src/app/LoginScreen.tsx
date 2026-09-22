@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { HostedTrialNotice } from "./HostedTrialNotice";
 import type { CSSProperties } from "react";
 import { AVATAR_COLOR_KEYS, AVATAR_COLOR_SWATCHES, BRANDING_MANIFEST, type BrandingManifest } from "@planning-poker/shared";
 import type { AuthStep } from "./types";
@@ -25,6 +26,7 @@ export function LoginScreen(props: {
   setAvatarColorKey: (value: string) => void;
   authStep: AuthStep;
   canUseEmailCode: boolean;
+  trialLimits?: { maxTeamsPerWorkspace: number; maxUsersPerWorkspace: number; maxRevealedRoundsPerWorkspacePerMonth: number };
   publicTrialOpenSignup: boolean;
   isPublicTrialCodeStep: boolean;
   trialTermsAccepted: boolean;
@@ -327,11 +329,12 @@ export function LoginScreen(props: {
             </div>
             {props.publicTrialOpenSignup ? (
               <div className="field-hint">
-                Public trial creates a private starter workspace with limited free usage. Self-hosting remains the main OSS path.
+                Hosted demo: up to two workspace memberships, {props.trialLimits?.maxTeamsPerWorkspace ?? 2} teams and {props.trialLimits?.maxUsersPerWorkspace ?? 10} users per workspace, and {props.trialLimits?.maxRevealedRoundsPerWorkspacePerMonth ?? 80} revealed rounds per workspace per calendar month (UTC). Signup creates your own starter workspace; existing users can accept an invitation to a second workspace.
               </div>
             ) : null}
           </div>
         ) : null}
+        {props.publicTrialOpenSignup ? <HostedTrialNotice /> : null}
         <BrandFooter branding={branding} />
       </form>
     </div>

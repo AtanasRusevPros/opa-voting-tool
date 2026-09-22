@@ -642,9 +642,68 @@ describe("Repository integration", () => {
     repo.castVote(firstRound.id, signup.user.id, "5");
     expect(repo.revealRound(firstRound.id).status).toBe("revealed");
 
-    const secondRound = repo.createRound(signup.team.id, "Monthly Cap 2");
-    repo.castVote(secondRound.id, signup.user.id, "8");
-    expect(() => repo.revealRound(secondRound.id)).toThrowError("Public trial workspaces can reveal at most 1 rounds per month.");
+    expect(() => repo.createRound(signup.team.id, "Monthly Cap 2")).toThrowError("used all 1 revealed rounds");
+    expect(repo.getCurrentRound(signup.team.id)!.id).toBe(firstRound.id);
+    expect(repo.getHistory(signup.team.id)).toHaveLength(1);
+  });
+
+  it("counts vote-again reveals and enforces the workspace cap across teams until UTC month reset", () => {
+    const config = createTestConfig();
+    config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth = 2;
+    const repo = new Repository(config);
+    const email = "monthly@trial.example";
+    const signup = repo.completePublicTrialSignup({ email, code: repo.requestLoginCode(email).code,
+      password: "Password123!", acceptedTermsVersion: repo.getPublicTrialTermsVersion() })!;
+    const side = repo.createTeam(signup.user.id, "Side team");
+    const pending = repo.createRound(side.id, "Pending at cap");
+    const first = repo.createRound(signup.team.id, "First");
+    repo.castVote(first.id, signup.user.id, "5"); repo.revealRound(first.id);
+    const historyId = repo.getHistory(signup.team.id)[0]!.id;
+    const again = repo.createRound(signup.team.id, "First", historyId);
+    repo.castVote(again.id, signup.user.id, "8"); repo.revealRound(again.id);
+    expect(repo.getHistory(signup.team.id)).toHaveLength(1);
+    expect(repo.getPublicTrialWorkspaces(signup.user.id)[0]!.revealedRounds).toBe(2);
+    expect(() => repo.createRound(side.id, "Blocked")).toThrow("used all 2");
+    expect(() => repo.castVote(pending.id, signup.user.id, "5")).toThrow("used all 2");
+    expect(() => repo.revealRound(pending.id)).toThrow("used all 2");
+    const now = new Date();
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
+      expect(repo.getPublicTrialWorkspaces(signup.user.id)[0]!.revealedRounds).toBe(0);
+      expect(repo.createRound(side.id, "New month").status).toBe("active");
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("allows two trial workspaces, rejects a third, and frees a collaborator slot without deleting history", () => {
+    const repo = new Repository(createTestConfig());
+    const signup = (email: string) => repo.completePublicTrialSignup({
+      email, code: repo.requestLoginCode(email).code, displayName: email,
+      avatarIconKey: "bear", avatarColorKey: "azure", password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    const john = signup("john@trial.example");
+    const stacey = signup("stacey@trial.example");
+    const third = signup("third@trial.example");
+    repo.addTeamMemberByEmail(stacey.user.id, stacey.team.id, john.user.email);
+    const workspaces = repo.getPublicTrialWorkspaces(john.user.id);
+    expect(workspaces).toHaveLength(2);
+    expect(() => repo.addTeamMemberByEmail(third.user.id, third.team.id, john.user.email)).toThrow("already participates in two");
+    expect(repo.isTeamMember(john.user.id, third.team.id)).toBe(false);
+    const own = workspaces.find((workspace) => workspace.isOwner)!;
+    const joined = workspaces.find((workspace) => !workspace.isOwner)!;
+    expect(() => repo.leavePublicTrialWorkspace(john.user.id, own.id)).toThrow("Owners cannot leave");
+    expect(() => repo.leavePublicTrialWorkspace(third.user.id, joined.id)).toThrow("membership not found");
+    const round = repo.createRound(stacey.team.id, "Retained workspace history");
+    repo.castVote(round.id, john.user.id, "5"); repo.revealRound(round.id);
+    const history = repo.getHistory(stacey.team.id);
+    repo.leavePublicTrialWorkspace(john.user.id, joined.id);
+    expect(repo.getPublicTrialWorkspaces(john.user.id)).toHaveLength(1);
+    expect(repo.isTeamMember(john.user.id, stacey.team.id)).toBe(false);
+    expect(repo.getHistory(stacey.team.id)).toEqual(history);
+    expect(repo.isTeamMember(stacey.user.id, stacey.team.id)).toBe(true);
+    repo.addTeamMemberByEmail(third.user.id, third.team.id, john.user.email);
+    expect(repo.getPublicTrialWorkspaces(john.user.id)).toHaveLength(2);
   });
 
   it("deactivates a retained-workspace account, preserves attributed history, and frees the email", () => {

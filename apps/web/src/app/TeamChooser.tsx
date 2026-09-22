@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { HostedTrialNotice, type TrialWorkspaceView } from "./HostedTrialNotice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BRANDING_MANIFEST, type BrandingManifest, type CurrentUserSummary, type TeamMembershipSummary } from "@planning-poker/shared";
 import { LogoutIcon } from "./icons";
@@ -10,6 +11,8 @@ import type { NotificationFeedResponse, PlatformAccessRequestActionResponse, Pla
 
 export function TeamChooser(props: {
   branding?: BrandingManifest;
+  loadTrialWorkspaces?: () => Promise<TrialWorkspaceView[]>;
+  onLeaveWorkspace?: (workspaceId: string) => Promise<void>;
   user: CurrentUserSummary;
   memberships: TeamMembershipSummary[];
   availableTeams: TeamMembershipSummary[];
@@ -118,6 +121,16 @@ export function TeamChooser(props: {
     window.requestAnimationFrame(() => importTeamInputRef.current?.focus());
   }, [importTeamOpen]);
 
+  const [trialWorkspaces, setTrialWorkspaces] = useState<TrialWorkspaceView[]>([]);
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [leavingWorkspace, setLeavingWorkspace] = useState(false);
+  useEffect(() => {
+    let active = true;
+    props.loadTrialWorkspaces?.().then((items) => { if (active) setTrialWorkspaces(items); })
+      .catch(() => { if (active) setWorkspaceError("Could not load workspace usage. Reopen the team chooser to retry."); });
+    return () => { active = false; };
+  }, [props.loadTrialWorkspaces, props.memberships]);
+
   return (
     <div className="chooser-shell">
       <div className="chooser-panel">
@@ -157,6 +170,27 @@ export function TeamChooser(props: {
           </div>
         </div>
         <BrandFooter branding={branding} />
+        {workspaceError ? <p role="alert">{workspaceError}</p> : null}
+        {trialWorkspaces.length > 0 ? <section className="chooser-card">
+          <h3>Your hosted-trial workspaces ({trialWorkspaces.length}/2)</h3>
+          <p>You can participate in two trial workspaces. Invitations do not reset usage. Leaving a team does not free a workspace slot.</p>
+          {trialWorkspaces.map((workspace) => <div key={workspace.id}>
+            <h4>{workspace.name} — {workspace.isOwner ? "Owner" : "Collaborator"}</h4>
+            <p>Teams: {workspace.teams.map((team) => team.name).join(", ") || "No joined teams"}</p>
+            <p>{workspace.revealedRounds} of {workspace.monthlyLimit} revealed rounds used this month. Resets {workspace.resetsAt.slice(0, 10)} (UTC).</p>
+            {workspace.isOwner ? <p>To delete your owned trial workspace, use Account settings. Account deletion permanently removes your account and all owned trial workspaces, including their teams and history.</p> :
+              <button type="button" className="secondary-button" disabled={leavingWorkspace} onClick={async () => {
+                if (!window.confirm(`Leave ${workspace.name}? You will lose access to all its teams. Saved history stays with the workspace. Your account and other workspace remain.`)) return;
+                setLeavingWorkspace(true); setWorkspaceError("");
+                try {
+                  await props.onLeaveWorkspace?.(workspace.id);
+                  setTrialWorkspaces(await props.loadTrialWorkspaces?.() ?? []);
+                } catch (error) { setWorkspaceError((error as Error).message); }
+                finally { setLeavingWorkspace(false); }
+              }}>Leave workspace: {workspace.name}</button>}
+          </div>)}
+          <HostedTrialNotice />
+        </section> : null}
 
         <div className="chooser-columns">
           <section className="chooser-card chooser-actions-card">

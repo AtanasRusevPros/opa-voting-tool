@@ -889,6 +889,11 @@ wsServer.on("connection", (socket, request) => {
     return;
   }
 
+  if (!repository.isTeamMember(user.id, resolvedTeamId) && !user.isSuperAdmin) {
+    socket.close(1008, "Team membership required");
+    return;
+  }
+
   if (!teamClients.has(resolvedTeamId)) {
     teamClients.set(resolvedTeamId, new Set());
   }
@@ -928,6 +933,11 @@ function broadcastTeam(teamId: string, mode: TeamBroadcastMode = "full") {
 
     const session = socketSessions.get(socket);
     if (!session) {
+      continue;
+    }
+
+    if (!repository.isTeamMember(session.userId, teamId) && !repository.isSuperAdmin(session.userId)) {
+      socket.close(1008, "Team membership revoked");
       continue;
     }
 
@@ -1001,6 +1011,11 @@ function broadcastPresence(teamId: string) {
       continue;
     }
 
+    const session = socketSessions.get(socket);
+    if (!session || (!repository.isTeamMember(session.userId, teamId) && !repository.isSuperAdmin(session.userId))) {
+      socket.close(1008, "Team membership revoked");
+      continue;
+    }
     try {
       socket.send(payload);
       sentCount += 1;

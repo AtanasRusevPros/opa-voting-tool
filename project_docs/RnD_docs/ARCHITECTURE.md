@@ -182,3 +182,19 @@ Behavior choices:
 - Capacity reporting now distinguishes `broadcast.team.vote.*` from `broadcast.team.round.*`, including separate critical-path slices for vote-lane queue wait, reveal-lane queue wait, payload bytes, payload-build time, delta-user count, and version-span size. This makes later tuning decisions auditable instead of mixing routine voting and reveal behavior into one number.
 - Frontend board rendering is now guarded with targeted perf tests so a peer vote changes only the affected participant tile subtree rather than forcing a whole-board rerender.
 - The highest-risk area for scale is realtime broadcast fanout, so websocket/session changes should be evaluated carefully.
+
+### Hosted-trial membership and usage
+
+Normal users may belong to two public-trial workspaces; the existing signup flow
+continues to reject an additional signup for an account already in a trial workspace.
+Workspace-scoped reads remain isolated. Collaborator workspace leave atomically
+removes team memberships, join requests, preferences and active votes, followed by
+workspace membership removal and live-access revocation. Owners must use the existing
+account deletion/purge flow. Saved shared history is preserved by collaborator leave.
+
+The default monthly quota is 80 actual revealed rounds, counted from persisted round
+reveal timestamps in the UTC calendar month. Vote-again reveals count independently
+of the history snapshot they replace. Creation, vote submission and reveal enforce
+the quota, returning actionable quota errors. WebSocket connection and broadcast paths
+check membership, and a revoked socket closes with policy code 1008 so the client
+clears the board and returns to the chooser.

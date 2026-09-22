@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { TrialWorkspaceView } from "./app/HostedTrialNotice";
 import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -4253,7 +4254,7 @@ export default function App() {
     mode: "disabled",
     maxTeamsPerWorkspace: 2,
     maxUsersPerWorkspace: 10,
-    maxRevealedRoundsPerWorkspacePerMonth: 40,
+    maxRevealedRoundsPerWorkspacePerMonth: 80,
     maxSignupRequestsPerIpPerHour: 3,
     maxCodeRequestsPerEmailPerDay: 5,
     maxInvitesPerWorkspacePerDay: 10,
@@ -4393,6 +4394,11 @@ export default function App() {
       return null;
     }
   }, [selectedTeamId, showTeamChooser]);
+
+  const loadTrialWorkspaces = useCallback(async () => {
+    const result = await api<{ workspaces: TrialWorkspaceView[] }>("/api/workspaces/trial");
+    return result.workspaces;
+  }, []);
 
   const loadMoreNotificationHistory = useCallback(async (cursor: string) => {
     try {
@@ -4949,7 +4955,8 @@ export default function App() {
         setTeamState((current) => (sameTeamStateResponse(current, normalizedResponse) ? current : normalizedResponse));
       });
     } catch (requestError) {
-      const message = (requestError as Error).message;
+      const rawMessage = (requestError as Error).message;
+      const message = rawMessage === "You are no longer a member of this team" ? "Forbidden" : rawMessage;
       debugReveal("loadTeamState:error", {
         teamId,
         requestId,
@@ -4980,6 +4987,8 @@ export default function App() {
         return;
       }
       if (message === "Forbidden" && selectedTeamId === teamId) {
+        localStorage.removeItem(SELECTED_TEAM_KEY);
+        setSelectedTeamId(null);
         setTeamState(null);
         setShowTeamChooser(true);
         void loadSession().catch(() => undefined);
@@ -5008,7 +5017,7 @@ export default function App() {
             mode: "disabled",
             maxTeamsPerWorkspace: 2,
             maxUsersPerWorkspace: 10,
-            maxRevealedRoundsPerWorkspacePerMonth: 40,
+            maxRevealedRoundsPerWorkspacePerMonth: 80,
             maxSignupRequestsPerIpPerHour: 3,
             maxCodeRequestsPerEmailPerDay: 5,
             maxInvitesPerWorkspacePerDay: 10,
@@ -5026,7 +5035,7 @@ export default function App() {
           mode: "disabled",
           maxTeamsPerWorkspace: 2,
           maxUsersPerWorkspace: 10,
-          maxRevealedRoundsPerWorkspacePerMonth: 40,
+          maxRevealedRoundsPerWorkspacePerMonth: 80,
           maxSignupRequestsPerIpPerHour: 3,
           maxCodeRequestsPerEmailPerDay: 5,
           maxInvitesPerWorkspacePerDay: 10,
@@ -5613,7 +5622,15 @@ export default function App() {
     ws.onerror = () => {
       debugReveal("ws:error", { teamId: selectedTeamId });
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      if (!closedByCleanup && event.code === 1008) {
+        latestLoadRef.current += 1;
+        setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
+        localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
+        void loadSession();
+        setErrorStatus("You were removed from this team. Choose one of your remaining teams.");
+        return;
+      }
       debugReveal("ws:close", { teamId: selectedTeamId, closedByCleanup });
       clearRoomEntryResyncTimeout();
       if (!closedByCleanup) {
@@ -6956,6 +6973,7 @@ export default function App() {
         setAvatarColorKey={(value) => setAvatarSelection((current) => ({ ...current, avatarColorKey: value }))}
         authStep={authStep}
         canUseEmailCode={smtpConfigured || debugCodesEnabled}
+        trialLimits={publicTrial}
         publicTrialOpenSignup={publicTrial.enabled && publicTrial.mode === "open_signup"}
         isPublicTrialCodeStep={authFlow === "publicTrial"}
         trialTermsAccepted={trialTermsAccepted}
@@ -6991,6 +7009,13 @@ export default function App() {
       <>
         <TeamChooser
           branding={branding}
+          loadTrialWorkspaces={loadTrialWorkspaces}
+          onLeaveWorkspace={async (workspaceId) => {
+            await api(`/api/workspaces/${workspaceId}/leave`, { method: "POST" });
+            setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
+            localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
+            await loadSession();
+          }}
           user={session.user}
           memberships={session.memberships}
           availableTeams={session.availableTeams}

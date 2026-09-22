@@ -297,7 +297,7 @@ function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: st
       mode: "disabled",
       maxTeamsPerWorkspace: 2,
       maxUsersPerWorkspace: 10,
-      maxRevealedRoundsPerWorkspacePerMonth: 40,
+      maxRevealedRoundsPerWorkspacePerMonth: 80,
       maxSignupRequestsPerIpPerHour: 3,
       maxCodeRequestsPerEmailPerDay: 5,
       maxInvitesPerWorkspacePerDay: 10,

@@ -418,3 +418,31 @@ Operational expectations:
 Use this guide as the super-admin/operator reference for setup, configuration, and operational smoke checks.
 
 Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-legacy` API maintenance command; see the [offline cleanup procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#targeted-legacy-demo-account-cleanup). Demo voting activates only canonical seed accounts assigned to the team.
+
+## Hosted-trial collaboration and limits
+
+The hosted demo supports two public-trial workspace memberships per normal user.
+Existing users can be invited to a second workspace; a third invitation explains
+how to free a slot. Team removal or leaving a team does not remove workspace
+membership. Collaborators can use **Leave workspace** in the team chooser to leave
+all teams in that workspace while retaining their account and saved shared history.
+Owners cannot leave: Account settings explains account deletion and permanent purge
+of all their owned trial workspaces. The existing signup flow does not create
+additional owned workspaces for accounts already in a trial workspace.
+
+Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
+calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
+separately. Invitations and workspace membership changes do not reset it. At the cap,
+new rounds, votes, and reveals are blocked with an explanatory message; history stays
+available. The team chooser shows workspace ownership, joined teams, usage and reset
+date. Existing deployments retain explicit configured limits.
+
+Removing a team member revokes their board socket and returns their browser to the
+team chooser. Adding an already registered user does not require SMTP; inviting a
+new trial user still requires email delivery. Workspace member capacity still applies.
+
+OpaVoting is free, open-source software designed for efficient realtime workloads,
+with recorded simulated-load coverage of 400 concurrent users across multiple teams.
+The personally funded hosted demo is limited to keep its small server available.
+Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
+Source, deployment documentation and the GitHub star link are shown in the trial UI.

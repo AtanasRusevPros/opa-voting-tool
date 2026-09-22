@@ -2130,7 +2130,36 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "5" }).className).toContain("selected");
   });
 
-  it("preserves a shared-link target for a visible non-member team instead of clearing it", async () => {
+  it("returns a removed board member to the team chooser when the socket is revoked", async () => {
+    localStorage.setItem("planning-poker:selected-team", "team-1");
+    const state = buildBoardState();
+    let removed = false;
+    const sockets: Array<{ onclose?: (event: {code: number}) => void }> = [];
+    class WebSocketMock {
+      onclose?: (event: {code: number}) => void;
+      constructor() { sockets.push(this); }
+      close() {}
+    }
+    vi.stubGlobal("WebSocket", WebSocketMock);
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/bootstrap") return buildJsonResponse({ debugToolsEnabled: false, branding: BRANDING_MANIFEST });
+      if (url === "/api/auth/session") return buildJsonResponse({ user: state.currentUser, memberships: removed ? [] : state.memberships, availableTeams: removed ? [] : state.memberships });
+      if (url.startsWith("/api/teams/team-1/state")) return removed ? buildJsonResponse({ error: "You are no longer a member of this team" }, false) : buildJsonResponse(state);
+      if (url === "/api/workspaces/trial") return buildJsonResponse({ workspaces: [] });
+      if (isNotificationsGetUrl(url)) return buildJsonResponse({ active: [], history: [], pendingJoinRequests: [] });
+      return buildJsonResponse({ ok: true });
+    }));
+    render(<App />);
+    await waitFor(() => expect(sockets.length).toBeGreaterThan(0));
+    removed = true;
+    await act(async () => { sockets[0]!.onclose?.({ code: 1008 }); });
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Choose your team" })).toBeInTheDocument());
+    expect(screen.queryByText("Previous issue")).not.toBeInTheDocument();
+    expect(localStorage.getItem("planning-poker:selected-team")).toBeNull();
+  });
+
+  it.each(["Forbidden", "You are no longer a member of this team"])("preserves a shared-link target for a visible non-member team: %s", async (accessError) => {
     window.history.replaceState({}, "", "/?teamId=team-visible");
 
     class WebSocketMock {
@@ -2186,7 +2215,7 @@ describe("App", () => {
         return buildJsonResponse({ active: [], history: [], pendingJoinRequests: [] });
       }
       if (url === "/api/teams/team-visible/state?history=0") {
-        return buildJsonResponse({ error: "Forbidden" }, false);
+        return buildJsonResponse({ error: accessError }, false);
       }
       return buildJsonResponse({ error: `Unhandled test request: ${url}` }, false);
     });
@@ -4427,6 +4456,29 @@ describe("App", () => {
     );
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Confirm account deletion" })).not.toBeInTheDocument());
     expect(screen.getByText("Deleted the account for member@example-company.com.")).toBeInTheDocument();
+  });
+
+  it("shows workspace usage and leaves a collaborator workspace only after confirmation", async () => {
+    const own = { id: "own", name: "Own workspace", isOwner: true, revealedRounds: 63, monthlyLimit: 80, resetsAt: "2026-10-01T00:00:00.000Z", teams: [{id: "team-1", name: "First team"}] };
+    const joined = { ...own, id: "joined", name: "Stacey workspace", isOwner: false };
+    const leave = vi.fn(async () => undefined);
+    const load = vi.fn().mockResolvedValueOnce([own, joined]).mockResolvedValue([own]);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(<TeamChooser user={buildBoardState().currentUser} memberships={[]} availableTeams={[]} selectedTeamId={null}
+      loadTrialWorkspaces={load} onLeaveWorkspace={leave}
+      onSelectTeam={vi.fn()} onCreateTeam={vi.fn()} onImportTeam={vi.fn()} onJoinTeam={vi.fn()} onLeaveTeam={vi.fn()}
+      onOpenMemberDirectory={vi.fn()} notificationFeed={null} onOpenNotifications={vi.fn()}
+      onAdmitJoinRequest={vi.fn()} onDenyJoinRequest={vi.fn()} onAdmitPlatformAccessRequest={vi.fn()}
+      onDenyPlatformAccessRequest={vi.fn()} onOpenAccountSettings={vi.fn()} onSignOut={vi.fn()} onOpenAdminSettings={vi.fn()} />);
+    const button = await screen.findByRole("button", { name: "Leave workspace: Stacey workspace" });
+    expect(screen.queryByRole("button", {name: "Leave workspace: Own workspace"})).not.toBeInTheDocument();
+    expect(screen.getAllByText(/63 of 80 revealed rounds/)).toHaveLength(2);
+    expect(screen.getByText(/400 concurrent simulated users/)).toBeInTheDocument();
+    fireEvent.click(button); expect(leave).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    await waitFor(() => expect(leave).toHaveBeenCalledWith("joined"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Leave workspace: Stacey workspace" })).not.toBeInTheDocument());
+    confirm.mockRestore();
   });
 
   it("keeps Create and Import team popups mutually exclusive and focuses the active popup input", async () => {

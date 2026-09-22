@@ -41,7 +41,7 @@ import {
 } from "./schemas.js";
 import type { AuthedRequest } from "./middleware.js";
 import { perfTracker } from "../perf.js";
-import { Repository, RoundNotActiveError } from "../repository.js";
+import { Repository, RoundNotActiveError, TrialQuotaExceededError } from "../repository.js";
 
 type TeamBroadcastMode = "full" | "round" | "vote";
 
@@ -248,7 +248,7 @@ export function registerRoutes({
           {
             heading: "Use Limits",
             body:
-              "Trial workspaces are limited by deployment configuration, initially two teams, ten users, and a monthly revealed-round cap. Bigger or long-term usage should use self-hosting or a future hosted-service arrangement."
+              `Each user may participate in two hosted-trial workspaces. Each workspace allows ${config.publicTrial.maxTeamsPerWorkspace} teams, ${config.publicTrial.maxUsersPerWorkspace} users, and ${config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} revealed rounds per calendar month (UTC), including vote-again reveals. Invitations do not reset usage. Collaborators can leave a workspace from the team chooser; owners must use account deletion, which permanently purges their owned trial workspaces. Self-host for use without hosted-demo limits; capacity depends on your server.`
           },
           {
             heading: "No Confidential Data",
@@ -334,6 +334,20 @@ export function registerRoutes({
           }
         ])
       );
+  });
+
+  app.get("/api/workspaces/trial", requireUser, (req, res) => {
+    const user = (req as AuthedRequest).user;
+    res.json({ workspaces: user.isSuperAdmin ? [] : repository.getPublicTrialWorkspaces(user.id) });
+  });
+
+  app.post("/api/workspaces/:workspaceId/leave", requireUser, (req, res) => {
+    try {
+      const teams = repository.leavePublicTrialWorkspace((req as AuthedRequest).user.id, String(req.params.workspaceId));
+      for (const teamId of teams) broadcastSoon(teamId);
+      broadcastChooserSoon();
+      res.json({ ok: true });
+    } catch (error) { res.status(400).json({ error: (error as Error).message }); }
   });
 
   app.get("/api/bootstrap", (_req, res) => {
@@ -1714,7 +1728,7 @@ export function registerRoutes({
       return;
     }
     const smtpConfigured = Boolean(config.smtpHost && config.smtpPort && config.smtpFrom);
-    if (isPublicTrialTeam && !smtpConfigured) {
+    if (isPublicTrialTeam && !smtpConfigured && !repository.getUserByEmail(email.trim().toLowerCase())) {
       res.status(503).json({ error: "Public trial collaborator invites require SMTP email delivery." });
       return;
     }
@@ -1815,6 +1829,9 @@ export function registerRoutes({
       const member = repository.getUser(memberUserId);
       const team = repository.getTeam(teamId);
       repository.removeTeamMember((req as AuthedRequest).user.id, teamId, memberUserId);
+      // Revoke live access before waiting for external email delivery.
+      broadcastSoon(teamId);
+      broadcastChooserSoon();
       if (member && team) {
         await emailSender.sendTeamRemovalNotification(member.email, team.name);
       }
@@ -1858,9 +1875,13 @@ export function registerRoutes({
     }
 
     const teamId = String(req.params.teamId);
-    const round = repository.createRound(teamId, payload.data.title);
-    res.status(201).json({ round });
-    noteTeamRoundStarted(teamId, round);
+    try {
+      const round = repository.createRound(teamId, payload.data.title);
+      res.status(201).json({ round });
+      noteTeamRoundStarted(teamId, round);
+    } catch (error) {
+      res.status(error instanceof TrialQuotaExceededError ? 409 : 400).json({ error: (error as Error).message });
+    }
     perfTracker.recordDuration("http.createRound", startMs);
   });
 
@@ -1879,9 +1900,13 @@ export function registerRoutes({
       return;
     }
 
-    const round = repository.createRound(teamId, entry.title, entry.id);
-    res.status(201).json({ round });
-    noteTeamRoundStarted(teamId, round);
+    try {
+      const round = repository.createRound(teamId, entry.title, entry.id);
+      res.status(201).json({ round });
+      noteTeamRoundStarted(teamId, round);
+    } catch (error) {
+      res.status(error instanceof TrialQuotaExceededError ? 409 : 400).json({ error: (error as Error).message });
+    }
     perfTracker.recordDuration("http.voteAgain", startMs);
   });
 
@@ -1909,6 +1934,10 @@ export function registerRoutes({
         noteTeamRoundStarted(result.teamId, autoRevealedRound);
       }
     } catch (error) {
+      if (error instanceof TrialQuotaExceededError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
       if (error instanceof RoundNotActiveError) {
         perfTracker.incrementCounter("http.castVote.roundNotActiveConflicts");
         res.status(409).json({ error: error.message });
@@ -1935,7 +1964,11 @@ export function registerRoutes({
       } else {
         noteTeamRoundStarted(teamId, round);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof TrialQuotaExceededError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
       res.status(404).json({ error: "Round not found" });
     } finally {
       perfTracker.recordDuration("http.revealRound", startMs);
@@ -1954,6 +1987,10 @@ export function registerRoutes({
       res.json({ ok: true });
       noteTeamRoundChanged(teamId);
     } catch (error) {
+      if (error instanceof TrialQuotaExceededError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
       if (error instanceof RoundNotActiveError) {
         res.status(409).json({ error: error.message });
         return;
@@ -1976,6 +2013,10 @@ export function registerRoutes({
       res.status(201).json({ round });
       noteTeamRoundStarted(teamId, round);
     } catch (error) {
+      if (error instanceof TrialQuotaExceededError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
       if (error instanceof RoundNotActiveError) {
         res.status(409).json({ error: error.message });
         return;
