@@ -49,7 +49,7 @@ Deployment security note:
 - production app content should be reachable through HTTPS only
 - plain HTTP should be used only for certificate automation and redirect at the reverse proxy
 - the app's internal port should not be publicly reachable
-- routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh watchdog:status`, `./deploy.sh incidents`, `./deploy.sh diagnose`, and `./deploy.sh backup`
+- routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh watchdog:status`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh diagnose:demo-counts`, and `./deploy.sh backup`
 
 ## Super-Admin Account
 

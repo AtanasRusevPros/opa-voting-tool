@@ -41,7 +41,7 @@ type DemoModeManagerOptions = {
   onVoteChanged: (teamId: string, roundId: string, userId: string, value: string) => void;
 };
 
-function buildDemoScenario(): DemoScenario {
+export function buildDemoScenario(): DemoScenario {
   const totalUsers = DEMO_TEAM_SIZES.reduce((sum, size) => sum + size, 0);
   const users: DemoSeedUser[] = Array.from({ length: totalUsers }, (_, index) => ({
     email: `demo.bot.${String(index + 1).padStart(3, "0")}@example-company.com`,

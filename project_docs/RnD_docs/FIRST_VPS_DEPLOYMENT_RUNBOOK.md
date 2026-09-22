@@ -609,3 +609,29 @@ Before treating a VPS as a polished public deployment, rehearse or schedule:
 - persistent managed branding strategy
 - server monitoring checklist for disk, Caddy, container logs, certificate renewal, and basic resource usage
 - deployed performance smoke checks before inviting broader testers
+
+## Demo participant-count investigation
+
+After updating the app, capture a report before changing demo data:
+
+```bash
+./deploy.sh diagnose:demo-counts > demo-count-diagnostics.txt
+```
+
+The report includes the deployed version, local health, retained incident summary,
+and database demo membership counts compared with the current seed. Account
+identities are hidden by default. For detailed account investigation, use
+`./deploy.sh diagnose:demo-counts --include-demo-accounts` and keep that report private.
+This inspects persisted membership; it does not measure live browser cards or prove
+that the deployed voter-count issue is fixed.
+
+The underlying `apps/api/src/demoDataCli.ts` also supports an offline maintenance
+reset: `tsx src/demoDataCli.ts reset --db <database-path>` previews the plan;
+adding `--apply` executes it. Take a fresh backup and stop the app and its watchdog
+before applying a reset, using a maintenance environment with Node 22 and the API
+dependencies installed. Do not run the reset through a live app container.
+Only explicitly flagged demo teams and canonical seed accounts without regular-team
+membership/ownership are eligible for deletion. Name-only matches and unknown legacy
+accounts remain for manual investigation. Restart the app and restore its watchdog
+after maintenance; enabled demo mode will recreate the seed. Resetting removes the
+deleted demo teams' history as well as their memberships.

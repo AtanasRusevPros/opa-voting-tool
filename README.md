@@ -154,7 +154,7 @@ On restricted local Linux environments where rootless Podman cannot create a `ne
 `./dev.sh stack:up` now takes the stricter freshness path on every run: it first tears down any existing compose-managed stack for this project without deleting the named data volume, then rebuilds the image with `--no-cache`, and finally starts the stack with `--force-recreate` so stale containers and stale image layers are not reused.
 The packaged compose service publishes the app on host-local `127.0.0.1:3001` and uses a container restart policy so local checks and host-level reverse proxies can reach it without exposing the app port to the wider network.
 
-For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh startup:enable`, `./deploy.sh startup:disable`, `./deploy.sh watchdog:status`, `./deploy.sh watchdog:run`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
+For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh startup:enable`, `./deploy.sh startup:disable`, `./deploy.sh watchdog:status`, `./deploy.sh watchdog:run`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh diagnose:demo-counts`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
 
 ## Deployment Edits Before First Use
 
@@ -350,6 +350,7 @@ Jira Cloud:
 - `./deploy.sh incidents` prints the retained incident summary, counters, and log paths
 - `./deploy.sh incidents:ack` optionally clears the current unacknowledged incident marker without deleting the retained evidence
 - `./deploy.sh diagnose` prints local/public health, keep-alive state, incident summary, compose status, app logs, Caddy status/logs, disk, and firewall details
+- `./deploy.sh diagnose:demo-counts` exports the focused demo/count troubleshooting report; demo identities stay hidden by default, and `./deploy.sh diagnose:demo-counts --include-demo-accounts` includes them when explicit deeper forensics are needed
 - `./deploy.sh caddy:reload` validates and reloads the Caddyfile
 - `./deploy.sh backup` creates a timestamped archive of app data plus deployment config and branding files
 - `./deploy.sh backup:list` lists recent backup archives

@@ -1411,6 +1411,8 @@ Health and diagnostics:
   ./deploy.sh watchdog:run    Run one watchdog cycle immediately
   ./deploy.sh incidents       Show the retained incident summary and counters
   ./deploy.sh incidents:ack   Optionally clear the current unacknowledged incident marker
+  ./deploy.sh diagnose:demo-counts [--include-demo-accounts]
+                              Export the focused demo/count diagnostics for this issue; demo identities stay hidden unless explicitly requested
   ./deploy.sh usage           Show public-trial/operator usage summary
   ./deploy.sh usage:json      Show usage summary as JSON
   ./deploy.sh users:export    Export registered-user summary JSON
@@ -1443,6 +1445,47 @@ run_usage_report() {
   fi
 
   podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/usageReportCli.ts "$report_cmd"
+}
+
+run_demo_data_report() {
+  local report_cmd="${1:-inspect}"
+  shift || true
+  local container_id
+  container_id="$(service_container_id)"
+  if [[ -z "$container_id" ]]; then
+    echo "No app container found. Start the app first with ./deploy.sh up." >&2
+    exit 1
+  fi
+
+  podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/demoDataCli.ts "$report_cmd" "$@"
+}
+
+run_demo_count_diagnostics() {
+  local include_demo_accounts="${1:-}"
+  if (( $# > 1 )); then
+    echo "Usage: ./deploy.sh diagnose:demo-counts [--include-demo-accounts]" >&2
+    exit 1
+  fi
+  if [[ -n "$include_demo_accounts" && "$include_demo_accounts" != "--include-demo-accounts" ]]; then
+    echo "Usage: ./deploy.sh diagnose:demo-counts [--include-demo-accounts]" >&2
+    exit 1
+  fi
+
+  echo "== Project version =="
+  print_project_version
+  echo
+  echo "== Local health =="
+  print_health_summary "local" || true
+  echo
+  echo "== Incident summary =="
+  print_incident_report || true
+  echo
+  echo "== Demo count diagnostics =="
+  if [[ -n "$include_demo_accounts" ]]; then
+    run_demo_data_report inspect "$include_demo_accounts"
+  else
+    run_demo_data_report inspect
+  fi
 }
 
 make_backup() {
@@ -1728,6 +1771,9 @@ case "$cmd" in
     ;;
   incidents:ack)
     acknowledge_incident
+    ;;
+  diagnose:demo-counts)
+    run_demo_count_diagnostics "${@:2}"
     ;;
   usage)
     run_usage_report usage

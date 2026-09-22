@@ -174,6 +174,41 @@ case "$subcommand" in
     printf '%s\n' "${FAKE_PODMAN_LOG_OUTPUT:-Simulated podman log output}"
     ;;
   exec)
+    if printf '%s ' "$*" | grep -F -- 'src/demoDataCli.ts' >/dev/null; then
+      if printf '%s ' "$*" | grep -F -- '--include-demo-accounts' >/dev/null; then
+        printf '%s\n' "${FAKE_DEMO_DATA_OUTPUT_WITH_ACCOUNTS:-Generated: 2026-07-03T00:00:00Z
+Database: /demo.db
+Demo account details included: yes
+
+Totals:
+  demo teams in database: 12
+  demo users in database: 950
+  mismatched teams: 1
+  unexpected team members: 400
+
+Demo teams:
+  Demo Team 400: actual=800 expected=400 canonical=400 status=mismatch
+    unexpected members: demo.bot.401@example-company.com, demo.bot.402@example-company.com
+
+Demo users:
+  Demo 401 <demo.bot.401@example-company.com> canonical=no demoTeamMemberships=1 totalTeamMemberships=1}"
+      else
+        printf '%s\n' "${FAKE_DEMO_DATA_OUTPUT:-Generated: 2026-07-03T00:00:00Z
+Database: /demo.db
+Demo account details included: no
+
+Totals:
+  demo teams in database: 12
+  demo users in database: 950
+  mismatched teams: 1
+  unexpected team members: 400
+
+Demo teams:
+  Demo Team 400: actual=800 expected=400 canonical=400 status=mismatch
+    unexpected members detected: 400 (re-run with --include-demo-accounts for details)}"
+      fi
+      exit 0
+    fi
     printf '{}\n'
     ;;
   volume)
@@ -398,6 +433,7 @@ deploy_commands=(
   "watchdog:run"
   "incidents"
   "incidents:ack"
+  "diagnose:demo-counts"
   "caddy:validate"
   "caddy:reload"
   "caddy:status"
@@ -632,6 +668,29 @@ deploy_incidents_output="$(
 )"
 assert_contains "$deploy_incidents_output" "Incident status: acknowledged retained incident" "deploy.sh incidents status"
 assert_contains "$deploy_incidents_output" "Failure counters:" "deploy.sh incidents counters"
+
+deploy_demo_diagnostics_output="$(
+  PATH="$fake_bin_dir:$PATH" \
+  HOME="$fake_host_dir/home" \
+  XDG_CONFIG_HOME="$fake_host_dir/xdg" \
+  FAKE_STATE_DIR="$fake_state_dir" \
+  APP_URL="https://vote.example.com" \
+  ./deploy.sh diagnose:demo-counts
+)"
+assert_contains "$deploy_demo_diagnostics_output" "== Demo count diagnostics ==" "deploy.sh diagnose:demo-counts section"
+assert_contains "$deploy_demo_diagnostics_output" "Demo account details included: no" "deploy.sh diagnose:demo-counts default privacy"
+assert_contains "$deploy_demo_diagnostics_output" "unexpected members detected: 400" "deploy.sh diagnose:demo-counts default summary"
+
+deploy_demo_diagnostics_full_output="$(
+  PATH="$fake_bin_dir:$PATH" \
+  HOME="$fake_host_dir/home" \
+  XDG_CONFIG_HOME="$fake_host_dir/xdg" \
+  FAKE_STATE_DIR="$fake_state_dir" \
+  APP_URL="https://vote.example.com" \
+  ./deploy.sh diagnose:demo-counts --include-demo-accounts
+)"
+assert_contains "$deploy_demo_diagnostics_full_output" "Demo account details included: yes" "deploy.sh diagnose:demo-counts explicit identities"
+assert_contains "$deploy_demo_diagnostics_full_output" "demo.bot.401@example-company.com" "deploy.sh diagnose:demo-counts explicit identities details"
 
 deploy_ack_output="$(
   PATH="$fake_bin_dir:$PATH" \

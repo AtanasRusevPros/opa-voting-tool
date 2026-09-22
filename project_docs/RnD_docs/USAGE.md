@@ -62,6 +62,7 @@ Common commands:
 - `./deploy.sh watchdog:run`
 - `./deploy.sh incidents`
 - `./deploy.sh incidents:ack` optionally clears a still-unacknowledged retained incident marker
+- `./deploy.sh diagnose:demo-counts`
 - `./deploy.sh ps`
 - `./deploy.sh logs`
 - `./deploy.sh logs:follow`
@@ -121,6 +122,7 @@ Backup retention:
 Operator reporting:
 - `./deploy.sh usage` prints a human-readable summary of users, workspaces, teams, active sessions, current-month reveals/votes, and database size.
 - `./deploy.sh usage:json`, `./deploy.sh users:export`, and `./deploy.sh workspaces:export` print machine-readable JSON for operator review; exports intentionally avoid passwords, tokens, sessions, SMTP secrets, Jira secrets, and deployment secrets.
+- `./deploy.sh diagnose:demo-counts` prints the focused demo-team/count troubleshooting report in one command; by default it hides demo identities and only shows counts/status, while `./deploy.sh diagnose:demo-counts --include-demo-accounts` reveals the demo-account details for deeper cleanup/debugging
 
 Keep-alive operator checks:
 - `./deploy.sh health` now prints the local API/web result plus startup backend, watchdog state, and latest retained incident summary
@@ -400,3 +402,5 @@ Testing note:
 - Simulator logic change: `pnpm --filter @planning-poker/simulator test`
 - Container/runtime change: `./dev.sh stack:up` and `./dev.sh stack:verify`
 - Manual Opera-on-Linux QA remains a separate owner step after the automated Phase 2 batch is green.
+
+For demo-count evidence capture and offline reset limits, see the [deployment runbook](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#demo-participant-count-investigation). Reset only removes flagged demo teams and eligible canonical seed accounts; unknown legacy accounts remain for investigation.
