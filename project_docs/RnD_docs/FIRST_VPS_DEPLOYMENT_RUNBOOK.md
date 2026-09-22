@@ -684,6 +684,25 @@ the canonical seed IDs assigned to each team, even before cleanup.
 
 ## Updating hosted-trial collaboration policy
 
+From the deployed app directory, run `./deploy.sh config:edit` to edit the ignored
+`config/deployment.local.toml` (not `config/deploy.local.toml`, which controls
+autostart/watchdog operations). Update the existing sections, without duplicating them:
+
+```toml
+[app]
+base_url = "https://your-public-domain.example"
+
+[public_trial]
+max_revealed_rounds_per_workspace_per_month = 80
+```
+
+Use your real public HTTPS origin for `base_url`; it supplies email links and trial
+canonical/sitemap URLs. Preserve the other existing settings, including trial enablement.
+After manual edits, run `./deploy.sh restart`, `./deploy.sh health` and
+`./deploy.sh public-health`, then reload the welcome and workspace usage panel.
+Do not edit the tracked defaults for a particular server.
+
+
 Enabled hosted-trial servers automatically upgrade the retired 40-round allowance
 to 80 on startup and persist it in deployment configuration. Other custom limits
 and disabled-trial installations are preserved. For manual configuration, edit the existing

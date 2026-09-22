@@ -232,7 +232,7 @@ calendar month**. All teams share that allowance; repeat Vote AGAIN reveals coun
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
 available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Existing deployments retain explicit configured limits.
+date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a

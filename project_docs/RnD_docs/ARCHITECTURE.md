@@ -198,3 +198,5 @@ of the history snapshot they replace. Creation, vote submission and reveal enfor
 the quota, returning actionable quota errors. WebSocket connection and broadcast paths
 check membership, and a revoked socket closes with policy code 1008 so the client
 clears the board and returns to the chooser.
+
+Enabled hosted-trial configuration migrates the legacy persisted monthly allowance of 40 to 80 at startup. This changes the allowed total without resetting stored usage. Other custom quotas and disabled-trial configurations are preserved.

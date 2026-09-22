@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added demo-count diagnostic exports and conservative offline maintenance, including dry-run-first cleanup of eligible legacy duplicate demo accounts. Simulated voting now uses only canonical seed identities assigned to each demo team; saved historical snapshots are preserved.
+
 - Fixed existing enabled hosted-trial deployments retaining the retired 40-round quota: startup now persists the upgrade to 80, aligning enforcement and displayed allowances. Other custom limits and disabled-trial configurations remain unchanged.
 
 - Added a responsive hosted-trial welcome with brief signup instructions, configured monthly allowance, accurate privacy/deletion guidance, author attribution, and GitHub/self-hosting links.

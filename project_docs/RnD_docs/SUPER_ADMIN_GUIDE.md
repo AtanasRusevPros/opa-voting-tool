@@ -435,7 +435,7 @@ calendar month**. All teams share that allowance; repeat Vote AGAIN reveals coun
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
 available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Existing deployments retain explicit configured limits.
+date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a
@@ -446,3 +446,5 @@ with recorded simulated-load coverage of 400 concurrent users across multiple te
 The personally funded hosted demo is limited to keep its small server available.
 Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
 Source, deployment documentation and the GitHub star link are shown in the trial UI.
+
+For deployed settings, use `./deploy.sh config:edit` from the app directory. The monthly allowance is `[public_trial].max_revealed_rounds_per_workspace_per_month`; the public origin for email/canonical/sitemap URLs is `[app].base_url`. See the [deployment settings procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#updating-hosted-trial-collaboration-policy) for restart and verification steps.
