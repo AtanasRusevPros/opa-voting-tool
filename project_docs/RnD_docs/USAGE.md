@@ -404,3 +404,5 @@ Testing note:
 - Manual Opera-on-Linux QA remains a separate owner step after the automated Phase 2 batch is green.
 
 For demo-count evidence capture and offline reset limits, see the [deployment runbook](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#demo-participant-count-investigation). Reset only removes flagged demo teams and eligible canonical seed accounts; unknown legacy accounts remain for investigation.
+
+Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-legacy` API maintenance command; see the [offline cleanup procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#targeted-legacy-demo-account-cleanup). Demo voting activates only canonical seed accounts assigned to the team.

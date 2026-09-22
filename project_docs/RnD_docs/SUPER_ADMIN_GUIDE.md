@@ -416,3 +416,5 @@ Operational expectations:
 - After import, sign back in and spot-check teams, people, history, and Jira connection status before declaring the environment healthy.
 
 Use this guide as the super-admin/operator reference for setup, configuration, and operational smoke checks.
+
+Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-legacy` API maintenance command; see the [offline cleanup procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#targeted-legacy-demo-account-cleanup). Demo voting activates only canonical seed accounts assigned to the team.

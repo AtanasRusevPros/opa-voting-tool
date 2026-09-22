@@ -635,3 +635,49 @@ membership/ownership are eligible for deletion. Name-only matches and unknown le
 accounts remain for manual investigation. Restart the app and restore its watchdog
 after maintenance; enabled demo mode will recreate the seed. Resetting removes the
 deleted demo teams' history as well as their memberships.
+
+### Targeted legacy demo-account cleanup
+
+After a demo email-domain change, use `cleanup-legacy` instead of resetting teams.
+It matches each old numbered address against the current seed, requires the matching
+name and current counterpart in the same expected, flagged demo team, and skips
+accounts with credentials, elevated roles, ownership, other team memberships,
+non-default workspace access, ordinary-team votes, or history comments. Skipped
+accounts are listed for manual review. The default is a read-only JSON preview;
+`--apply` recomputes eligibility inside a transaction. Repeating it is safe.
+
+Run from the deployed checkout as the normal deployment user after updating to the
+cleanup release. Substitute the confirmed old domain for `legacy.example.org`.
+The preview lists account identities, so keep its output private.
+
+```bash
+./deploy.sh backup
+./deploy.sh startup:disable
+./deploy.sh down
+podman compose -f infra/containers/compose.yaml run --rm --no-deps planning-poker pnpm --filter @planning-poker/api exec tsx src/demoDataCli.ts cleanup-legacy --legacy-domain legacy.example.org
+```
+
+Review `candidates`, `deleteCount`, and `skipped` before applying. If the preview
+fails or is unexpected, do not apply; restore service with `./deploy.sh up` and
+`./deploy.sh startup:enable` while investigating. Once the preview is correct:
+
+```bash
+podman compose -f infra/containers/compose.yaml run --rm --no-deps planning-poker pnpm --filter @planning-poker/api exec tsx src/demoDataCli.ts cleanup-legacy --legacy-domain legacy.example.org --apply
+./deploy.sh up
+./deploy.sh startup:enable
+./deploy.sh health
+./deploy.sh public-health
+./deploy.sh diagnose:demo-counts
+```
+
+The one-off container uses the existing image and data volume without starting the
+app server. Keep the application and watchdog stopped throughout preview and apply.
+If apply fails, the transaction rolls back; restore service and investigate.
+The command removes only eligible legacy users and their dependent records
+(including memberships, sessions, and raw votes), plus their login codes. Teams,
+canonical users, and saved history entries remain. Historical snapshot counts are
+not rewritten; assess fresh rounds when verifying the fix. After cleanup, expect
+950 demo users and zero mismatches if all duplicates were eligible. Verify fresh
+Demo Team 10 and Demo Team 400 rounds, refresh/reconnect, and at least five repeated
+reveals; recheck after a demo-mode toggle or restart. Synthetic voting now uses only
+the canonical seed IDs assigned to each team, even before cleanup.

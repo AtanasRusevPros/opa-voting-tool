@@ -154,9 +154,11 @@ export class DemoModeManager {
     const nextKnownTeamIds = new Set<string>();
 
     for (const syncedTeam of syncedTeams) {
+      const seedTeam = scenario.teams.find((team) => team.name === syncedTeam.name);
+      const canonicalIds = new Set((seedTeam?.memberEmails ?? []).map((email) => usersByEmail.get(email)!.id));
       const teamBots = this.repository
         .getTeamMembers(syncedTeam.id)
-        .filter((member) => member.displayName.startsWith("Demo "))
+        .filter((member) => canonicalIds.has(member.id))
         .map((member, index) => ({
           userId: member.id,
           teamId: syncedTeam.id,

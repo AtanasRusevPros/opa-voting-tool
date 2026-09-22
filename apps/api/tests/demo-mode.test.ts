@@ -129,6 +129,38 @@ afterEach(() => {
 });
 
 describe("Demo mode integration", () => {
+  it("never activates legacy, lookalike, or wrong-team seed accounts as bots", async () => {
+    vi.useFakeTimers();
+    const repository = new Repository(createTestConfig());
+    let enabled = true;
+    const manager = new DemoModeManager({ repository, isEnabled: () => enabled,
+      onChooserChanged: vi.fn(), onTeamChanged: vi.fn(), onVoteChanged: vi.fn() });
+    loadedManagers.push(manager);
+    manager.sync();
+    const team = repository.getTeamsForUser(repository.getSuperAdminUser()!.id).memberships.find((item) => item.name === "Demo Team 10")!;
+    const canonicalIds = new Set(manager.getSyntheticActiveParticipantIds(team.id));
+    for (const email of ["demo.bot.001@legacy.example.org", "ordinary@example-company.com", "demo.bot.011@example-company.com"]) {
+      const user = repository.ensureUser({ email, displayName: "Demo 001", avatarIconKey: "bear", avatarColorKey: "azure" });
+      repository.joinTeam(user.id, team.id);
+    }
+    enabled = false;
+    manager.sync();
+    enabled = true;
+    manager.sync();
+    // Seed synchronization also moves the wrong-team canonical account back.
+    expect(repository.getTeamMembers(team.id)).toHaveLength(12);
+    expect(manager.getSyntheticActiveParticipantIds(team.id)).toEqual(canonicalIds);
+    for (let index = 0; index < 3; index++) {
+      const round = repository.createRound(team.id, `Polluted seed round ${index}`);
+      manager.sync();
+      await vi.advanceTimersByTimeAsync(5000);
+      const votes = repository.getCurrentRound(team.id)!.votes;
+      expect(votes.length).toBeGreaterThan(0);
+      expect(votes.every((vote) => canonicalIds.has(vote.userId))).toBe(true);
+      repository.revealRound(round.id);
+    }
+  });
+
   it("keeps repeated enabled syncs idempotent for active demo rooms", () => {
     vi.useFakeTimers();
     const repository = new Repository(createTestConfig());

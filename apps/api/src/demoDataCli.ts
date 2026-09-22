@@ -345,6 +345,64 @@ export function resetDemoData(dbPath = defaultDatabasePath(), options?: { apply?
   }
 }
 
+// Explicit domain input keeps deployment-specific legacy identities out of the source.
+export function cleanupLegacyDemoData(dbPath: string, legacyDomain: string, options: { apply?: boolean } = {}) {
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(legacyDomain) || legacyDomain.toLowerCase() === "example-company.com") {
+    throw new Error("Supply a legacy email domain different from the canonical seed domain");
+  }
+  if (!fs.existsSync(dbPath)) throw new Error(`Database not found: ${dbPath}`);
+  const db = new DatabaseSync(dbPath, { readOnly: !options.apply });
+  try {
+    db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000");
+    if (options.apply) db.exec("BEGIN IMMEDIATE");
+    try {
+      const scenario = buildDemoScenario();
+      const candidates: Array<{ id: string; email: string }> = [];
+      const skipped: Array<{ email: string; reason: string }> = [];
+      for (const seed of scenario.users) {
+        const email = seed.email.replace(/@.*$/, `@${legacyDomain.toLowerCase()}`);
+        const legacy = db.prepare("SELECT id, display_name, is_super_admin, password_hash, login_name FROM users WHERE email = ?").get(email);
+        if (!legacy) continue;
+        const canonical = db.prepare("SELECT id FROM users WHERE email = ? AND deleted_at IS NULL AND is_super_admin = 0").get(seed.email);
+        const memberships = db.prepare("SELECT t.id, t.name, t.demo, tm.role FROM team_memberships tm JOIN teams t ON t.id = tm.team_id WHERE tm.user_id = ?").all(legacy.id);
+        const expectedTeam = scenario.teams.find((team) => team.memberEmails.includes(seed.email))!;
+        const protectedUse = db.prepare(`
+          SELECT 1 WHERE
+            EXISTS (SELECT 1 FROM teams WHERE created_by = ?)
+            OR EXISTS (SELECT 1 FROM workspaces WHERE created_by = ?)
+            OR EXISTS (SELECT 1 FROM workspace_memberships wm JOIN workspaces w ON w.id = wm.workspace_id
+              WHERE wm.user_id = ? AND (w.kind != 'default' OR wm.role != 'member'))
+            OR EXISTS (SELECT 1 FROM votes v JOIN rounds r ON r.id = v.round_id JOIN teams t ON t.id = r.team_id WHERE v.user_id = ? AND t.demo = 0)
+            OR EXISTS (SELECT 1 FROM history_comments WHERE user_id = ?)
+        `).get(legacy.id, legacy.id, legacy.id, legacy.id, legacy.id);
+        const canonicalMember = canonical && memberships.length === 1 && db.prepare(
+          "SELECT 1 FROM team_memberships WHERE team_id = ? AND user_id = ?"
+        ).get(memberships[0]!.id, canonical.id);
+        if (legacy.is_super_admin || legacy.password_hash || legacy.login_name || legacy.display_name !== seed.displayName ||
+            !canonicalMember || protectedUse || memberships[0]?.demo !== 1 || memberships[0]?.name !== expectedTeam.name || memberships[0]?.role !== "member") {
+          skipped.push({ email, reason: "Identity, canonical counterpart, demo-only membership, or ordinary-data safety check failed" });
+          continue;
+        }
+        candidates.push({ id: String(legacy.id), email });
+      }
+      if (options.apply) {
+        for (const candidate of candidates) {
+          db.prepare("DELETE FROM login_codes WHERE email = ?").run(candidate.email);
+          db.prepare("DELETE FROM users WHERE id = ?").run(candidate.id);
+        }
+        if (db.prepare("PRAGMA foreign_key_check").all().length) throw new Error("Foreign-key integrity check failed");
+        db.exec("COMMIT");
+      }
+      return { applied: options.apply === true, candidates, skipped, deleteCount: candidates.length };
+    } catch (error) {
+      if (options.apply) db.exec("ROLLBACK");
+      throw error;
+    }
+  } finally {
+    db.close();
+  }
+}
+
 export function printDemoDataReport(report: DemoDataReport): void {
   console.log(`Generated: ${report.generatedAt}`);
   console.log(`Database: ${report.databasePath}`);
@@ -417,6 +475,7 @@ function parseArgs(argv: string[]) {
   let json = false;
   let apply = false;
   let includeDemoAccounts = false;
+  let legacyDomain = "";
 
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index];
@@ -435,6 +494,11 @@ function parseArgs(argv: string[]) {
       includeDemoAccounts = true;
       continue;
     }
+    if (argument === "--legacy-domain") {
+      legacyDomain = rest[++index] ?? "";
+      if (!legacyDomain || legacyDomain.startsWith("--")) throw new Error("Missing value for --legacy-domain");
+      continue;
+    }
     if (argument === "--db") {
       const next = rest[index + 1];
       if (!next) {
@@ -447,11 +511,17 @@ function parseArgs(argv: string[]) {
     throw new Error(`Unknown argument: ${argument}`);
   }
 
-  return { command, dbPath, json, apply, includeDemoAccounts };
+  return { command, dbPath, json, apply, includeDemoAccounts, legacyDomain };
 }
 
 export function runDemoDataCommand(argv = process.argv.slice(2)): void {
-  const { command, dbPath, json, apply, includeDemoAccounts } = parseArgs(argv);
+  const { command, dbPath, json, apply, includeDemoAccounts, legacyDomain } = parseArgs(argv);
+  if (legacyDomain && command !== "cleanup-legacy") throw new Error("--legacy-domain requires cleanup-legacy");
+  if (command === "cleanup-legacy") {
+    if (includeDemoAccounts) throw new Error("cleanup-legacy already lists candidate identities");
+    console.log(JSON.stringify(cleanupLegacyDemoData(dbPath, legacyDomain, { apply }), null, 2));
+    return;
+  }
 
   if (command === "inspect") {
     const report = buildDemoDataReport(dbPath, { includeDemoAccounts });
@@ -476,7 +546,7 @@ export function runDemoDataCommand(argv = process.argv.slice(2)): void {
     return;
   }
 
-  console.error("Usage: tsx src/demoDataCli.ts <inspect|reset> [--db <path>] [--json] [--apply] [--include-demo-accounts]");
+  console.error("Usage: tsx src/demoDataCli.ts <inspect|reset|cleanup-legacy> [--db <path>] [--json] [--apply] [--include-demo-accounts] [--legacy-domain <domain>]");
   process.exit(1);
 }
 

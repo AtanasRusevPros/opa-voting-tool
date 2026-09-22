@@ -7,8 +7,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BRANDING_MANIFEST, DEFAULT_HISTORY_TIME_ZONE_KEYS } from "@planning-poker/shared";
-import { DemoModeManager } from "../src/demoMode.js";
-import { buildDemoDataReport, resetDemoData } from "../src/demoDataCli.js";
+import { buildDemoScenario, DemoModeManager } from "../src/demoMode.js";
+import { buildDemoDataReport, cleanupLegacyDemoData, resetDemoData } from "../src/demoDataCli.js";
 import { Repository } from "../src/repository.js";
 import type { AppConfig } from "../src/types.js";
 
@@ -62,6 +62,56 @@ afterEach(() => {
 });
 
 describe("demo data CLI helpers", () => {
+  it("cleans a doubled seed, preserves protected accounts and history, and is idempotent", () => {
+    vi.useFakeTimers();
+    const config = createTestConfig();
+    const repository = new Repository(config);
+    const manager = new DemoModeManager({ repository, isEnabled: () => true,
+      onChooserChanged: vi.fn(), onTeamChanged: vi.fn(), onVoteChanged: vi.fn() });
+    manager.sync();
+    const teams = repository.getTeamsForUser(repository.getSuperAdminUser()!.id).memberships;
+    const scenario = buildDemoScenario();
+    const legacyIds: string[] = [];
+    for (const seed of scenario.users) {
+      const legacy = repository.ensureUser({ ...seed, email: seed.email.replace("example-company.com", "legacy.example.org") });
+      legacyIds.push(legacy.id);
+      const team = scenario.teams.find((item) => item.memberEmails.includes(seed.email))!;
+      repository.joinTeam(legacy.id, teams.find((item) => item.name === team.name)!.id);
+    }
+    manager.shutdown();
+    expect(buildDemoDataReport(config.databasePath).totals.unexpectedMembers).toBe(950);
+    const team = teams.find((item) => item.name === "Demo Team 10")!;
+    const round = repository.createRound(team.id, "Preserved historical demo round");
+    repository.revealRound(round.id);
+    const historyBefore = repository.getHistory(team.id);
+    const db = new DatabaseSync(config.databasePath);
+    try {
+      // A legacy-looking account with ordinary-team access must survive.
+      const regular = repository.createTeam(repository.getSuperAdminUser()!.id, "Ordinary team");
+      repository.joinTeam(legacyIds[0]!, regular.id);
+      db.prepare("UPDATE users SET password_hash = 'protected' WHERE id = ?").run(legacyIds[1]!);
+      db.prepare("UPDATE users SET display_name = 'Ordinary person' WHERE id = ?").run(legacyIds[2]!);
+      const preview = cleanupLegacyDemoData(config.databasePath, "legacy.example.org");
+      expect(preview.applied).toBe(false);
+      expect(preview.deleteCount).toBe(947);
+      expect(preview.skipped).toHaveLength(3);
+      expect(buildDemoDataReport(config.databasePath).totals.unexpectedMembers).toBe(950);
+      expect(() => cleanupLegacyDemoData(config.databasePath, "example-company.com", { apply: true })).toThrow();
+      // Prove the whole deletion rolls back on a database error.
+      db.exec(`CREATE TRIGGER fail_cleanup BEFORE DELETE ON users WHEN OLD.id = '${legacyIds[20]}' BEGIN SELECT RAISE(ABORT, 'test rollback'); END`);
+      expect(() => cleanupLegacyDemoData(config.databasePath, "legacy.example.org", { apply: true })).toThrow("test rollback");
+      expect(buildDemoDataReport(config.databasePath).totals.unexpectedMembers).toBe(950);
+      db.exec("DROP TRIGGER fail_cleanup");
+      const result = cleanupLegacyDemoData(config.databasePath, "legacy.example.org", { apply: true });
+      expect(result.deleteCount).toBe(947);
+      expect(result.applied).toBe(true);
+      expect(repository.getHistory(team.id)).toEqual(historyBefore);
+      expect(buildDemoDataReport(config.databasePath).totals.unexpectedMembers).toBe(3);
+      expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+      expect(cleanupLegacyDemoData(config.databasePath, "legacy.example.org", { apply: true }).deleteCount).toBe(0);
+    } finally { db.close(); }
+  });
+
   it("reports polluted demo teams and resets them without touching regular data", () => {
     vi.useFakeTimers();
     const config = createTestConfig();

@@ -420,3 +420,5 @@ Production note:
 - The latest Phase 3 capacity report is written to [`project_docs/RnD_docs/perf_runs/PHASE3_CAPACITY_VALIDATION_LATEST.md`](project_docs/RnD_docs/perf_runs/PHASE3_CAPACITY_VALIDATION_LATEST.md), with the public headline summarized in [`project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md`](project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md).
 - The simulator is dev-only and should not be enabled in production.
 - For deeper operator notes and troubleshooting, see [USAGE.md](project_docs/RnD_docs/USAGE.md).
+
+Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-legacy` API maintenance command; see the [offline cleanup procedure](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md#targeted-legacy-demo-account-cleanup). Demo voting activates only canonical seed accounts assigned to the team.
