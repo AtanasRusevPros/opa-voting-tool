@@ -3204,3 +3204,45 @@ textarea {
     width: min(300px, calc(100% - 48px));
   }
 }
+
+/* Trial landing page: project context first, then the existing sign-in flow. */
+.trial-login-shell {
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 64px);
+  padding: clamp(24px, 5vw, 80px) max(24px, calc((100vw - 1320px) / 2));
+}
+.trial-login-shell .login-panel { max-width: 540px; }
+.trial-welcome {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 680px;
+  color: #24344c;
+  line-height: 1.65;
+}
+.trial-welcome h1 {
+  font-size: clamp(2rem, 3.6vw, 3.5rem);
+  line-height: 1.07;
+  letter-spacing: -0.045em;
+  margin: 16px 0 24px;
+  color: #16355b;
+}
+.trial-welcome-eyebrow { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.16em; color: #295887; }
+.trial-welcome-lead { font-size: 1.2rem; font-weight: 700; line-height: 1.5; }
+.trial-welcome a { color: #185797; text-underline-offset: 3px; }
+.trial-welcome-steps { padding-left: 1.5rem; margin: 20px 0; }
+.trial-welcome-steps li { padding-left: 6px; margin: 12px 0; }
+.trial-welcome-steps li::marker { color: #295887; font-weight: 800; }
+.trial-welcome-details { border-top: 1px solid #c5d8eb; border-bottom: 1px solid #c5d8eb; font-size: 0.9rem; }
+.trial-welcome-details summary { cursor: pointer; padding: 12px 0; min-height: 44px; box-sizing: border-box; font-weight: 700; }
+.trial-welcome-details summary:focus-visible { outline: 3px solid #185797; outline-offset: 2px; }
+.trial-welcome-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 12px 0; }
+.trial-welcome-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.trial-welcome-credit { font-size: 0.9rem; overflow-wrap: anywhere; }
+.trial-welcome-star { font-size: 0.9rem; }
+.trial-welcome a:focus-visible { outline: 3px solid #185797; outline-offset: 4px; }
+@media (max-width: 960px) {
+  .trial-login-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 16px; }
+  .trial-login-shell .login-panel { max-width: 680px; }
+}

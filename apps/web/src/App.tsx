@@ -6973,6 +6973,7 @@ export default function App() {
         setAvatarColorKey={(value) => setAvatarSelection((current) => ({ ...current, avatarColorKey: value }))}
         authStep={authStep}
         canUseEmailCode={smtpConfigured || debugCodesEnabled}
+        trialModeEnabled={publicTrial.enabled}
         trialLimits={publicTrial}
         publicTrialOpenSignup={publicTrial.enabled && publicTrial.mode === "open_signup"}
         isPublicTrialCodeStep={authFlow === "publicTrial"}

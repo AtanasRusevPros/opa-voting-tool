@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import path from "node:path";
+import fs from "node:fs";
+import { renderTrialWelcomeHtml, trialProjectGuide, trialHomeUrl, trialSitemap } from "./trialWelcome.js";
 import express from "express";
 import { DECKS, resolveAvatarSelection, type HistoryEntry, type RoundState, type TeamStateResponse } from "@planning-poker/shared";
 import type { DemoModeManager } from "../demoMode.js";
@@ -49,6 +51,7 @@ type RegisterRoutesDeps = {
   app: express.Express;
   webDist: string;
   config: {
+    appBaseUrl: string;
     branding: unknown;
     debugCodesEnabled: boolean;
     debugToolsEnabled: boolean;
@@ -2027,9 +2030,32 @@ export function registerRoutes({
     }
   });
 
+  app.get(["/robots.txt", "/sitemap.xml"], (req, res, next) => {
+    if (!config.publicTrial.enabled) { next(); return; }
+    res.setHeader("Cache-Control", "no-cache");
+    if (req.path === "/robots.txt") {
+      res.type("text/plain").send(`User-agent: *\nDisallow: /api/\nSitemap: ${trialHomeUrl(config.appBaseUrl)}sitemap.xml\n`);
+    } else {
+      res.type("application/xml").send(trialSitemap(config.appBaseUrl));
+    }
+  });
+  app.get("/llms.txt", (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
+    if (!config.publicTrial.enabled) { res.status(404).type("text/plain").send("Not found"); return; }
+    res.type("text/plain").send(trialProjectGuide());
+  });
+  app.get(["/", "/index.html"], (_req, res, next) => {
+    if (!config.publicTrial.enabled) { next(); return; }
+    fs.readFile(path.join(webDist, "index.html"), "utf8", (error, template) => {
+      if (error) { next(error); return; }
+      res.setHeader("Cache-Control", "no-cache");
+      res.type("html").send(renderTrialWelcomeHtml(template, config.appBaseUrl, config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth));
+    });
+  });
+
   app.use(express.static(webDist));
   app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api/")) {
+    if (req.path.startsWith("/api/") || ["/robots.txt", "/sitemap.xml"].includes(req.path)) {
       next();
       return;
     }

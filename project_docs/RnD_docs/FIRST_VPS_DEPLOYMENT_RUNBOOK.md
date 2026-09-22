@@ -705,3 +705,12 @@ Remove a member while their board is open: it must return to the team chooser an
 stop receiving board updates. Quota exhaustion and next-month reset have automated
 coverage; test a reduced cap only on a disposable deployment, not by changing the
 live server clock or unnecessarily lowering the shared public-demo allowance.
+
+After deploying the trial welcome page, inspect `/` at desktop and phone widths.
+Confirm the author/repository and direct deployment links, then fetch the page without
+JavaScript: its HTML should contain the project text and SoftwareSourceCode JSON-LD.
+`/llms.txt` should return the plain-text project guide in trial mode. Verify that sign-in
+and the configured signup availability still work; no additional configuration is
+needed beyond the existing public-trial enabled setting.
+
+Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).

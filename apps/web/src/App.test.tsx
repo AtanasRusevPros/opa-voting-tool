@@ -19,6 +19,7 @@ import App, {
   shouldApplyTeamState
 } from "./App";
 import { AdminSettingsModal } from "./app/AdminSettingsModal";
+import { HostedTrialNotice } from "./app/HostedTrialNotice";
 import { TeamChooser } from "./app/TeamChooser";
 import { TeamDirectoryModal } from "./app/TeamDirectoryModal";
 import { BRANDING_MANIFEST, DECKS, DEFAULT_DECK_KEY, DEFAULT_HISTORY_TIME_ZONE_KEYS, TEAM_TIMER_OPTIONS, type TeamStateResponse, type UserSummary } from "@planning-poker/shared";
@@ -4456,6 +4457,25 @@ describe("App", () => {
     );
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Confirm account deletion" })).not.toBeInTheDocument());
     expect(screen.getByText("Deleted the account for member@example-company.com.")).toBeInTheDocument();
+  });
+
+  it("presents an attributed trial welcome with direct self-hosting and evidence links", () => {
+    render(<HostedTrialNotice prominent />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Team voting, free and open source.");
+    expect(screen.getByText("Atanas G. Rusev")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "AtanasRusevPros/opa-voting-tool" })).toHaveAttribute("href", "https://github.com/AtanasRusevPros/opa-voting-tool");
+    expect(screen.getByRole("link", { name: /Self-host OpaVoting/ })).toHaveAttribute("href", expect.stringContaining("FIRST_VPS_DEPLOYMENT_RUNBOOK.md"));
+    expect(screen.getByRole("link", { name: /400 concurrent simulated users/ })).toHaveAttribute("href", expect.stringContaining("PUBLIC_BENCHMARK_SUMMARY.md"));
+    expect(screen.getByText(/small server I personally fund/)).toBeInTheDocument();
+    expect(screen.getByText(/80 voting rounds per calendar month/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Privacy notice" })).toHaveAttribute("href", "/public-trial/privacy");
+    expect(screen.getByText(/shared history and backups have retention exceptions/)).toBeInTheDocument();
+  });
+
+  it("uses the configured workspace quota in the trial welcome", () => {
+    render(<HostedTrialNotice prominent monthlyLimit={40} />);
+    expect(screen.getByText(/40 voting rounds per calendar month/)).toBeInTheDocument();
+    expect(screen.queryByText(/80 voting rounds/)).not.toBeInTheDocument();
   });
 
   it("shows workspace usage and leaves a collaborator workspace only after confirmation", async () => {

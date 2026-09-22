@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import { renderTrialWelcomeHtml } from "../src/http/trialWelcome.js";
 import WebSocket from "ws";
 import { once } from "node:events";
 
@@ -113,6 +114,46 @@ afterEach(() => {
 });
 
 describe("Password and invite HTTP flows", () => {
+  it("provides a trial-only project guide and semantic welcome HTML without JavaScript", async () => {
+    const { app } = await loadTestServer({ publicTrial: true });
+    const guide = await request(app).get("/llms.txt");
+    expect(guide.status).toBe(200);
+    expect(guide.headers["content-type"]).toContain("text/plain");
+    expect(guide.text).toContain("Atanas G. Rusev");
+    expect(guide.text).toContain("FIRST_VPS_DEPLOYMENT_RUNBOOK.md");
+    const html = renderTrialWelcomeHtml('<html><head><title>Original</title><meta name="description" content="Original" /></head><body><div id="root"></div><script type="module" src="/assets/app.js"></script></body></html>', 'https://vote.example.com/', 40);
+    expect(html).toContain("<main");
+    expect(html).toContain("40 voting rounds per calendar month");
+    expect(html).toContain("shared history and backups have retention exceptions");
+    expect(html).toContain('href="/public-trial/privacy"');
+    expect(html).toContain("400 concurrent simulated users");
+    expect(html).toContain("AtanasRusevPros/opa-voting-tool");
+    expect(html).toContain('src="/assets/app.js"');
+    expect(html).toContain("<noscript>");
+    expect(html).toContain('href="/llms.txt"');
+    const metadata = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)![1]!);
+    expect(metadata.codeRepository).toBe("https://github.com/AtanasRusevPros/opa-voting-tool");
+    expect(metadata.author.name).toBe("Atanas G. Rusev");
+    expect(html).toContain('rel="canonical" href="https://vote.example.com/"');
+    expect(html).toContain('property="og:url" content="https://vote.example.com/"');
+    expect(html).toContain('name="twitter:card" content="summary"');
+    const robots = await request(app).get("/robots.txt").set("Host", "untrusted.example");
+    expect(robots.status).toBe(200);
+    expect(robots.headers["content-type"]).toContain("text/plain");
+    expect(robots.text).toContain("Disallow: /api/");
+    expect(robots.text).not.toContain("untrusted.example");
+    const sitemap = await request(app).get("/sitemap.xml");
+    expect(sitemap.status).toBe(200);
+    expect(sitemap.headers["content-type"]).toContain("application/xml");
+    expect(sitemap.text).toContain("<urlset");
+    expect(sitemap.text.match(/<loc>/g)).toHaveLength(1);
+    expect(robots.text).toContain(sitemap.text.match(/<loc>(.*?)<\/loc>/)![1] + "sitemap.xml");
+    const selfHosted = await loadTestServer();
+    expect((await request(selfHosted.app).get("/llms.txt")).status).toBe(404);
+    expect((await request(selfHosted.app).get("/robots.txt")).status).toBe(404);
+    expect((await request(selfHosted.app).get("/sitemap.xml")).status).toBe(404);
+  });
+
   it("reports API health with database readiness", async () => {
     const { app } = await loadTestServer();
     const client = request(app);

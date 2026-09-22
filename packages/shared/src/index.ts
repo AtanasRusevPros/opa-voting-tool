@@ -1001,3 +1001,5 @@ export const BRANDING_MANIFEST: BrandingManifest = {
   avatarIconKeys: [...AVATAR_ICON_KEYS],
   avatarColorKeys: [...AVATAR_COLOR_KEYS]
 };
+
+export { TRIAL_WELCOME, trialWelcomeStart } from "./trialWelcome.js";

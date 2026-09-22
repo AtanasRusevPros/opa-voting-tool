@@ -434,3 +434,10 @@ with recorded simulated-load coverage of 400 concurrent users across multiple te
 The personally funded hosted demo is limited to keep its small server available.
 Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
 Source, deployment documentation and the GitHub star link are shown in the trial UI.
+
+The trial front page includes an attributed project welcome with self-hosting,
+documentation, source and GitHub-star links. This appears whenever public-trial mode
+is enabled, including deployments with closed signup; signup availability is still
+controlled separately. Normal self-hosted sign-in remains unchanged.
+
+Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).

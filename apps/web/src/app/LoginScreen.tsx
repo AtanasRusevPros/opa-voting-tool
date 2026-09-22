@@ -28,6 +28,7 @@ export function LoginScreen(props: {
   canUseEmailCode: boolean;
   trialLimits?: { maxTeamsPerWorkspace: number; maxUsersPerWorkspace: number; maxRevealedRoundsPerWorkspacePerMonth: number };
   publicTrialOpenSignup: boolean;
+  trialModeEnabled?: boolean;
   isPublicTrialCodeStep: boolean;
   trialTermsAccepted: boolean;
   setTrialTermsAccepted: (value: boolean) => void;
@@ -58,7 +59,7 @@ export function LoginScreen(props: {
     (!props.isPublicTrialCodeStep || props.trialTermsAccepted);
 
   return (
-    <div className="login-shell">
+    <div className={`login-shell${(props.trialModeEnabled ?? props.publicTrialOpenSignup) ? " trial-login-shell" : ""}`}>
       <div
         className="login-backdrop"
         style={
@@ -69,6 +70,7 @@ export function LoginScreen(props: {
           } as CSSProperties
         }
       />
+      {(props.trialModeEnabled ?? props.publicTrialOpenSignup) ? <HostedTrialNotice prominent monthlyLimit={props.trialLimits?.maxRevealedRoundsPerWorkspacePerMonth} /> : null}
       <form
         className="login-panel"
         onSubmit={(event) => {
@@ -108,7 +110,7 @@ export function LoginScreen(props: {
         }}
       >
         <img className="brand-logo" src={branding.loginLogo} alt="OPA Voting Tool logo" />
-        <h1>OPA Voting Tool</h1>
+        {(props.trialModeEnabled ?? props.publicTrialOpenSignup) ? <h2>Welcome to OpaVoting</h2> : <h1>OPA Voting Tool</h1>}
         <p>Realtime collaborative voting with team history, live reveal, and configurable decks.</p>
         <p className="login-note">This browser is remembered automatically for 3 months of activity.</p>
 
@@ -334,7 +336,6 @@ export function LoginScreen(props: {
             ) : null}
           </div>
         ) : null}
-        {props.publicTrialOpenSignup ? <HostedTrialNotice /> : null}
         <BrandFooter branding={branding} />
       </form>
     </div>
