@@ -684,8 +684,9 @@ the canonical seed IDs assigned to each team, even before cleanup.
 
 ## Updating hosted-trial collaboration policy
 
-After deploying this change, explicit existing limits are preserved. To raise an
-existing hosted demo from 40 to 80 reveals per month, edit the existing
+Enabled hosted-trial servers automatically upgrade the retired 40-round allowance
+to 80 on startup and persist it in deployment configuration. Other custom limits
+and disabled-trial installations are preserved. For manual configuration, edit the existing
 `[public_trial]` section in `config/deployment.local.toml` (do not duplicate it):
 
 ```toml

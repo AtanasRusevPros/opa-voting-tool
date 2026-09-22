@@ -16,7 +16,7 @@ function createEnvDir() {
   return dir;
 }
 
-async function loadTestServer() {
+async function loadTestServer(trialConfig?: string) {
   const dir = createEnvDir();
   process.env.NODE_ENV = "test";
   process.env.PORT = "0";
@@ -31,6 +31,7 @@ async function loadTestServer() {
   process.env.SUPER_ADMIN_USERNAME = "platform-admin";
   process.env.SUPER_ADMIN_PASSWORD = "PlatformAdmin123!";
   process.env.SUPER_ADMIN_DISPLAY_NAME = "Platform Admin";
+  if (trialConfig) fs.writeFileSync(process.env.DEPLOYMENT_CONFIG_PATH, trialConfig);
   vi.resetModules();
   return import("../src/server.js");
 }
@@ -54,6 +55,21 @@ afterEach(() => {
 });
 
 describe("Admin config API", () => {
+  it.each([[true, 40, 80], [true, 80, 80], [true, 120, 120], [false, 40, 40]])(
+    "loads trial enabled=%s quota=%s as %s without changing unrelated settings",
+    async (enabled, quota, expected) => {
+      const original = `# Operator notes\n[public_trial]\nenabled = ${enabled}\nmax_revealed_rounds_per_workspace_per_month = ${quota}\nmax_teams_per_workspace = 3\n[app]\nbase_url = "https://vote.example.com"\n`;
+      const { app } = await loadTestServer(original);
+      const bootstrap = await request(app).get("/api/bootstrap");
+      expect(bootstrap.body.publicTrial.maxRevealedRoundsPerWorkspacePerMonth).toBe(expected);
+      const saved = fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8");
+      expect(saved).toBe(original.replace(`max_revealed_rounds_per_workspace_per_month = ${quota}`, `max_revealed_rounds_per_workspace_per_month = ${expected}`));
+      const { DeploymentConfigManager } = await import("../src/deploymentConfig.js");
+      expect(new DeploymentConfigManager().getConfig().publicTrial.maxRevealedRoundsPerWorkspacePerMonth).toBe(expected);
+      expect(fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8")).toBe(saved);
+    }
+  );
+
   it("returns a redacted config view and can reveal a secret explicitly", async () => {
     const { app } = await loadTestServer();
     const signInResponse = await request(app).post("/api/auth/signin-admin").send({

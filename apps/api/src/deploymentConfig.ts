@@ -579,6 +579,17 @@ export class DeploymentConfigManager {
     const rawFile = fs.readFileSync(deploymentConfigPath, "utf8");
     this.rawConfig = parseDeploymentConfig(rawFile, this.defaults);
     validateRequiredAdminCredentials(this.rawConfig, deploymentConfigPath);
+    // Upgrade the retired hosted-trial allowance in persisted deployments too.
+    // Keep unrelated settings and operator comments intact.
+    if (this.rawConfig.publicTrial.enabled && this.rawConfig.publicTrial.maxRevealedRoundsPerWorkspacePerMonth === 40) {
+      const upgraded = rawFile.replace(
+        /(\[public_trial\][^]*?)(?=\n\s*\[|$)/,
+        (section) => section.replace(/^(\s*max_revealed_rounds_per_workspace_per_month\s*=).*$/m, "$1 80")
+      );
+      writeFileAtomic(deploymentConfigPath, upgraded);
+      this.rawConfig.publicTrial.maxRevealedRoundsPerWorkspacePerMonth = 80;
+    }
+
     this.currentConfig = {
       port: parseNumber(process.env.PORT, 3001),
       host: process.env.HOST ?? "127.0.0.1",
