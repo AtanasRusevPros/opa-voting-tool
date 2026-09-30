@@ -182,7 +182,7 @@ export function TeamChooser(props: {
           <p>You can participate in two trial workspaces. Invitations do not reset usage. Leaving a team does not free a workspace slot.</p>
           {trialWorkspaces.map((workspace) => <div key={workspace.id}>
             <h4>{workspace.name} — {workspace.isOwner ? "Owner" : "Collaborator"}</h4>
-            {workspace.isOwner && props.onRenameWorkspace ? editingWorkspace === workspace.id ? <form onSubmit={async (event) => {
+            {workspace.isOwner && props.onRenameWorkspace ? editingWorkspace === workspace.id ? <form className="workspace-rename-form" onSubmit={async (event) => {
               event.preventDefault();
               if (savingWorkspace) return;
               if (!workspaceName.trim() || workspaceName.trim().length > 80) { setWorkspaceError("Use a workspace name between 1 and 80 characters."); return; }
@@ -195,9 +195,9 @@ export function TeamChooser(props: {
               finally { setSavingWorkspace(false); }
             }}>
               <label>Workspace name<input value={workspaceName} maxLength={80} disabled={savingWorkspace} onChange={(event) => setWorkspaceName(event.target.value)} /></label>
-              <button type="submit" disabled={savingWorkspace}>Save workspace name</button>
-              <button type="button" disabled={savingWorkspace} onClick={() => { setEditingWorkspace(null); setWorkspaceError(""); }}>Cancel</button>
-            </form> : <button type="button" onClick={() => { setEditingWorkspace(workspace.id); setWorkspaceName(workspace.name); setWorkspaceError(""); setWorkspaceNotice(""); }}>Rename workspace</button> : null}
+              <div className="workspace-rename-actions"><button className="primary-button" type="submit" disabled={savingWorkspace}>Save workspace name</button>
+              <button className="secondary-button" type="button" disabled={savingWorkspace} onClick={() => { setEditingWorkspace(null); setWorkspaceError(""); }}>Cancel</button></div>
+            </form> : <button className="secondary-button" type="button" onClick={() => { setEditingWorkspace(workspace.id); setWorkspaceName(workspace.name); setWorkspaceError(""); setWorkspaceNotice(""); }}>Rename workspace</button> : null}
 
             <p>Teams: {workspace.teams.map((team) => team.name).join(", ") || "No joined teams"}</p>
             <p>{workspace.revealedRounds} of {workspace.monthlyLimit} revealed rounds used this month. Resets {workspace.resetsAt.slice(0, 10)} (UTC).</p>

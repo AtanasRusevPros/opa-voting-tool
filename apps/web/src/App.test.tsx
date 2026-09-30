@@ -1,3 +1,4 @@
+import { closeSocket } from "./app/closeSocket";
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -272,6 +273,20 @@ describe("App", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("retires a connecting socket after its handshake without stale events or reconnects", () => {
+    const socket = { readyState: WebSocket.CONNECTING, close: vi.fn(), onmessage: vi.fn(), onclose: vi.fn(), onerror: vi.fn(), onopen: null } as unknown as WebSocket;
+    closeSocket(socket);
+    expect(socket.close).not.toHaveBeenCalled();
+    expect(socket.onmessage).toBeNull();
+    expect(socket.onclose).toBeNull();
+    socket.onopen!.call(socket, new Event("open"));
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(socket.onopen).toBeNull();
+    const open = {readyState: WebSocket.OPEN, close: vi.fn()} as unknown as WebSocket;
+    closeSocket(open);
+    expect(open.close).toHaveBeenCalledTimes(1);
   });
 
   it("shows the login screen by default", () => {

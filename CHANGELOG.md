@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Styled trial workspace rename controls consistently and avoided aborting WebSocket handshakes during chooser/board cleanup, reducing unnecessary browser connection warnings.
+
 - Name new trial workspaces after their owner, migrate legacy generic names once, and allow owners to rename their trial workspace from the chooser.
 - Keep failed team invitations visible with an inline explanation and preserved email, fixing unhandled rejections when a user already belongs to two trial workspaces.
 

@@ -1,3 +1,4 @@
+import { closeSocket } from "./app/closeSocket";
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -5295,7 +5296,7 @@ export default function App() {
     return () => {
       closedByCleanup = true;
       clearReconnectTimeout();
-      ws?.close();
+      if (ws) closeSocket(ws);
     };
   }, [chooserVisible, loadSession]);
 
@@ -5643,7 +5644,7 @@ export default function App() {
       if (presenceRescueTimeoutId != null) {
         window.clearTimeout(presenceRescueTimeoutId);
       }
-      ws.close();
+      closeSocket(ws);
     };
   }, [loadTeamState, selectedTeamId, session?.user.id, showTeamChooser]);
 

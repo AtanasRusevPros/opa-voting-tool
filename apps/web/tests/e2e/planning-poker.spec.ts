@@ -605,6 +605,8 @@ function memberVoteCard(page: Page, displayName: string) {
   return page.locator(".member-tile", { has: page.locator("strong", { hasText: displayName }) }).locator(".vote-card");
 }
 
+// Attach before navigation. Expected negative-path HTTP responses must be asserted
+// by their own scenario; never suppress all 4xx errors or WebSocket diagnostics.
 function attachBrowserIssueCapture(page: Page) {
   const issues: string[] = [];
 
@@ -614,17 +616,16 @@ function attachBrowserIssueCapture(page: Page) {
 
   page.on("console", (message) => {
     const type = message.type();
-    if (type !== "error") {
+    if (type !== "error" && type !== "warning") {
       return;
     }
 
     const text = message.text();
-    if (text.includes("/api/auth/session 401")) {
-      return;
-    }
-    if (text.includes("Failed to load resource: the server responded with a status of 401")) {
-      return;
-    }
+    const pathname = (() => {
+      try { return new URL(message.location().url).pathname; } catch { return ""; }
+    })();
+    // The unauthenticated session probe is expected; do not ignore unrelated 401s.
+    if (pathname === "/api/auth/session" && /\b401\b/.test(text)) return;
 
     issues.push(`console:${text}`);
   });
@@ -2438,4 +2439,19 @@ test("custom history popup stays visible near the right rail and next-round acti
   await expectNoOverlappingMatches(page, ".header-toolbar > *");
   await expectNoOverlappingMatches(page, ".team-name-row > *");
   await expectElementContentFits(page, ".team-name-row h1");
+});
+
+
+test("login and chooser-to-board transitions have no unexpected browser diagnostics", async ({ page }) => {
+  const assertNoBrowserIssues = attachBrowserIssueCapture(page);
+  await loginWithDebugCode(page, uniqueEmail("socket-lifecycle"), "Socket Lifecycle");
+  await createTeam(page, `Socket Lifecycle ${Date.now()}`);
+  await expect(page.locator(".board-shell")).toBeVisible();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.reload();
+    await expect(page.locator(".board-shell")).toBeVisible();
+  }
+  // Let pending handshake/cleanup complete before checking browser diagnostics.
+  await page.waitForTimeout(600);
+  assertNoBrowserIssues();
 });

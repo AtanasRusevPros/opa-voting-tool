@@ -3246,3 +3246,9 @@ textarea {
   .trial-login-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 16px; }
   .trial-login-shell .login-panel { max-width: 680px; }
 }
+
+
+.workspace-rename-form { display: grid; gap: 12px; max-width: 480px; margin: 12px 0; }
+.workspace-rename-form label { display: grid; gap: 6px; }
+.workspace-rename-form input { width: 100%; min-width: 0; box-sizing: border-box; }
+.workspace-rename-actions { display: flex; flex-wrap: wrap; gap: 10px; }
