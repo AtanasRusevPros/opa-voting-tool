@@ -200,3 +200,18 @@ check membership, and a revoked socket closes with policy code 1008 so the clien
 clears the board and returns to the chooser.
 
 Enabled hosted-trial configuration migrates the legacy persisted monthly allowance of 40 to 80 at startup. This changes the allowed total without resetting stored usage. Other custom quotas and disabled-trial configurations are preserved.
+
+
+### Hosted-trial workspace names
+
+Trial signup derives the initial workspace label from the owner's display name.
+A transactional startup migration, recorded in `workspace_name_migrations`, updates
+only public-trial workspaces still named `My First Workspace`; a later intentional
+reuse of that label is preserved. IDs remain authoritative and labels need not be unique.
+
+The authenticated `PATCH /api/workspaces/:workspaceId` route accepts a trimmed
+1–80-character name only when trial mode is enabled. The repository update requires
+a public-trial workspace whose creator is the requesting user; team-admin privileges
+and collaborator membership do not grant rename access. The update changes only name
+and updated-at fields and triggers chooser refresh. The chooser provides owner-only
+Save/Cancel and feedback; self-hosted mode does not expose this management UI.

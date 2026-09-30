@@ -13,6 +13,9 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Name new trial workspaces after their owner, migrate legacy generic names once, and allow owners to rename their trial workspace from the chooser.
+- Keep failed team invitations visible with an inline explanation and preserved email, fixing unhandled rejections when a user already belongs to two trial workspaces.
+
 - Added demo-count diagnostic exports and conservative offline maintenance, including dry-run-first cleanup of eligible legacy duplicate demo accounts. Simulated voting now uses only canonical seed identities assigned to each demo team; saved historical snapshots are preserved.
 
 - Fixed existing enabled hosted-trial deployments retaining the retired 40-round quota: startup now persists the upgrade to 80, aligning enforcement and displayed allowances. Other custom limits and disabled-trial configurations remain unchanged.

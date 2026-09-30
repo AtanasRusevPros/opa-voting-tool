@@ -425,9 +425,19 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 
 ## Hosted-trial collaboration and limits
 
+New trial workspaces use the owner's display name, for example **John Doe's Workspace**.
+The owner can **Rename workspace** in the team chooser (1–80 characters);
+collaborators and team admins cannot rename another owner's workspace.
+Names are labels, not access boundaries: renaming preserves membership, history and
+usage, and later profile-name changes do not rename the workspace. Existing generic
+trial names migrate once; custom names remain unchanged. This management UI is
+specific to hosted-trial mode.
+
+
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
-how to free a slot. Team removal or leaving a team does not remove workspace
+how to free a slot. Failed invitations show a persistent inline error and keep the
+entered email for retry. Team removal or leaving a team does not remove workspace
 membership. Collaborators can use **Leave workspace** in the team chooser to leave
 all teams in that workspace while retaining their account and saved shared history.
 Owners cannot leave: Account settings explains account deletion and permanent purge

@@ -341,7 +341,15 @@ export function registerRoutes({
 
   app.get("/api/workspaces/trial", requireUser, (req, res) => {
     const user = (req as AuthedRequest).user;
-    res.json({ workspaces: user.isSuperAdmin ? [] : repository.getPublicTrialWorkspaces(user.id) });
+    res.json({ workspaces: !config.publicTrial.enabled || user.isSuperAdmin ? [] : repository.getPublicTrialWorkspaces(user.id) });
+  });
+
+  app.patch("/api/workspaces/:workspaceId", requireUser, (req, res) => {
+    try {
+      repository.renamePublicTrialWorkspace((req as AuthedRequest).user.id, String(req.params.workspaceId), req.body?.name);
+      broadcastChooserSoon();
+      res.json({ ok: true });
+    } catch (error) { res.status(400).json({ error: (error as Error).message }); }
   });
 
   app.post("/api/workspaces/:workspaceId/leave", requireUser, (req, res) => {

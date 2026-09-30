@@ -25,6 +25,8 @@ export function TeamDirectoryModal(props: {
   onDenyJoinRequest: (teamId: string, requestId: string) => Promise<void>;
 }) {
   const activeParticipantIds = useMemo(() => new Set(props.directory.activeParticipantIds), [props.directory.activeParticipantIds]);
+  const [inviteError, setInviteError] = useState("");
+  const [invitePending, setInvitePending] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [latestCredentialReveal, setLatestCredentialReveal] = useState<{
     heading: string;
@@ -147,9 +149,10 @@ export function TeamDirectoryModal(props: {
                 className="directory-invite-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (!canSubmitInvite) {
+                  if (!canSubmitInvite || invitePending) {
                     return;
                   }
+                  setInviteError(""); setInvitePending(true);
                   const inviteTargetEmail = selectedCandidate?.email ?? trimmedInviteEmail;
                   void props.onAddMember(props.directory.team.id, inviteTargetEmail).then((result) => {
                     setInviteEmail("");
@@ -166,9 +169,12 @@ export function TeamDirectoryModal(props: {
                       return;
                     }
                     setLatestCredentialReveal(null);
-                  });
+                  }).catch((error: unknown) => {
+                    setInviteError(error instanceof Error ? error.message : "Could not add this person. Please retry.");
+                  }).finally(() => setInvitePending(false));
                 }}
               >
+                {inviteError ? <p role="alert">{inviteError}</p> : null}
                 <label>
                   Add or invite by email
                   <input
@@ -183,7 +189,7 @@ export function TeamDirectoryModal(props: {
                     placeholder="person@company.com"
                   />
                 </label>
-                <button className="primary-button" type="submit" disabled={props.isBusy || !canSubmitInvite}>
+                <button className="primary-button" type="submit" disabled={props.isBusy || invitePending || !canSubmitInvite}>
                   Add to team
                 </button>
               </form>

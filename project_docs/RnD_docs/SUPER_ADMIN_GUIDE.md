@@ -448,3 +448,12 @@ Self-hosting removes hosted-demo quotas; practical capacity depends on your serv
 Source, deployment documentation and the GitHub star link are shown in the trial UI.
 
 For deployed settings, use `./deploy.sh config:edit` from the app directory. The monthly allowance is `[public_trial].max_revealed_rounds_per_workspace_per_month`; the public origin for email/canonical/sitemap URLs is `[app].base_url`. See the [deployment settings procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#updating-hosted-trial-collaboration-policy) for restart and verification steps.
+
+
+Hosted-trial workspace names now default to the owner's display name. On upgrade,
+legacy `My First Workspace` trial names migrate once; custom names and non-trial
+workspaces are preserved. Owners rename from the team chooser using 1–80 characters.
+This is owner-only: platform/team administration does not grant permission through
+that endpoint to rename another owner's workspace. Names are not unique identifiers
+and renaming does not reset usage or alter access. Use the workspace ID in operator
+reports to distinguish identically named workspaces.

@@ -7011,6 +7011,9 @@ export default function App() {
         <TeamChooser
           branding={branding}
           loadTrialWorkspaces={loadTrialWorkspaces}
+          onRenameWorkspace={async (workspaceId, name) => {
+            await api(`/api/workspaces/${workspaceId}`, { method: "PATCH", body: JSON.stringify({ name }) });
+          }}
           onLeaveWorkspace={async (workspaceId) => {
             await api(`/api/workspaces/${workspaceId}/leave`, { method: "POST" });
             setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);

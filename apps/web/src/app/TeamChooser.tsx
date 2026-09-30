@@ -12,6 +12,7 @@ import type { NotificationFeedResponse, PlatformAccessRequestActionResponse, Pla
 export function TeamChooser(props: {
   branding?: BrandingManifest;
   loadTrialWorkspaces?: () => Promise<TrialWorkspaceView[]>;
+  onRenameWorkspace?: (workspaceId: string, name: string) => Promise<void>;
   onLeaveWorkspace?: (workspaceId: string) => Promise<void>;
   user: CurrentUserSummary;
   memberships: TeamMembershipSummary[];
@@ -122,6 +123,10 @@ export function TeamChooser(props: {
   }, [importTeamOpen]);
 
   const [trialWorkspaces, setTrialWorkspaces] = useState<TrialWorkspaceView[]>([]);
+  const [editingWorkspace, setEditingWorkspace] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [workspaceNotice, setWorkspaceNotice] = useState("");
   const [workspaceError, setWorkspaceError] = useState("");
   const [leavingWorkspace, setLeavingWorkspace] = useState(false);
   useEffect(() => {
@@ -172,10 +177,28 @@ export function TeamChooser(props: {
         <BrandFooter branding={branding} />
         {workspaceError ? <p role="alert">{workspaceError}</p> : null}
         {trialWorkspaces.length > 0 ? <section className="chooser-card">
+          {workspaceNotice ? <p role="status">{workspaceNotice}</p> : null}
           <h3>Your hosted-trial workspaces ({trialWorkspaces.length}/2)</h3>
           <p>You can participate in two trial workspaces. Invitations do not reset usage. Leaving a team does not free a workspace slot.</p>
           {trialWorkspaces.map((workspace) => <div key={workspace.id}>
             <h4>{workspace.name} — {workspace.isOwner ? "Owner" : "Collaborator"}</h4>
+            {workspace.isOwner && props.onRenameWorkspace ? editingWorkspace === workspace.id ? <form onSubmit={async (event) => {
+              event.preventDefault();
+              if (savingWorkspace) return;
+              if (!workspaceName.trim() || workspaceName.trim().length > 80) { setWorkspaceError("Use a workspace name between 1 and 80 characters."); return; }
+              setSavingWorkspace(true); setWorkspaceError(""); setWorkspaceNotice("");
+              try {
+                await props.onRenameWorkspace!(workspace.id, workspaceName.trim());
+                setTrialWorkspaces(await props.loadTrialWorkspaces?.() ?? []);
+                setEditingWorkspace(null); setWorkspaceNotice("Workspace name saved.");
+              } catch (error) { setWorkspaceError((error as Error).message); }
+              finally { setSavingWorkspace(false); }
+            }}>
+              <label>Workspace name<input value={workspaceName} maxLength={80} disabled={savingWorkspace} onChange={(event) => setWorkspaceName(event.target.value)} /></label>
+              <button type="submit" disabled={savingWorkspace}>Save workspace name</button>
+              <button type="button" disabled={savingWorkspace} onClick={() => { setEditingWorkspace(null); setWorkspaceError(""); }}>Cancel</button>
+            </form> : <button type="button" onClick={() => { setEditingWorkspace(workspace.id); setWorkspaceName(workspace.name); setWorkspaceError(""); setWorkspaceNotice(""); }}>Rename workspace</button> : null}
+
             <p>Teams: {workspace.teams.map((team) => team.name).join(", ") || "No joined teams"}</p>
             <p>{workspace.revealedRounds} of {workspace.monthlyLimit} revealed rounds used this month. Resets {workspace.resetsAt.slice(0, 10)} (UTC).</p>
             {workspace.isOwner ? <p>To delete your owned trial workspace, use Account settings. Account deletion permanently removes your account and all owned trial workspaces, including their teams and history.</p> :

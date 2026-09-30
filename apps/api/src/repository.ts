@@ -132,7 +132,9 @@ const JIRA_PENDING_ISSUE_SOURCE = "jira_cloud" as const;
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 const DEFAULT_WORKSPACE_NAME = "Default Workspace";
 const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-06-05";
-const PUBLIC_TRIAL_WORKSPACE_NAME = "My First Workspace";
+function trialWorkspaceName(displayName: string): string {
+  return `${displayName.trim().slice(0, 68) || "My"}'s Workspace`;
+}
 const PUBLIC_TRIAL_STARTER_TEAM_NAME = "My First Team";
 
 type TeamPermissionContext = {
@@ -215,6 +217,17 @@ export class Repository {
     this.db.exec("PRAGMA wal_autocheckpoint = 200");
     this.db.exec("PRAGMA foreign_keys = ON");
     this.migrate();
+    this.db.exec("CREATE TABLE IF NOT EXISTS workspace_name_migrations (id TEXT PRIMARY KEY)");
+    if (!this.db.prepare("SELECT id FROM workspace_name_migrations WHERE id = ?").get("owner-name-v1")) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        const legacy = this.db.prepare(`SELECT w.id, u.display_name FROM workspaces w JOIN users u ON u.id = w.created_by
+          WHERE w.kind = 'public_trial' AND w.name = 'My First Workspace'`).all() as Array<{id: string; display_name: string}>;
+        for (const row of legacy) this.db.prepare("UPDATE workspaces SET name = ?, updated_at = ? WHERE id = ?").run(trialWorkspaceName(row.display_name), nowIso(), row.id);
+        this.db.prepare("INSERT INTO workspace_name_migrations(id) VALUES (?)").run("owner-name-v1");
+        this.db.exec("COMMIT");
+      } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    }
   }
 
   private closeDatabase(): void {
@@ -1123,6 +1136,14 @@ export class Repository {
     }));
   }
 
+  renamePublicTrialWorkspace(userId: string, workspaceId: string, input: unknown): void {
+    if (!this.config.publicTrial.enabled) throw new Error("Workspace renaming is only available for hosted trials.");
+    if (typeof input !== "string" || !input.trim() || input.trim().length > 80) throw new Error("Use a workspace name between 1 and 80 characters.");
+    const result = this.db.prepare(`UPDATE workspaces SET name = ?, updated_at = ?
+      WHERE id = ? AND kind = 'public_trial' AND created_by = ?`).run(input.trim(), nowIso(), workspaceId, userId);
+    if (!result.changes) throw new Error("Only the workspace owner can rename this trial workspace.");
+  }
+
   leavePublicTrialWorkspace(userId: string, workspaceId: string): string[] {
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -1214,7 +1235,7 @@ export class Repository {
         VALUES(?, ?, 'public_trial', ?, ?, ?, ?)
       `
       )
-      .run(workspaceId, PUBLIC_TRIAL_WORKSPACE_NAME, user.id, createdAt, createdAt, createdAt);
+      .run(workspaceId, trialWorkspaceName(user.displayName), user.id, createdAt, createdAt, createdAt);
     this.ensureWorkspaceMembership(workspaceId, user.id, "owner", createdAt);
     this.db
       .prepare("UPDATE users SET terms_version = ?, terms_accepted_at = ?, updated_at = ?, last_active_at = ? WHERE id = ?")

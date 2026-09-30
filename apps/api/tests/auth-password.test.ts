@@ -230,7 +230,7 @@ describe("Password and invite HTTP flows", () => {
     });
     expect(firstSignupResponse.status).toBe(201);
     expect(firstSignupResponse.body.workspace).toMatchObject({
-      name: "My First Workspace",
+      name: "Trial One's Workspace",
       kind: "public_trial"
     });
     expect(firstSignupResponse.body.team).toMatchObject({ name: "My First Team" });
@@ -254,6 +254,17 @@ describe("Password and invite HTTP flows", () => {
     expect(secondSignupResponse.body.team).toMatchObject({ name: "My First Team" });
     expect(secondSignupResponse.body.workspace.id).not.toBe(firstSignupResponse.body.workspace.id);
     expect(secondSignupResponse.body.team.id).not.toBe(firstSignupResponse.body.team.id);
+    const workspaceId = firstSignupResponse.body.workspace.id;
+    const ownerCookie = firstSignupResponse.headers["set-cookie"];
+    const otherCookie = secondSignupResponse.headers["set-cookie"];
+    expect((await client.patch(`/api/workspaces/${workspaceId}`).set("Cookie", otherCookie).send({ name: "Stolen" })).status).toBe(400);
+    for (const name of [" ", "x".repeat(81), 7]) {
+      expect((await client.patch(`/api/workspaces/${workspaceId}`).set("Cookie", ownerCookie).send({ name })).status).toBe(400);
+    }
+    expect((await client.patch(`/api/workspaces/${workspaceId}`).set("Cookie", ownerCookie).send({ name: "  Delivery Team  " })).status).toBe(200);
+    const renamed = await client.get("/api/workspaces/trial").set("Cookie", ownerCookie);
+    expect(renamed.body.workspaces[0]).toMatchObject({ id: workspaceId, name: "Delivery Team", isOwner: true, revealedRounds: 0 });
+
 
     const duplicateCodeResponse = await client.post("/api/auth/public-trial/request-code").send({
       email: "trial-one@gmail.com"

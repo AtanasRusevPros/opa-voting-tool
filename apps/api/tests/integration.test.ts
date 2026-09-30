@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import fs from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
 import { BRANDING_MANIFEST, DEFAULT_HISTORY_TIME_ZONE_KEYS } from "@planning-poker/shared";
@@ -58,6 +59,33 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
+  it("migrates only legacy trial names once and preserves custom names and usage", () => {
+    const config = createTestConfig();
+    config.publicTrial.enabled = true;
+    const repo = new Repository(config);
+    const signup = (email: string, displayName: string) => repo.completePublicTrialSignup({
+      email, displayName, code: repo.requestLoginCode(email).code, password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    const john = signup("john@example.com", "John Doe");
+    const stacey = signup("stacey@example.com", "Stacey");
+    expect(john.workspace.name).toBe("John Doe's Workspace");
+    const db = new DatabaseSync(config.databasePath);
+    db.prepare("UPDATE workspaces SET name = 'My First Workspace' WHERE id = ?").run(john.workspace.id);
+    db.prepare("UPDATE workspaces SET name = 'Custom' WHERE id = ?").run(stacey.workspace.id);
+    db.exec("DELETE FROM workspace_name_migrations");
+    const migrated = new Repository(config);
+    expect(migrated.getPublicTrialWorkspaces(john.user.id)[0]).toMatchObject({name: "John Doe's Workspace", revealedRounds: 0});
+    expect(migrated.getPublicTrialWorkspaces(stacey.user.id)[0]!.name).toBe("Custom");
+    migrated.renamePublicTrialWorkspace(john.user.id, john.workspace.id, "My First Workspace");
+    const restarted = new Repository(config);
+    expect(restarted.getPublicTrialWorkspaces(john.user.id)[0]!.name).toBe("My First Workspace");
+    expect(() => restarted.renamePublicTrialWorkspace(stacey.user.id, john.workspace.id, "Other")).toThrow("Only the workspace owner");
+    config.publicTrial.enabled = false;
+    expect(() => restarted.renamePublicTrialWorkspace(john.user.id, john.workspace.id, "Other")).toThrow("only available for hosted trials");
+    db.close();
+  });
+
   it("creates a team, runs a round, and stores reveal history", () => {
     const repo = new Repository(createTestConfig());
 

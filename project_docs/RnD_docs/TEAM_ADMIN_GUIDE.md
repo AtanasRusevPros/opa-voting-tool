@@ -243,3 +243,7 @@ with recorded simulated-load coverage of 400 concurrent users across multiple te
 The personally funded hosted demo is limited to keep its small server available.
 Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
 Source, deployment documentation and the GitHub star link are shown in the trial UI.
+
+Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in the team chooser, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
+
+If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from the chooser; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
