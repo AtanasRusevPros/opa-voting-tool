@@ -237,7 +237,9 @@ Production deployment note:
 - Returning users normally sign in with email + password.
 - The normal user sign-in flow is now one unified screen instead of separate initial and password pages.
 - The login screen now also includes `Forgot password`.
-- When SMTP/debug-code delivery is not available, the unified login screen shows `Request access` instead of a non-working email-code path.
+- `Request access` appears only when `[auth].access_requests_enabled` is true (the default). Set it to false in `config/deployment.local.toml` and restart to hide the button and reject new API submissions; trial signup and invitations are independent.
+- Normal sign-in is at `/`; super-admin sign-in is at `/admin`, with the existing separate admin credentials. There is no public Admin button.
+- Enter a valid-looking email to enable the secondary Forgot password and Start free public trial actions; trial signup is shown only in open-signup mode.
 - If SMTP or debug-code delivery is available, `Forgot password` sends the user into the code-based password reset flow.
 - If SMTP is not configured for that deployment, `Forgot password` tells the user to contact a team admin or the super-admin for a manually generated replacement password.
 - In development without SMTP configured, the API logs login codes to stdout.

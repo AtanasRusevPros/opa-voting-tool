@@ -3277,3 +3277,9 @@ textarea {
 @media (max-width: 600px) {
   .chooser-header-side { flex: 1 1 100%; }
 }
+
+.login-signin-actions > .primary-button { width: 100%; }
+.login-assistance-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.login-assistance-actions > button { white-space: normal; min-height: 44px; }
+.login-access-actions { padding-top: 6px; }
+@media (max-width: 360px) { .login-assistance-actions { grid-template-columns: minmax(0, 1fr); } }

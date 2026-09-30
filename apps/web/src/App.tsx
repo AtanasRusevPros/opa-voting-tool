@@ -101,6 +101,7 @@ type BootstrapResponse = {
   debugCodesEnabled?: boolean;
   debugToolsEnabled: boolean;
   smtpConfigured?: boolean;
+  accessRequestsEnabled?: boolean;
   branding?: BrandingManifest;
   simulatorModeEnabled?: boolean;
   demoModeEnabled?: boolean;
@@ -666,7 +667,7 @@ function writeRouteState(next: RouteState, historyMode: "push" | "replace" = "pu
     params.set("teamId", next.selectedTeamId);
   }
 
-  const nextUrl = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}`;
+  const nextUrl = `${/^\/admin\/?$/.test(window.location.pathname) ? "/" : window.location.pathname}${params.size ? `?${params.toString()}` : ""}`;
   const historyMethod = historyMode === "replace" ? "replaceState" : "pushState";
   window.history[historyMethod](null, "", nextUrl);
 }
@@ -4239,7 +4240,7 @@ export default function App() {
   const [pendingTargetTeamId, setPendingTargetTeamId] = useState<string | null>(initialRoute.selectedTeamId);
   const [workspaceRefresh, setWorkspaceRefresh] = useState(0);
   const [showTeamChooser, setShowTeamChooser] = useState(initialRoute.showTeamChooser);
-  const [authStep, setAuthStep] = useState<AuthStep>("signin");
+  const [authStep, setAuthStep] = useState<AuthStep>(() => /^\/admin\/?$/.test(window.location.pathname) ? "admin" : "signin");
   const [authFlow, setAuthFlow] = useState<AuthFlow>("standard");
   const [email, setEmail] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
@@ -4251,6 +4252,7 @@ export default function App() {
   const [debugCode, setDebugCode] = useState<string | null>(null);
   const [debugToolsEnabled, setDebugToolsEnabled] = useState(false);
   const [debugCodesEnabled, setDebugCodesEnabled] = useState(false);
+  const [accessRequestsEnabled, setAccessRequestsEnabled] = useState(false);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [publicTrial, setPublicTrial] = useState<NonNullable<BootstrapResponse["publicTrial"]>>({
     enabled: false,
@@ -4476,7 +4478,7 @@ export default function App() {
       setNotificationFeed(null);
       setAccountSettingsOpen(false);
       setAdminSettingsOpen(false);
-      setAuthStep("signin");
+      setAuthStep(/^\/admin\/?$/.test(window.location.pathname) ? "admin" : "signin");
       setAuthFlow("standard");
       setCode("");
       setPassword("");
@@ -4699,6 +4701,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const nextRoute = readRouteState();
+      setAuthStep(/^\/admin\/?$/.test(window.location.pathname) ? "admin" : "signin");
       setSelectedTeamId(nextRoute.selectedTeamId);
       setShowTeamChooser(nextRoute.showTeamChooser);
     };
@@ -5014,6 +5017,7 @@ export default function App() {
         setDebugCodesEnabled(Boolean(response.debugCodesEnabled));
         setDebugToolsEnabled(response.debugToolsEnabled);
         setSmtpConfigured(Boolean(response.smtpConfigured));
+        setAccessRequestsEnabled(response.accessRequestsEnabled !== false);
         setPublicTrial(
           response.publicTrial ?? {
             enabled: false,
@@ -5116,8 +5120,9 @@ export default function App() {
   }, [pendingTargetTeamId, session?.availableTeams, session?.memberships, session?.user.id, setSuccessStatus]);
 
   useEffect(() => {
+    if (!session) return;
     writeRouteState({ selectedTeamId, showTeamChooser }, "replace");
-  }, [selectedTeamId, showTeamChooser]);
+  }, [selectedTeamId, showTeamChooser, session]);
 
   useEffect(() => {
     if (!session?.user.id || !selectedTeamId) {
@@ -6984,6 +6989,7 @@ export default function App() {
         setAvatarColorKey={(value) => setAvatarSelection((current) => ({ ...current, avatarColorKey: value }))}
         authStep={authStep}
         canUseEmailCode={smtpConfigured || debugCodesEnabled}
+        accessRequestsEnabled={accessRequestsEnabled}
         trialModeEnabled={publicTrial.enabled}
         trialLimits={publicTrial}
         publicTrialOpenSignup={publicTrial.enabled && publicTrial.mode === "open_signup"}
@@ -6996,13 +7002,10 @@ export default function App() {
         onStartPublicTrial={handleStartPublicTrial}
         onRequestAccess={handleRequestAccess}
         onForgotPassword={handleForgotPassword}
-        onOpenAdminSignIn={() => {
-          setAuthFlow("standard");
-          setAuthStep("admin");
-        }}
         onPasswordSignIn={handlePasswordSignIn}
         onAdminSignIn={handleAdminSignIn}
         onBackToSignIn={() => {
+          if (authStep === "admin") { window.location.assign("/"); return; }
           setAuthStep("signin");
           setAuthFlow("standard");
           setTrialTermsAccepted(false);

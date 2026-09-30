@@ -215,3 +215,9 @@ a public-trial workspace whose creator is the requesting user; team-admin privil
 and collaborator membership do not grant rename access. The update changes only name
 and updated-at fields and triggers chooser refresh. Account → Workspaces provides owner-only
 Save/Cancel and feedback; self-hosted mode does not expose this management UI.
+
+## Login entry and access-request policy
+
+The public login is `/`; the separate super-admin form is served at `/admin` (also `/admin/`) with `X-Robots-Tag: noindex`. Successful authentication uses the existing session flow and returns to the normal app route. The dedicated URL changes presentation, not authorization boundaries.
+
+Deployment TOML `[auth].access_requests_enabled` defaults to true. Bootstrap exposes the effective boolean; false hides Request access and makes the API reject new requests with 403 before storing anything. It does not gate trial signup or invitations. The setting survives unrelated platform configuration saves. Email-based recovery and trial actions require a valid-looking email in the UI; server-side validation remains authoritative.

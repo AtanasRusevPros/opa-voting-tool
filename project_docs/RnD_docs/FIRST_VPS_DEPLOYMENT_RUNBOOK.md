@@ -736,3 +736,16 @@ needed beyond the existing public-trial enabled setting.
 Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
 On the workspace-naming upgrade, a transactional, one-time database migration renames existing public-trial workspaces still named `My First Workspace` using their owner's display name. Custom names and non-trial workspaces are preserved. A later intentional rename back to the old name is not overwritten on restart. After deployment, verify trial-owner Save/Cancel and collaborator visibility, and reject a third-workspace invitation with an inline error while retaining the entered email.
+
+## Configure login access requests and admin entry
+
+Super-admin sign-in is at `/admin` on your deployment origin, including after a direct reload. Bookmark that URL; the public login has no Admin button. Use the existing `[admin]` credentials. Back to user sign-in returns to `/`.
+
+For a hosted demo, add or edit (do not duplicate) this section in `config/deployment.local.toml`:
+
+```toml
+[auth]
+access_requests_enabled = false
+```
+
+This is the application configuration, not `config/deploy.local.toml`. Omission defaults to `true` for compatibility. Run `./deploy.sh restart`, `./deploy.sh health` and `./deploy.sh public-health`. Check that Request access is absent and `/api/bootstrap` reports `accessRequestsEnabled: false`. New access-request submissions return HTTP 403 when disabled; existing pending requests remain available to admins. Trial signup, invitations and password recovery are independent. Test `/admin` sign-in and return to user sign-in; admin responses carry `X-Robots-Tag: noindex` and are not advertised in the public sitemap.

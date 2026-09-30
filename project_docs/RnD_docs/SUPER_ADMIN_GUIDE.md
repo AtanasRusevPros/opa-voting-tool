@@ -54,7 +54,7 @@ Deployment security note:
 ## Super-Admin Account
 
 - The super-admin account is separate from any normal employee/team-member account.
-- It is configured through the deployment TOML and signs in from the same login screen through the dedicated super-admin path.
+- It is configured through the deployment TOML and signs in at `/admin` on your deployment origin. Bookmark this separate page; the public login has no Admin button. Back to user sign-in returns to `/`.
 - The recommended operational practice is to keep the super-admin username distinct from the person’s normal company email account.
 - The super-admin is automatically a member of every team, but the product keeps the super-admin on the chooser/admin surface by default until a specific team is opened.
 - Even though that universal membership remains real internally, the UI now intentionally hides the super-admin identity from team-facing presence/member/invite/autocomplete surfaces so normal teams do not see `admin.local` as a standard participant row.
@@ -190,7 +190,8 @@ Use this when the customer wants the product to work without mail integration.
 Current supported behavior:
 
 - team-admins can add/invite an allowlisted user without SMTP
-- end users without credentials can use `Request access` from the unified login screen so the super-admin can admit the account later
+- end users without credentials can use `Request access` when enabled so the super-admin can admit the account later
+- set `[auth].access_requests_enabled = false` in ignored `config/deployment.local.toml` and restart to hide Request access and reject new requests (default true); existing pending requests remain, and trial signup/invitations are unaffected
 - the app generates an initial password automatically
 - the generated password is shown once to the team-admin for manual delivery
 - the UI reminds the admin to save that password somewhere secure before closing

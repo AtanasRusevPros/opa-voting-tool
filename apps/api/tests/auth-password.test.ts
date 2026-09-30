@@ -35,9 +35,10 @@ function createEnvDir() {
   return dir;
 }
 
-async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string; publicTrial?: boolean; smtp?: boolean }) {
+async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string; publicTrial?: boolean; smtp?: boolean; accessRequests?: boolean }) {
   const dir = createEnvDir();
   const deploymentSections: string[] = [];
+  if (options?.accessRequests !== undefined) deploymentSections.push(`[auth]\naccess_requests_enabled = ${options.accessRequests}\n`);
   if (options?.smtp) {
     deploymentSections.push(`
 [smtp]
@@ -114,6 +115,26 @@ afterEach(() => {
 });
 
 describe("Password and invite HTTP flows", () => {
+  it("advertises and enforces disabled access requests while retaining the separate admin page", async () => {
+    const { app } = await loadTestServer({ accessRequests: false });
+    expect((await request(app).get("/api/bootstrap")).body.accessRequestsEnabled).toBe(false);
+    const denied = await request(app).post("/api/auth/request-access").send({ email: "request@example-company.com" });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error).toContain("disabled");
+    const { DeploymentConfigManager } = await import("../src/deploymentConfig.js");
+    const manager = new DeploymentConfigManager();
+    expect(manager.getConfig().accessRequestsEnabled).toBe(false);
+    manager.updateConfig({ app: { baseUrl: "https://vote.example.com" } });
+    expect(new DeploymentConfigManager().getConfig().accessRequestsEnabled).toBe(false);
+    const admin = await request(app).get("/admin");
+    expect(admin.status).toBe(200);
+    expect(admin.headers["x-robots-tag"]).toBe("noindex");
+    expect(admin.headers["content-type"]).toContain("text/html");
+    const enabled = await loadTestServer({ accessRequests: true });
+    expect((await request(enabled.app).get("/api/bootstrap")).body.accessRequestsEnabled).toBe(true);
+    expect((await request(enabled.app).post("/api/auth/request-access").send({ email: "request@example-company.com" })).status).toBe(200);
+  });
+
   it("provides a trial-only project guide and semantic welcome HTML without JavaScript", async () => {
     const { app } = await loadTestServer({ publicTrial: true });
     const guide = await request(app).get("/llms.txt");

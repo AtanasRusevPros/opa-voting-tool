@@ -49,6 +49,7 @@ export function getConfig(): AppConfig {
     simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
     simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
     demoModeEnabled: false,
+    accessRequestsEnabled: true,
     publicTrial: {
       enabled: false,
       mode: "disabled",

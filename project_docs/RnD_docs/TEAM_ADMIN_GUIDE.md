@@ -246,3 +246,7 @@ Source, deployment documentation and the GitHub star link are shown in the trial
 Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
 
 If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from Account → Workspaces; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
+
+## Helping users sign in
+
+Normal team members and team admins use `/`. Enter a valid-looking email to enable Forgot password or, when offered, Start free public trial. Request access is optional per installation; if it is absent, contact an administrator for admission or use the available trial signup. Platform super-admins use the separate `/admin` address with their configured admin credentials.

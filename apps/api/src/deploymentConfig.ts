@@ -15,6 +15,7 @@ import { repoRoot, resolveDefaultDeploymentConfigPath } from "./configPaths.js";
 import type { AppConfig } from "./types.js";
 
 type RawDeploymentConfig = {
+  accessRequestsEnabled: boolean;
   app: {
     baseUrl: string;
     allowedDomainsPath: string;
@@ -253,6 +254,7 @@ function parseTomlSections(raw: string): Record<string, Record<string, boolean |
 
 function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: string): RawDeploymentConfig {
   return {
+    accessRequestsEnabled: true,
     app: {
       baseUrl: appBaseUrl,
       allowedDomainsPath
@@ -318,6 +320,9 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
   return [
     "# Managed by the OPA Voting Tool super-admin settings UI.",
     "# Keep this file in a writable mounted config location in deployed environments.",
+    "",
+    "[auth]",
+    `access_requests_enabled = ${config.accessRequestsEnabled}`,
     "",
     "[app]",
     `base_url = ${quoteToml(config.app.baseUrl)}`,
@@ -411,6 +416,7 @@ function parsePublicTrialMode(value: boolean | number | string | undefined, fall
 function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawDeploymentConfig {
   const sections = parseTomlSections(raw);
   return {
+    accessRequestsEnabled: typeof sections.auth?.access_requests_enabled === "boolean" ? sections.auth.access_requests_enabled : defaults.accessRequestsEnabled,
     app: {
       baseUrl: String(sections.app?.base_url ?? defaults.app.baseUrl).trim() || defaults.app.baseUrl,
       allowedDomainsPath: normalizePathValue(String(sections.app?.allowed_domains_path ?? defaults.app.allowedDomainsPath))
@@ -619,6 +625,7 @@ export class DeploymentConfigManager {
       simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
       simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
       demoModeEnabled: this.rawConfig.demo.enabled,
+      accessRequestsEnabled: this.rawConfig.accessRequestsEnabled,
       publicTrial: { ...this.rawConfig.publicTrial },
       defaultHistoryTimezoneKeys: [...this.rawConfig.historyPopup.timezoneKeys],
       superAdminUsername: this.rawConfig.admin.username,
@@ -882,6 +889,7 @@ export class DeploymentConfigManager {
   }
 
   private applyRawConfig() {
+    this.currentConfig.accessRequestsEnabled = this.rawConfig.accessRequestsEnabled;
     this.currentConfig.allowedDomainsPath = this.rawConfig.app.allowedDomainsPath;
     this.currentConfig.appBaseUrl = this.rawConfig.app.baseUrl;
     this.currentConfig.superAdminUsername = this.rawConfig.admin.username;

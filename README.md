@@ -476,3 +476,16 @@ funding/limits are shown only in trial mode. A small GitHub-star link remains be
 the team list. Login and chooser attribution identify the project as **Under Development**.
 Team admins can also rename an active team using the pencil beside its title in
 the Team Admin dialog, with the same permissions and validation as board renaming.
+
+### Login and optional access requests
+
+Users sign in at `/`; super-admins open `/admin` directly (bookmark it). Admin credentials and authorization remain separate from user sign-in. Forgot password and Start free public trial become available after entering a valid-looking email; trial signup still requires open-signup mode.
+
+To disable Request access on a hosted demo, add or edit this section in ignored `config/deployment.local.toml`, then run `./deploy.sh restart`:
+
+```toml
+[auth]
+access_requests_enabled = false
+```
+
+The setting hides the button and rejects new access-request API submissions. It defaults to `true` when omitted and does not disable trial signup, invitations, password recovery or admin sign-in. `/admin` is marked `noindex`; authentication and authorization still protect administrative operations.

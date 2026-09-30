@@ -295,7 +295,7 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByText("OPA Voting Tool")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue with password" })).not.toBeInTheDocument();
   });
 
@@ -682,17 +682,17 @@ describe("App", () => {
     expect(editableEmailInput).toHaveValue("jane@example.com");
   });
 
-  it("shows the dedicated super-admin sign-in entry on the login screen", () => {
+  it("does not advertise admin sign-in on the public login screen", () => {
     render(<App />);
 
-    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
   });
 
-  it("switches into the dedicated super-admin login mode from the main sign-in screen", () => {
+  it("opens the separate admin credentials on the direct admin route", () => {
+    window.history.replaceState({}, "", "/admin");
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Admin" }));
-
+    expect(window.location.pathname).toBe("/admin");
     expect(screen.getByLabelText("Admin username")).toBeInTheDocument();
     expect(screen.getByLabelText("Admin password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Admin sign in" })).toBeDisabled();
@@ -3540,6 +3540,25 @@ describe("App", () => {
     );
   });
 
+  it("hides disabled access requests and requires a valid-looking email for recovery and trial", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => buildJsonResponse({
+      accessRequestsEnabled: false, smtpConfigured: false,
+      publicTrial: { enabled: true, mode: "open_signup", maxRevealedRoundsPerWorkspacePerMonth: 80 }, branding: BRANDING_MANIFEST
+    })));
+    render(<App />);
+    const trial = await screen.findByRole("button", { name: "Start free public trial" });
+    const recovery = screen.getByRole("button", { name: "Forgot password" });
+    expect(screen.queryByRole("button", { name: "Request access" })).not.toBeInTheDocument();
+    expect(trial).toBeDisabled();
+    expect(recovery).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "not-an-email" } });
+    expect(trial).toBeDisabled();
+    expect(recovery).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "person@example.com" } });
+    expect(trial).toBeEnabled();
+    expect(recovery).toBeEnabled();
+  });
+
   it("shows request access instead of email code when SMTP and debug-code delivery are unavailable", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -3558,7 +3577,7 @@ describe("App", () => {
 
     expect(screen.queryByRole("button", { name: "Use email code" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new.user@example-company.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Request access" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Request access" }));
 
     await waitFor(() =>
       expect(screen.getByText(/Access request sent\./i)).toBeInTheDocument()

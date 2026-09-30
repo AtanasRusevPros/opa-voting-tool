@@ -52,6 +52,7 @@ type RegisterRoutesDeps = {
   webDist: string;
   config: {
     appBaseUrl: string;
+    accessRequestsEnabled?: boolean;
     branding: unknown;
     debugCodesEnabled: boolean;
     debugToolsEnabled: boolean;
@@ -367,6 +368,7 @@ export function registerRoutes({
       branding: config.branding,
       debugCodesEnabled: config.debugCodesEnabled,
       debugToolsEnabled: config.debugToolsEnabled,
+      accessRequestsEnabled: config.accessRequestsEnabled !== false,
       smtpConfigured: Boolean(config.smtpHost && config.smtpPort && config.smtpFrom),
       simulatorModeEnabled: config.simulatorModeEnabled,
       demoModeEnabled: config.demoModeEnabled,
@@ -595,6 +597,10 @@ export function registerRoutes({
   });
 
   app.post("/api/auth/request-access", (req, res) => {
+    if (config.accessRequestsEnabled === false) {
+      res.status(403).json({ error: "Access requests are disabled on this installation." });
+      return;
+    }
     const payload = requestAccessSchema.safeParse(req.body);
     if (!payload.success) {
       res.status(400).json({ error: "Invalid email" });
@@ -2059,6 +2065,12 @@ export function registerRoutes({
       res.setHeader("Cache-Control", "no-cache");
       res.type("html").send(renderTrialWelcomeHtml(template, config.appBaseUrl, config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth));
     });
+  });
+
+  app.get(["/admin", "/admin/"], (_req, res) => {
+    res.setHeader("X-Robots-Tag", "noindex");
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(webDist, "index.html"));
   });
 
   app.use(express.static(webDist));

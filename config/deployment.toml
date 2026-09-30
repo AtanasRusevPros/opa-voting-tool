@@ -52,3 +52,7 @@ enabled = false
 
 [history_popup]
 timezone_keys = "[\"gmt\",\"usa-davidson\",\"bulgaria-sofia\"]"
+
+# Set false on the hosted demo; restart after editing deployment.local.toml.
+[auth]
+access_requests_enabled = true

@@ -135,8 +135,7 @@ async function signInAsSuperAdmin(
   username = process.env.E2E_SUPER_ADMIN_USERNAME ?? process.env.SUPER_ADMIN_USERNAME ?? "platform-admin",
   password = process.env.E2E_SUPER_ADMIN_PASSWORD ?? process.env.SUPER_ADMIN_PASSWORD ?? "PlatformAdmin123!"
 ) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Admin" }).click();
+  await page.goto("/admin");
   await page.getByLabel("Admin username").fill(username);
   await page.getByLabel("Admin password").fill(password);
   await page.getByRole("button", { name: "Admin sign in" }).click();

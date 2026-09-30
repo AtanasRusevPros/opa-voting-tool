@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added deployment-configurable access requests, enforced in both login UI and API. Moved super-admin sign-in to `/admin` with noindex and removed its public login button. Grouped email recovery/trial actions beneath Sign in and enable them only after a valid-looking email is entered.
+
 - Simplified the signed-in chooser: workspace management now lives in Account, project details in About, and team cards retain compact workspace usage. Added an Under Development attribution and kept a small GitHub-star link.
 - Added team rename beside the Team Admin title with existing permissions and validation; cleaned editorial recommendations out of the public benchmark summary.
 

@@ -43,6 +43,7 @@ export interface AppConfig {
   simulatorModeEnabled: boolean;
   simulatorSharedSecret: string;
   demoModeEnabled: boolean;
+  accessRequestsEnabled?: boolean;
   publicTrial: {
     enabled: boolean;
     mode: "disabled" | "open_signup" | "invite_only" | "operator_approved";
