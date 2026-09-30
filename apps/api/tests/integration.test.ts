@@ -263,6 +263,20 @@ describe("Repository integration", () => {
     expect(history[0]?.averageScore).toBe("L");
   });
 
+  // P22-ACCESS-003: known bug; remove .fails when sole-admin leave protection is implemented.
+  it.fails("prevents the sole team admin from leaving the team", () => {
+    const repo = new Repository(createTestConfig());
+    const email = "sole-admin@example-company.com";
+    const code = repo.requestLoginCode(email).code;
+    const owner = repo.verifyLoginCode(email, code, "Sole Admin", "fox", "teal", undefined, "Password123!")!;
+    const team = repo.createTeam(owner.id, "Sole Admin Team");
+
+    expect(repo.getTeamUserRole(owner.id, team.id)).toBe("team_admin");
+    expect(() => repo.leaveTeam(owner.id, team.id)).toThrow();
+    expect(repo.isTeamMember(owner.id, team.id)).toBe(true);
+    expect(repo.getTeamUserRole(owner.id, team.id)).toBe("team_admin");
+  });
+
   it("removes access when a user leaves a team and restores it on rejoin", () => {
     const repo = new Repository(createTestConfig());
     const ownerCode = repo.requestLoginCode("owner@example-company.com").code;
