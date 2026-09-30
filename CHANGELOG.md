@@ -13,6 +13,9 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Simplified the signed-in chooser: workspace management now lives in Account, project details in About, and team cards retain compact workspace usage. Added an Under Development attribution and kept a small GitHub-star link.
+- Added team rename beside the Team Admin title with existing permissions and validation; cleaned editorial recommendations out of the public benchmark summary.
+
 - Styled trial workspace rename controls consistently and avoided aborting WebSocket handshakes during chooser/board cleanup, reducing unnecessary browser connection warnings.
 
 - Name new trial workspaces after their owner, migrate legacy generic names once, and allow owners to rename their trial workspace from the chooser.

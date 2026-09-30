@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   AVATAR_COLOR_KEYS,
   AVATAR_COLOR_SWATCHES,
@@ -17,6 +17,7 @@ import { formatTimeZoneOffsetLabel, getAvatarUrl } from "./utils";
 
 export function AccountSettingsModal(props: {
   open: boolean;
+  workspaceSettings?: ReactNode;
   user: CurrentUserSummary;
   historyTimezoneDefaultKeys: readonly HistoryTimeZoneKey[];
   isBusy: boolean;
@@ -122,6 +123,7 @@ export function AccountSettingsModal(props: {
         </div>
 
         <div className="account-settings-grid">
+          {props.workspaceSettings}
           <form
             className="account-settings-section"
             onSubmit={(event) => {

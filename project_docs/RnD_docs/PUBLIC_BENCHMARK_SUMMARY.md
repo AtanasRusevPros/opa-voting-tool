@@ -30,17 +30,5 @@ Low-latency realtime voting tested with simulated sessions up to 400 concurrent 
 
 - These are simulated sessions, not a production SLA.
 - Scripted client request latencies include load-generator/client-side effects and are higher in the mixed 400-vote scenario.
-- Public README wording should avoid saying "guaranteed below 200ms" unless a future benchmark explicitly proves that exact guarantee for the exact measurement being claimed.
+- These results do not establish a guaranteed response time for every browser, network or production workload.
 - The full raw report remains the source of truth.
-
-## Public Wording Recommendation
-
-Use:
-
-> Low-latency realtime voting tested with simulated sessions up to 400 concurrent users.
-
-This wording is appropriate for the current README and launch docs because it describes the tested scenario without turning a benchmark run into a production promise.
-
-Avoid:
-
-> Guaranteed under 200ms for all frontend and backend responses.

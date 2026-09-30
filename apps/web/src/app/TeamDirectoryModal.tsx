@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { EditPencilIcon } from "./icons";
 import { useEffect, useMemo, useState } from "react";
 import type { TeamDirectoryResponse, TeamHistoryImportResponse, TeamMemberCandidateResponse, TeamMemberInviteResponse, TeamMemberPasswordResetResponse } from "./types";
 
 export function TeamDirectoryModal(props: {
   directory: TeamDirectoryResponse;
   isBusy: boolean;
+  onRenameTeam?: (id: string, name: string) => Promise<void>;
   onClose: () => void;
   onToggleArchive: (teamId: string, archived: boolean) => Promise<void>;
   onAddMember: (teamId: string, email: string) => Promise<TeamMemberInviteResponse>;
@@ -25,6 +27,12 @@ export function TeamDirectoryModal(props: {
   onDenyJoinRequest: (teamId: string, requestId: string) => Promise<void>;
 }) {
   const activeParticipantIds = useMemo(() => new Set(props.directory.activeParticipantIds), [props.directory.activeParticipantIds]);
+  const [renaming, setRenaming] = useState(false);
+  const [teamName, setTeamName] = useState(props.directory.team.name);
+  const [renamePending, setRenamePending] = useState(false);
+  const [renameError, setRenameError] = useState("");
+  const [renameNotice, setRenameNotice] = useState("");
+  useEffect(() => { setRenaming(false); setRenameError(""); setRenameNotice(""); }, [props.directory.team.id]);
   const [inviteError, setInviteError] = useState("");
   const [invitePending, setInvitePending] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -99,7 +107,23 @@ export function TeamDirectoryModal(props: {
       <div className="modal-panel team-directory-modal" role="dialog" aria-modal="true" aria-label={`${props.directory.team.name} people`} onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2>{props.directory.team.name}</h2>
+            <div className="team-title-actions"><h2>{props.directory.team.name}</h2>
+              {canEditMembership && props.onRenameTeam ? <button className="secondary-button icon-only" type="button" aria-label="Rename team" disabled={props.isBusy || renamePending} onClick={() => { setTeamName(props.directory.team.name); setRenaming(true); setRenameError(""); setRenameNotice(""); }}><EditPencilIcon /></button> : null}
+            </div>
+            {renaming ? <form className="workspace-rename-form" onSubmit={async event => {
+              event.preventDefault();
+              if (renamePending || teamName.trim().length < 2) return;
+              setRenamePending(true); setRenameError("");
+              try { await props.onRenameTeam!(props.directory.team.id, teamName.trim()); setRenaming(false); setRenameNotice("Team name saved."); }
+              catch (error) { setRenameError((error as Error).message); }
+              finally { setRenamePending(false); }
+            }}>
+              <label>Team name<input value={teamName} onChange={event => setTeamName(event.target.value)} disabled={renamePending} /></label>
+              <div className="workspace-rename-actions"><button className="primary-button" type="submit" disabled={renamePending || teamName.trim().length < 2}>Save team name</button>
+              <button className="secondary-button" type="button" disabled={renamePending} onClick={() => setRenaming(false)}>Cancel</button></div>
+              {renameError ? <p role="alert">{renameError}</p> : null}
+            </form> : null}
+            {renameNotice ? <p role="status">{renameNotice}</p> : null}
             <p>
               Everyone who has joined this team so far.
               {props.directory.team.archived ? " Archived teams are read-only." : ""}

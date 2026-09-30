@@ -3252,3 +3252,28 @@ textarea {
 .workspace-rename-form label { display: grid; gap: 6px; }
 .workspace-rename-form input { width: 100%; min-width: 0; box-sizing: border-box; }
 .workspace-rename-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* Keep the chooser focused on teams; secondary information lives in dialogs. */
+.chooser-header-actions { flex-wrap: wrap; }
+.chooser-project-footer { margin-top: 16px; text-align: center; font-size: 0.8rem; overflow-wrap: anywhere; }
+.chooser-project-footer .brand-footer { justify-content: center; flex-wrap: wrap; }
+.workspace-summary { font-size: 0.82rem; color: #526176; overflow-wrap: anywhere; }
+.team-title-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.team-title-actions h2 { overflow-wrap: anywhere; min-width: 0; }
+.team-title-actions button { flex-shrink: 0; }
+.about-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; box-sizing: border-box; border: 1px solid #d5dfed; border-radius: 20px; color: #24344c; overflow: auto; }
+.about-dialog::backdrop { background: rgba(20, 32, 50, 0.5); }
+.about-body { line-height: 1.6; overflow-wrap: anywhere; }
+.about-dialog .modal-header { position: sticky; top: -20px; padding: 12px 0; background: white; z-index: 1; }
+.account-settings-grid > .chooser-card { grid-column: 1 / -1; min-width: 0; }
+@media (max-width: 600px) {
+  .chooser-header { flex-wrap: wrap; }
+  .chooser-header-actions { width: 100%; justify-content: flex-start; gap: 8px; }
+  .team-title-actions h2 { font-size: 1.2rem; }
+  .modal-header > div { min-width: 0; }
+}
+.team-tile-main { flex-wrap: wrap; }
+.team-tile-main .workspace-summary { flex-basis: 100%; }
+@media (max-width: 600px) {
+  .chooser-header-side { flex: 1 1 100%; }
+}

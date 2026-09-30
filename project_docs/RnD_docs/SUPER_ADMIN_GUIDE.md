@@ -424,7 +424,7 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in the team chooser to leave
+membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
 all teams in that workspace while retaining their account and saved shared history.
 Owners cannot leave: Account settings explains account deletion and permanent purge
 of all their owned trial workspaces. The existing signup flow does not create
@@ -434,8 +434,7 @@ Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
 calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
+available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a
@@ -452,7 +451,7 @@ For deployed settings, use `./deploy.sh config:edit` from the app directory. The
 
 Hosted-trial workspace names now default to the owner's display name. On upgrade,
 legacy `My First Workspace` trial names migrate once; custom names and non-trial
-workspaces are preserved. Owners rename from the team chooser using 1–80 characters.
+workspaces are preserved. Owners rename from Account → Workspaces using 1–80 characters.
 This is owner-only: platform/team administration does not grant permission through
 that endpoint to rename another owner's workspace. Names are not unique identifiers
 and renaming does not reset usage or alter access. Use the workspace ID in operator

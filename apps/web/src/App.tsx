@@ -48,6 +48,7 @@ import {
   type UserSummary
 } from "@planning-poker/shared";
 import { DEBUG_LAYOUT_GUIDES_ENABLED, DEBUG_LAYOUT_GUIDES_KEY } from "./debugFlags";
+import { TrialWorkspaceSettings } from "./app/TrialWorkspaceSettings";
 import { AccountSettingsModal } from "./app/AccountSettingsModal";
 import { AdminSettingsModal } from "./app/AdminSettingsModal";
 import { HistoryRail } from "./app/HistoryRail";
@@ -4236,6 +4237,7 @@ export default function App() {
   const [teamState, setTeamState] = useState<TeamStateResponse | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialRoute.selectedTeamId);
   const [pendingTargetTeamId, setPendingTargetTeamId] = useState<string | null>(initialRoute.selectedTeamId);
+  const [workspaceRefresh, setWorkspaceRefresh] = useState(0);
   const [showTeamChooser, setShowTeamChooser] = useState(initialRoute.showTeamChooser);
   const [authStep, setAuthStep] = useState<AuthStep>("signin");
   const [authFlow, setAuthFlow] = useState<AuthFlow>("standard");
@@ -5274,6 +5276,7 @@ export default function App() {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data) as { type: string; payload?: Partial<BrandingManifest> };
         if (message.type === "chooser:update") {
+          setWorkspaceRefresh(value => value + 1);
           void loadSession();
           return;
         }
@@ -6555,6 +6558,13 @@ export default function App() {
     return response;
   }, []);
 
+  const handleRenameDirectoryTeam = useCallback(async (teamId: string, name: string) => {
+    await api(`/api/teams/${teamId}/settings`, { method: "PATCH", body: JSON.stringify({ name: name.trim() }) });
+    await loadSession();
+    await loadMemberDirectory(teamId);
+    if (selectedTeamId === teamId) await loadTeamState(teamId, { preserveStateOnError: true });
+  }, [loadSession, loadMemberDirectory, loadTeamState, selectedTeamId]);
+
   const searchMemberCandidates = useCallback(async (teamId: string, query: string) => {
     const params = new URLSearchParams({ q: query });
     return api<TeamMemberCandidateResponse>(`/api/teams/${teamId}/member-candidates?${params.toString()}`);
@@ -7006,21 +7016,30 @@ export default function App() {
     );
   }
 
+  const trialWorkspaceSettings = accountSettingsOpen && publicTrial.enabled ? (
+    <TrialWorkspaceSettings
+      loadTrialWorkspaces={loadTrialWorkspaces}
+      onRenameWorkspace={async (workspaceId, name) => {
+        await api(`/api/workspaces/${workspaceId}`, { method: "PATCH", body: JSON.stringify({ name }) });
+        setWorkspaceRefresh(value => value + 1);
+      }}
+      onLeaveWorkspace={async (workspaceId) => {
+        await api(`/api/workspaces/${workspaceId}/leave`, { method: "POST" });
+        setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
+        localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
+        await loadSession();
+      }}
+    />
+  ) : null;
+
   if (!selectedTeamId || !teamState || showTeamChooser) {
     return (
       <>
         <TeamChooser
           branding={branding}
           loadTrialWorkspaces={loadTrialWorkspaces}
-          onRenameWorkspace={async (workspaceId, name) => {
-            await api(`/api/workspaces/${workspaceId}`, { method: "PATCH", body: JSON.stringify({ name }) });
-          }}
-          onLeaveWorkspace={async (workspaceId) => {
-            await api(`/api/workspaces/${workspaceId}/leave`, { method: "POST" });
-            setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
-            localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
-            await loadSession();
-          }}
+          trialModeEnabled={publicTrial.enabled}
+          workspaceRefresh={workspaceRefresh}
           user={session.user}
           memberships={session.memberships}
           availableTeams={session.availableTeams}
@@ -7046,6 +7065,7 @@ export default function App() {
         />
         <AccountSettingsModal
           open={accountSettingsOpen}
+          workspaceSettings={trialWorkspaceSettings}
           user={getAccountUserForTeam(session, selectedTeamId)}
           historyTimezoneDefaultKeys={getAccountTimezoneDefaultKeys(session, selectedTeamId)}
           isBusy={isBusy}
@@ -7081,6 +7101,7 @@ export default function App() {
         {memberDirectory ? (
           <TeamDirectoryModal
             directory={memberDirectory}
+            onRenameTeam={handleRenameDirectoryTeam}
             isBusy={isBusy}
             onClose={() => setMemberDirectory(null)}
             onToggleArchive={handleToggleArchiveTeam}
@@ -7158,6 +7179,7 @@ export default function App() {
       />
       <AccountSettingsModal
         open={accountSettingsOpen}
+          workspaceSettings={trialWorkspaceSettings}
         user={renderedTeamState.currentUser}
         historyTimezoneDefaultKeys={renderedTeamState.team.historyTimezoneKeys}
         isBusy={isBusy}
@@ -7193,6 +7215,7 @@ export default function App() {
       {memberDirectory ? (
         <TeamDirectoryModal
           directory={memberDirectory}
+            onRenameTeam={handleRenameDirectoryTeam}
           isBusy={isBusy}
           onClose={() => setMemberDirectory(null)}
           onToggleArchive={handleToggleArchiveTeam}

@@ -426,7 +426,7 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 ## Hosted-trial collaboration and limits
 
 New trial workspaces use the owner's display name, for example **John Doe's Workspace**.
-The owner can **Rename workspace** in the team chooser (1–80 characters);
+The owner can **Rename workspace** in **Account → Workspaces** (1–80 characters);
 collaborators and team admins cannot rename another owner's workspace.
 Names are labels, not access boundaries: renaming preserves membership, history and
 usage, and later profile-name changes do not rename the workspace. Existing generic
@@ -438,7 +438,7 @@ The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Failed invitations show a persistent inline error and keep the
 entered email for retry. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in the team chooser to leave
+membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
 all teams in that workspace while retaining their account and saved shared history.
 Owners cannot leave: Account settings explains account deletion and permanent purge
 of all their owned trial workspaces. The existing signup flow does not create
@@ -448,8 +448,7 @@ Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
 calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
+available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a
@@ -469,3 +468,11 @@ clients that do not execute JavaScript. See [discoverability notes](project_docs
 Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
 Enabled hosted-trial installations automatically upgrade the legacy 40-round monthly setting to 80 on startup, updating the saved configuration and both enforcement and displayed limits. Other custom limits and disabled-trial installations are unchanged.
+
+
+The signed-in team chooser prioritizes Create/Import and team access. **About**, beside
+**Account**, holds project, license, benchmark and self-hosting information; trial
+funding/limits are shown only in trial mode. A small GitHub-star link remains below
+the team list. Login and chooser attribution identify the project as **Under Development**.
+Team admins can also rename an active team using the pencil beside its title in
+the Team Admin dialog, with the same permissions and validation as board renaming.

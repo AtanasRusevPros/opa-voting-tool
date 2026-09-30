@@ -1,3 +1,5 @@
+import { TrialWorkspaceSettings } from "./app/TrialWorkspaceSettings";
+import { AboutDialog } from "./app/AboutDialog";
 import { closeSocket } from "./app/closeSocket";
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -4496,6 +4498,7 @@ describe("App", () => {
   it("keeps a rejected workspace invitation visible and preserves the email for retry", async () => {
     const state = buildBoardState();
     const message = "This person already participates in two hosted-trial workspaces. They must leave one workspace in the team chooser.";
+    const renameTeam = vi.fn().mockRejectedValueOnce(new Error("A team with this name already exists.")).mockResolvedValueOnce(undefined);
     const addMember = vi.fn().mockRejectedValueOnce(new Error(message)).mockResolvedValueOnce({
       user: state.currentUser, invitedNewUser: false, invitationDelivery: "existing-user",
       temporaryPassword: null, secureSaveReminder: null
@@ -4516,6 +4519,7 @@ describe("App", () => {
         onClose={vi.fn()}
         onToggleArchive={vi.fn(async () => {})}
         onAddMember={addMember}
+        onRenameTeam={renameTeam}
         searchMemberCandidates={vi.fn(async () => ({ users: [] }))}
         onSaveJiraSettings={vi.fn(async () => {})}
         onImportJiraIssues={vi.fn(async () => {})}
@@ -4537,6 +4541,13 @@ describe("App", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("button", {name: "Rename team"}));
+    fireEvent.change(screen.getByLabelText("Team name"), {target: {value: "Delivery Team"}});
+    fireEvent.click(screen.getByRole("button", {name: "Save team name"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("already exists");
+    fireEvent.click(screen.getByRole("button", {name: "Save team name"}));
+    expect(await screen.findByText("Team name saved.")).toBeInTheDocument();
+    expect(renameTeam).toHaveBeenLastCalledWith(state.team.id, "Delivery Team");
     const email = screen.getByLabelText("Add or invite by email");
     fireEvent.change(email, { target: { value: "john@example.com" } });
     fireEvent.submit(email.closest("form")!);
@@ -4548,6 +4559,18 @@ describe("App", () => {
     expect(addMember).toHaveBeenCalledTimes(2);
   });
 
+  it("shows project details in About and scopes funding text to the hosted trial", () => {
+    const close = vi.fn();
+    const { rerender } = render(<AboutDialog open branding={BRANDING_MANIFEST} trialModeEnabled onClose={close} />);
+    expect(screen.getByRole("dialog", {name: "About OpaVoting"})).toBeVisible();
+    expect(screen.getByText(/small server I personally fund/)).toBeInTheDocument();
+    expect(screen.getByRole("link", {name: "Benchmark results"})).toHaveAttribute("href", expect.stringContaining("PUBLIC_BENCHMARK_SUMMARY.md"));
+    fireEvent.click(screen.getByRole("button", {name: "Close"}));
+    expect(close).toHaveBeenCalled();
+    rerender(<AboutDialog open branding={BRANDING_MANIFEST} trialModeEnabled={false} onClose={close} />);
+    expect(screen.queryByText(/small server I personally fund/)).not.toBeInTheDocument();
+  });
+
   it("shows workspace usage and leaves a collaborator workspace only after confirmation", async () => {
     const own = { id: "own", name: "Own workspace", isOwner: true, revealedRounds: 63, monthlyLimit: 80, resetsAt: "2026-10-01T00:00:00.000Z", teams: [{id: "team-1", name: "First team"}] };
     const joined = { ...own, id: "joined", name: "Stacey workspace", isOwner: false };
@@ -4555,12 +4578,7 @@ describe("App", () => {
     const leave = vi.fn(async () => undefined);
     const load = vi.fn().mockResolvedValueOnce([own, joined]).mockResolvedValueOnce([{...own, name: "Renamed"}, joined]).mockResolvedValue([own]);
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-    render(<TeamChooser user={buildBoardState().currentUser} memberships={[]} availableTeams={[]} selectedTeamId={null}
-      loadTrialWorkspaces={load} onLeaveWorkspace={leave} onRenameWorkspace={rename}
-      onSelectTeam={vi.fn()} onCreateTeam={vi.fn()} onImportTeam={vi.fn()} onJoinTeam={vi.fn()} onLeaveTeam={vi.fn()}
-      onOpenMemberDirectory={vi.fn()} notificationFeed={null} onOpenNotifications={vi.fn()}
-      onAdmitJoinRequest={vi.fn()} onDenyJoinRequest={vi.fn()} onAdmitPlatformAccessRequest={vi.fn()}
-      onDenyPlatformAccessRequest={vi.fn()} onOpenAccountSettings={vi.fn()} onSignOut={vi.fn()} onOpenAdminSettings={vi.fn()} />);
+    render(<TrialWorkspaceSettings loadTrialWorkspaces={load} onLeaveWorkspace={leave} onRenameWorkspace={rename} />);
     const button = await screen.findByRole("button", { name: "Leave workspace: Stacey workspace" });
     expect(screen.queryByRole("button", {name: "Leave workspace: Own workspace"})).not.toBeInTheDocument();
     expect(screen.getAllByText(/63 of 80 revealed rounds/)).toHaveLength(2);
@@ -4574,7 +4592,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", {name: "Save workspace name"}));
     await waitFor(() => expect(rename).toHaveBeenCalledWith("own", "Renamed"));
     expect(await screen.findByText("Workspace name saved.")).toBeInTheDocument();
-    expect(screen.getByText(/400 concurrent simulated users/)).toBeInTheDocument();
+    expect(screen.queryByText(/400 concurrent simulated users/)).not.toBeInTheDocument();
     fireEvent.click(button); expect(leave).not.toHaveBeenCalled();
     fireEvent.click(button);
     await waitFor(() => expect(leave).toHaveBeenCalledWith("joined"));

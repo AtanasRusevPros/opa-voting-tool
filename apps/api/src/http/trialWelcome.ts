@@ -41,7 +41,7 @@ export function renderTrialWelcomeHtml(template: string, appBaseUrl: string, mon
     <nav class="trial-welcome-links" aria-label="OpaVoting project resources">
       <a href="${text.docsUrl}">Documentation</a><a href="${text.licenseUrl}">AGPL-3.0-or-later</a>
     </nav>
-    <p class="trial-welcome-credit">Created by <strong>${text.author}</strong><br /><a href="${text.repositoryUrl}">${text.repositoryName}</a></p>
+    <p class="trial-welcome-credit">Created by <strong>${text.author}</strong><br /><a href="${text.repositoryUrl}">${text.repositoryName}</a> · Under Development</p>
     <noscript>Enable JavaScript to sign in or start a hosted trial. Project source, documentation and self-hosting links above work without JavaScript.</noscript>
   </section></main>`;
   const structuredData = JSON.stringify({

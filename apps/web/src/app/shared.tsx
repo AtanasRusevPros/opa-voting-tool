@@ -9,10 +9,11 @@ import { getHistoryTooltipRows } from "./utils";
 
 export function BrandFooter(props: {
   branding: BrandingManifest;
+  underDevelopment?: boolean;
 }) {
   const creator = props.branding.footerCreatorText.trim();
   const company = props.branding.footerCompanyText.trim();
-  if (!creator && !company) {
+  if (!creator && !company && !props.underDevelopment) {
     return null;
   }
 
@@ -21,6 +22,7 @@ export function BrandFooter(props: {
       {creator ? <span>{creator}</span> : null}
       {creator && company ? <span className="brand-footer-separator">•</span> : null}
       {company ? <span>{company}</span> : null}
+      {props.underDevelopment ? <>{creator || company ? <span aria-hidden="true">•</span> : null}<span>Under Development</span></> : null}
     </div>
   );
 }

@@ -251,7 +251,7 @@ export function registerRoutes({
           {
             heading: "Use Limits",
             body:
-              `Each user may participate in two hosted-trial workspaces. Each workspace allows ${config.publicTrial.maxTeamsPerWorkspace} teams, ${config.publicTrial.maxUsersPerWorkspace} users, and ${config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} revealed rounds per calendar month (UTC), including vote-again reveals. Invitations do not reset usage. Collaborators can leave a workspace from the team chooser; owners must use account deletion, which permanently purges their owned trial workspaces. Self-host for use without hosted-demo limits; capacity depends on your server.`
+              `Each user may participate in two hosted-trial workspaces. Each workspace allows ${config.publicTrial.maxTeamsPerWorkspace} teams, ${config.publicTrial.maxUsersPerWorkspace} users, and ${config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth} revealed rounds per calendar month (UTC), including vote-again reveals. Invitations do not reset usage. Collaborators can leave a workspace from Account settings under Workspaces; owners must use account deletion, which permanently purges their owned trial workspaces. Self-host for use without hosted-demo limits; capacity depends on your server.`
           },
           {
             heading: "No Confidential Data",

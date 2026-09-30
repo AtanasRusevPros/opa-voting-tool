@@ -3432,7 +3432,7 @@ export class Repository {
       .get(workspaceId, userId) as { role: WorkspaceUserRole } | undefined;
     if (!existingMembership && this.getWorkspaceKind(workspaceId) === "public_trial" && !this.isSuperAdmin(userId)) {
       if (this.getPublicTrialWorkspaces(userId).length >= 2) {
-        throw new Error("This person already participates in two hosted-trial workspaces. They must leave one workspace in the team chooser, or delete their owned trial workspace through Account settings, before accepting another invitation. Leaving only a team does not free a workspace slot.");
+        throw new Error("This person already participates in two hosted-trial workspaces. They must leave one workspace in Account settings under Workspaces, or delete their owned trial workspace through Account settings, before accepting another invitation. Leaving only a team does not free a workspace slot.");
       }
       if (this.countWorkspaceMembers(workspaceId) >= this.config.publicTrial.maxUsersPerWorkspace) {
         throw new Error(`Public trial workspaces can have at most ${this.config.publicTrial.maxUsersPerWorkspace} users.`);

@@ -221,7 +221,7 @@ This guide is intentionally limited to the team-admin surface and stays separate
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in the team chooser to leave
+membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
 all teams in that workspace while retaining their account and saved shared history.
 Owners cannot leave: Account settings explains account deletion and permanent purge
 of all their owned trial workspaces. The existing signup flow does not create
@@ -231,8 +231,7 @@ Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
 calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
+available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a
@@ -244,6 +243,6 @@ The personally funded hosted demo is limited to keep its small server available.
 Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
 Source, deployment documentation and the GitHub star link are shown in the trial UI.
 
-Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in the team chooser, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
+Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
 
-If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from the chooser; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
+If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from Account → Workspaces; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.

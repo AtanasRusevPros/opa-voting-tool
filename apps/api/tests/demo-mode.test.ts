@@ -286,7 +286,6 @@ describe("Demo mode integration", () => {
 
     const currentRound = repository.getCurrentRound(demoTeam.id);
     expect(currentRound).not.toBeNull();
-    const voteCountBeforeDisable = currentRound?.votes.length ?? 0;
 
     const disableResponse = await client.patch("/api/admin/config").set("Cookie", superAdminCookie).send({
       demo: {
@@ -295,11 +294,14 @@ describe("Demo mode integration", () => {
     });
     expect(disableResponse.status).toBe(200);
     expect(disableResponse.body.config.demo.enabled).toBe(false);
+    // Votes may arrive while the disable request is in flight.
+    // Assert stability from the acknowledged disable onward.
+    const voteCountAtDisable = repository.getCurrentRound(demoTeam.id)?.votes.length ?? 0;
 
     await new Promise((resolve) => setTimeout(resolve, 1700));
 
     const voteCountAfterDisable = repository.getCurrentRound(demoTeam.id)?.votes.length ?? 0;
-    expect(voteCountAfterDisable).toBe(voteCountBeforeDisable);
+    expect(voteCountAfterDisable).toBe(voteCountAtDisable);
 
     const hiddenSession = await client.get("/api/auth/session").set("Cookie", superAdminCookie);
     expect(hiddenSession.status).toBe(200);

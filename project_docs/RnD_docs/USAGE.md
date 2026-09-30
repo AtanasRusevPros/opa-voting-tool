@@ -412,7 +412,7 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in the team chooser to leave
+membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
 all teams in that workspace while retaining their account and saved shared history.
 Owners cannot leave: Account settings explains account deletion and permanent purge
 of all their owned trial workspaces. The existing signup flow does not create
@@ -422,8 +422,7 @@ Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
 calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. The team chooser shows workspace ownership, joined teams, usage and reset
-date. Enabled hosted-trial deployments upgrade the retired explicit 40-round allowance to 80 on startup and persist it; other custom limits and disabled-trial deployments are unchanged.
+available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the retired explicit 40-round allowance to 80 on startup and persist it; other custom limits and disabled-trial deployments are unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a
@@ -442,6 +441,19 @@ controlled separately. Normal self-hosted sign-in remains unchanged.
 
 Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
-Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in the team chooser, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
+Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
 
-If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from the chooser; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
+If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from Account → Workspaces; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
+
+The chooser keeps Create/Import above team lists and shows only compact workspace identity/usage on each joined team. Use **Account → Workspaces** for owner rename, collaborator leave, joined-team details and reset date. The existing Delete account section remains the source of deletion warnings and confirmation. **About**, beside Account, contains project and deployment links, benchmark evidence and (in hosted-trial mode) demo funding/limits. The footer retains a small GitHub-star link and Under Development attribution.
+
+In **Team Admin**, the pencil beside the title opens inline team rename with Save/Cancel and validation feedback. It is available only to authorized admins for active teams; archived teams remain read-only.
+
+Developer verification: `apps/web/tests/e2e/trial-chooser.spec.ts` requires a fresh,
+isolated API with hosted trial open-signup and debug codes enabled, serving built
+web assets. Run it with `PLAYWRIGHT_TRIAL=1` and `PLAYWRIGHT_BASE_URL` pointing to
+that disposable API. It intentionally skips on ordinary self-hosted test stacks.
+It creates a real trial account; repeated runs can hit signup/workspace rate limits,
+so use fresh test data rather than weakening production limits. The test covers
+Account/About, keyboard dismissal/focus return, rename and diagnostic checks at
+1440, 768, 390 and 320px widths.

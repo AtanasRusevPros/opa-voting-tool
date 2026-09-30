@@ -213,5 +213,5 @@ The authenticated `PATCH /api/workspaces/:workspaceId` route accepts a trimmed
 1–80-character name only when trial mode is enabled. The repository update requires
 a public-trial workspace whose creator is the requesting user; team-admin privileges
 and collaborator membership do not grant rename access. The update changes only name
-and updated-at fields and triggers chooser refresh. The chooser provides owner-only
+and updated-at fields and triggers chooser refresh. Account → Workspaces provides owner-only
 Save/Cancel and feedback; self-hosted mode does not expose this management UI.

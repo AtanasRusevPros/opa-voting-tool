@@ -336,7 +336,7 @@ export function LoginScreen(props: {
             ) : null}
           </div>
         ) : null}
-        <BrandFooter branding={branding} />
+        <BrandFooter branding={branding} underDevelopment />
       </form>
     </div>
   );
