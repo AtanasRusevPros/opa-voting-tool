@@ -63,7 +63,7 @@ export function TeamDirectoryModal(props: {
   const normalizedInviteEmail = trimmedInviteEmail.toLowerCase();
   const selectedCandidate = memberCandidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
   const validInviteEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedInviteEmail);
-  const canSubmitInvite = selectedCandidate ? normalizedInviteEmail === selectedCandidate.email.toLowerCase() : validInviteEmail && memberCandidates.length === 0;
+  const canSubmitInvite = selectedCandidate ? normalizedInviteEmail === selectedCandidate.email.toLowerCase() : validInviteEmail;
 
   useEffect(() => {
     setJiraProjectKey(props.directory.team.jiraProjectKey ?? "");
@@ -108,7 +108,7 @@ export function TeamDirectoryModal(props: {
         <div className="modal-header">
           <div>
             <div className="team-title-actions"><h2>{props.directory.team.name}</h2>
-              {canEditMembership && props.onRenameTeam ? <button className="secondary-button icon-only" type="button" aria-label="Rename team" disabled={props.isBusy || renamePending} onClick={() => { setTeamName(props.directory.team.name); setRenaming(true); setRenameError(""); setRenameNotice(""); }}><EditPencilIcon /></button> : null}
+              {canEditMembership && props.onRenameTeam ? <button className="header-chip icon-only" type="button" aria-label="Rename team" disabled={props.isBusy || renamePending} onClick={() => { setTeamName(props.directory.team.name); setRenaming(true); setRenameError(""); setRenameNotice(""); }}><EditPencilIcon /></button> : null}
             </div>
             {renaming ? <form className="workspace-rename-form" onSubmit={async event => {
               event.preventDefault();
@@ -220,6 +220,7 @@ export function TeamDirectoryModal(props: {
             ) : (
               <div className="directory-readonly-note">Membership actions are disabled while this team is archived.</div>
             )}
+            {canEditMembership ? <p className="field-hint">Enter a complete email address to add someone directly, or select a search result.</p> : null}
             {memberCandidates.length > 0 ? (
               <div className="directory-member-candidates">
                 <strong>Existing platform users</strong>

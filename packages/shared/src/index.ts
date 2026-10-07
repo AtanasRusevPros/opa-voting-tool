@@ -380,6 +380,8 @@ export interface TeamSummary {
 }
 
 export interface TeamMembershipSummary extends TeamSummary {
+  /** Server-computed membership capability; false when leaving would remove the sole team admin. */
+  canLeave?: boolean;
   memberCount: number;
   currentUserRole: TeamUserRole;
   joinRequestStatus: TeamJoinRequestStatus;

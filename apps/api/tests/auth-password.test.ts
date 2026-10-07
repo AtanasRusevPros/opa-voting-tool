@@ -115,6 +115,22 @@ afterEach(() => {
 });
 
 describe("Password and invite HTTP flows", () => {
+  it("rejects sole-admin leave requests without changing membership and permits archiving", async () => {
+    const { app, repository } = await loadTestServer();
+    const client = request(app);
+    const cookie = await createRegularUser(client, "sole-http@example-company.com", "Sole Admin");
+    const session = await client.get("/api/auth/session").set("Cookie", cookie);
+    const userId = session.body.user.id;
+    const team = repository.createTeam(userId, "HTTP Sole Admin");
+    const denied = await client.post(`/api/teams/${team.id}/leave`).set("Cookie", cookie);
+    expect(denied.status).toBe(400);
+    expect(denied.body.error).toContain("You are the only team admin");
+    expect(repository.isTeamMember(userId, team.id)).toBe(true);
+    const archived = await client.post(`/api/teams/${team.id}/archive`).set("Cookie", cookie).send({ archived: true });
+    expect(archived.status).toBe(200);
+    expect(archived.body.team.archived).toBe(true);
+  });
+
   it("advertises and enforces disabled access requests while retaining the separate admin page", async () => {
     const { app } = await loadTestServer({ accessRequests: false });
     expect((await request(app).get("/api/bootstrap")).body.accessRequestsEnabled).toBe(false);

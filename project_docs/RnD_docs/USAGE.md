@@ -459,3 +459,8 @@ It creates a real trial account; repeated runs can hit signup/workspace rate lim
 so use fresh test data rather than weakening production limits. The test covers
 Account/About, keyboard dismissal/focus return, rename and diagnostic checks at
 1440, 768, 390 and 320px widths.
+
+
+Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
+
+In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.

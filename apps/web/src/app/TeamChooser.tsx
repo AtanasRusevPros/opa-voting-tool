@@ -311,13 +311,15 @@ export function TeamChooser(props: {
                     <button
                       className="ghost-button"
                       type="button"
+                      disabled={team.canLeave === false}
+                      title={team.canLeave === false ? "Archive the team from Team admin, or have another team admin assigned before leaving." : undefined}
                       onClick={() => {
                         if (window.confirm(`Leave "${team.name}"? You will lose board and history access until you join again.`)) {
                           void props.onLeaveTeam(team.id);
                         }
                       }}
                     >
-                      Leave
+                      {team.canLeave === false ? "Only team admin — archive instead" : "Leave"}
                     </button>
                   ) : null}
                 </div>

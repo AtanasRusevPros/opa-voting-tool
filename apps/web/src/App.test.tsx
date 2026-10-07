@@ -4170,6 +4170,67 @@ describe("App", () => {
     expect(screen.getByTestId("credential-password")).toHaveTextContent("Replacement123!");
   });
 
+  it.each([false, true])("re-adds a found existing user with suggestion selection=%s", async (selectSuggestion) => {
+    const state = buildBoardState();
+    const candidate = { ...state.teamMembers[1]!, id: "former-member", displayName: "Former Member", email: "former@example-company.com" };
+    const searchCandidates = vi.fn(async () => ({ users: [candidate] }));
+    const onAddMember = vi.fn(async () => ({ user: candidate, invitedNewUser: false, invitationDelivery: "existing-user" as const, temporaryPassword: null, secureSaveReminder: null }));
+    const onResetMemberPassword = vi.fn();
+    render(
+      <TeamDirectoryModal
+        directory={{
+          team: state.team,
+          members: state.teamMembers,
+          activeParticipantIds: ["user-1"],
+          currentUserId: state.currentUser.id,
+          currentUserRole: "team_admin",
+          currentUserIsSuperAdmin: false,
+          pendingIssues: [],
+          pendingJoinRequests: []
+        }}
+        isBusy={false}
+        onRenameTeam={vi.fn(async () => {})}
+        onClose={vi.fn()}
+        onToggleArchive={vi.fn(async () => {})}
+        onAddMember={onAddMember}
+        searchMemberCandidates={searchCandidates}
+        onSaveJiraSettings={vi.fn(async () => {})}
+        onImportJiraIssues={vi.fn(async () => {})}
+        onLoadPendingIssue={vi.fn(async () => {})}
+        onExportTeamHistory={vi.fn(async () => {})}
+        onImportTeamHistory={vi.fn(async () => ({
+          importedCount: 0,
+          skippedCount: 0,
+          team: state.team,
+          createdTeam: false
+        }))}
+        onResetMemberPassword={onResetMemberPassword}
+        onDismissCredentialReveal={vi.fn()}
+        onPromoteMember={vi.fn(async () => {})}
+        onDemoteMember={vi.fn(async () => {})}
+        onRemoveMember={vi.fn(async () => {})}
+        onAdmitJoinRequest={vi.fn(async () => {})}
+        onDenyJoinRequest={vi.fn(async () => {})}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("person@company.com");
+    fireEvent.change(input, { target: { value: "Former" } });
+    await screen.findByRole("button", { name: /Former Member former@example-company.com/ });
+    expect(screen.getByRole("button", { name: "Add to team" })).toBeDisabled();
+    if (selectSuggestion) {
+      fireEvent.click(screen.getByRole("button", { name: /Former Member former@example-company.com/ }));
+    } else {
+      fireEvent.change(input, { target: { value: "  former@example-company.com  " } });
+      await waitFor(() => expect(searchCandidates).toHaveBeenLastCalledWith(state.team.id, candidate.email));
+    }
+    expect(screen.getByRole("button", { name: "Add to team" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Add to team" }));
+    await waitFor(() => expect(onAddMember).toHaveBeenCalledWith(state.team.id, candidate.email));
+    await waitFor(() => expect(input).toHaveValue(""));
+    expect(screen.getByRole("button", { name: "Rename team" })).toHaveClass("header-chip", "icon-only");
+  });
+
   it("disables team-admin password reset for members currently active on the board", async () => {
     const state = buildBoardState();
     const onResetMemberPassword = vi.fn(async () => ({

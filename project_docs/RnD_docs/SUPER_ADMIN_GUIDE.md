@@ -457,3 +457,6 @@ This is owner-only: platform/team administration does not grant permission throu
 that endpoint to rename another owner's workspace. Names are not unique identifiers
 and renaming does not reset usage or alter access. Use the workspace ID in operator
 reports to distinguish identically named workspaces.
+
+
+A sole team admin cannot leave their team. Your implicit super-admin membership does not count as a replacement. The team admin can archive the team, or another ordinary team admin can be assigned before departure. This restriction is enforced by the leave API as well as the chooser and board controls.

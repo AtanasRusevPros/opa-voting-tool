@@ -489,3 +489,8 @@ access_requests_enabled = false
 ```
 
 The setting hides the button and rejects new access-request API submissions. It defaults to `true` when omitted and does not disable trial signup, invitations, password recovery or admin sign-in. `/admin` is marked `noindex`; authentication and authorization still protect administrative operations.
+
+
+Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
+
+In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.

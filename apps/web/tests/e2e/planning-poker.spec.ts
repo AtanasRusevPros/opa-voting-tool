@@ -566,7 +566,7 @@ async function requestAccessToVisibleTeam(page: Page, teamName: string) {
 }
 
 async function admitJoinRequestFromMembersModal(page: Page, requesterName: string) {
-  await page.getByRole("button", { name: "Team admin" }).click();
+  await page.getByRole("button", { name: "Team admin", exact: true }).click();
   const peopleDialog = page.getByRole("dialog", { name: /people$/ });
   await expect(peopleDialog).toBeVisible();
   const requestRow = peopleDialog.locator(".directory-row").filter({ hasText: requesterName }).first();
@@ -692,7 +692,7 @@ test("login, vote, reveal, session persistence, profile save, and deck switching
   await expect(page.getByRole("button", { name: "XS" })).toBeVisible();
   await expect(page.getByRole("button", { name: "XL" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Break Pls" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Team admin" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Team admin", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open main menu" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Switch team$/ })).toBeVisible();
 
@@ -1873,6 +1873,32 @@ test("team chooser refreshes live and active participants leave the old board wh
   }
 });
 
+test("sole team admins see archive guidance instead of an enabled Leave action", async ({ page }) => {
+  const assertClean = attachBrowserIssueCapture(page);
+  const teamName = `Sole Admin ${Date.now()}`;
+  await loginWithDebugCode(page, uniqueEmail("sole-admin"), "Sole Admin");
+  await createTeam(page, teamName);
+  await page.getByRole("button", { name: "Open team settings" }).click();
+  await expect(page.getByRole("button", { name: "Only team admin — archive instead" })).toBeDisabled();
+  await page.getByRole("button", { name: "Open team settings" }).click();
+  await page.getByRole("button", { name: "Open main menu" }).click();
+  for (const width of [1440, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByRole("button", { name: "Only team admin — archive instead" })).toBeDisabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.getByRole("button", { name: "Team admin", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Rename team", exact: true })).toHaveClass(/header-chip/);
+  await expect(page.getByRole("button", { name: "Archive team", exact: true })).toBeEnabled();
+  await page.screenshot({ path: "/tmp/p22-team-admin-mobile.png", fullPage: true });
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Archive team", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unarchive team", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.locator(".team-tile").filter({ hasText: teamName }).getByText("Archived", { exact: true })).toBeVisible();
+  assertClean();
+});
+
 test("leaving a team removes access until approval-based rejoin, then restores history", async ({ browser }) => {
   const ownerContext = await browser.newContext();
   const adminContext = await browser.newContext();
@@ -1888,7 +1914,7 @@ test("leaving a team removes access until approval-based rejoin, then restores h
 
     await loginWithDebugCode(adminPage, adminEmail, "Leave Admin");
 
-    await ownerPage.getByRole("button", { name: "Team admin" }).click();
+    await ownerPage.getByRole("button", { name: "Team admin", exact: true }).click();
     await ownerPage.getByLabel("Add or invite by email").fill(adminEmail);
     await ownerPage.getByRole("button", { name: new RegExp(`Leave Admin\\s+${escapeRegExp(adminEmail)}`) }).click();
     await ownerPage.getByRole("button", { name: "Add to team" }).click();
@@ -1917,6 +1943,15 @@ test("leaving a team removes access until approval-based rejoin, then restores h
 
     await joinVisibleTeam(ownerPage, adminPage, teamName, "Leave Flow User");
     await expect(ownerPage.locator(".history-card-title").getByText("LEAVE-500")).toBeVisible();
+
+    // Re-add a former member by exact email while the search suggestion is visible.
+    await adminPage.getByRole("button", { name: "Team admin", exact: true }).click();
+    await adminPage.locator(".directory-row").filter({ hasText: ownerEmail }).getByRole("button", { name: "Remove", exact: true }).click();
+    await adminPage.getByLabel("Add or invite by email").fill(ownerEmail);
+    await expect(adminPage.getByRole("button", { name: new RegExp(`Leave Flow User\\s+${escapeRegExp(ownerEmail)}`) })).toBeVisible();
+    await expect(adminPage.getByRole("button", { name: "Add to team" })).toBeEnabled();
+    await adminPage.getByRole("button", { name: "Add to team" }).click();
+    await expect(adminPage.locator(".directory-row").filter({ hasText: ownerEmail })).toBeVisible();
   } finally {
     await ownerContext.close();
     await adminContext.close();
@@ -1965,7 +2000,7 @@ test("team directory modal shows names and emails from board and chooser", async
     await loginWithDebugCode(memberPage, memberEmail, "Directory Member");
     await joinVisibleTeam(memberPage, ownerPage, teamName, "Directory Member");
 
-    await ownerPage.getByRole("button", { name: "Team admin" }).click();
+    await ownerPage.getByRole("button", { name: "Team admin", exact: true }).click();
     const boardDialog = ownerPage.getByRole("dialog", { name: `${teamName} people` });
     await expect(boardDialog).toBeVisible();
     await expect(boardDialog.getByText("Directory Owner")).toBeVisible();
@@ -1981,7 +2016,7 @@ test("team directory modal shows names and emails from board and chooser", async
 
     await ownerPage.getByRole("button", { name: "Open main menu" }).click();
     const teamRow = await getChooserTeamRow(ownerPage, teamName);
-    await teamRow.getByRole("button", { name: "Team admin" }).click();
+    await teamRow.getByRole("button", { name: "Team admin", exact: true }).click();
     const chooserDialog = ownerPage.getByRole("dialog", { name: `${teamName} people` });
     const memberRow = chooserDialog.locator(".directory-row", { hasText: memberEmail });
     await expect(chooserDialog).toBeVisible();
@@ -2010,7 +2045,7 @@ test("shared team permalinks preserve the requested board through sign-in, appro
     const teamId = readTeamIdFromCurrentUrl(ownerPage);
     await ownerPage.getByRole("button", { name: "Open main menu" }).click();
     await createTeam(ownerPage, helperTeamName);
-    await ownerPage.getByRole("button", { name: "Team admin" }).click();
+    await ownerPage.getByRole("button", { name: "Team admin", exact: true }).click();
     const helperDirectory = ownerPage.getByRole("dialog", { name: `${helperTeamName} people` });
     await helperDirectory.getByPlaceholder("person@company.com").fill(visitorEmail);
     await helperDirectory.getByRole("button", { name: "Add to team" }).click();
@@ -2070,7 +2105,7 @@ test("smtp-free manual-share onboarding lets an invited user sign in with the ge
     await signInAsSuperAdmin(ownerPage);
     await createTeam(ownerPage, teamName);
 
-    await ownerPage.getByRole("button", { name: "Team admin" }).click();
+    await ownerPage.getByRole("button", { name: "Team admin", exact: true }).click();
     const directory = ownerPage.getByRole("dialog", { name: `${teamName} people` });
     await directory.getByPlaceholder("person@company.com").fill(memberEmail);
     await directory.getByRole("button", { name: "Add to team" }).click();
@@ -2198,7 +2233,7 @@ test("team history export and import preserve comments and reject duplicate reim
   await completeRound(page, issueTitle, "8");
   await addCommentToRevealedIssue(page, issueTitle, commentBody);
 
-  await page.getByRole("button", { name: "Team admin" }).click();
+  await page.getByRole("button", { name: "Team admin", exact: true }).click();
   const sourceDirectory = page.getByRole("dialog", { name: `${sourceTeamName} people` });
   await expect(sourceDirectory).toBeVisible();
   await sourceDirectory.getByRole("tab", { name: "Import/export" }).click();
@@ -2223,7 +2258,7 @@ test("team history export and import preserve comments and reject duplicate reim
   await expect(page.locator(".history-comment-card").getByRole("button", { name: "Edit" })).toHaveCount(0);
   await expect(page.locator(".history-comment-card").getByRole("button", { name: "Delete" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Team admin" }).click();
+  await page.getByRole("button", { name: "Team admin", exact: true }).click();
   const importedDirectory = page.getByRole("dialog", { name: `${importedTeamName} people` });
   await expect(importedDirectory).toBeVisible();
   await importedDirectory.getByRole("tab", { name: "Import/export" }).click();
@@ -2386,7 +2421,7 @@ test("team admins can see imported Jira issues and load one for voting with its 
     });
   });
 
-  await page.getByRole("button", { name: "Team admin" }).click();
+  await page.getByRole("button", { name: "Team admin", exact: true }).click();
   const directoryDialog = page.getByRole("dialog", { name: `${teamName} people` });
   await expect(directoryDialog).toBeVisible();
   await directoryDialog.getByRole("tab", { name: "Import/export" }).click();

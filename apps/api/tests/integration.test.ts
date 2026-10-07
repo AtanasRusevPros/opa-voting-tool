@@ -263,8 +263,7 @@ describe("Repository integration", () => {
     expect(history[0]?.averageScore).toBe("L");
   });
 
-  // P22-ACCESS-003: known bug; remove .fails when sole-admin leave protection is implemented.
-  it.fails("prevents the sole team admin from leaving the team", () => {
+  it("prevents the sole team admin from leaving the team", () => {
     const repo = new Repository(createTestConfig());
     const email = "sole-admin@example-company.com";
     const code = repo.requestLoginCode(email).code;
@@ -272,9 +271,26 @@ describe("Repository integration", () => {
     const team = repo.createTeam(owner.id, "Sole Admin Team");
 
     expect(repo.getTeamUserRole(owner.id, team.id)).toBe("team_admin");
-    expect(() => repo.leaveTeam(owner.id, team.id)).toThrow();
+    expect(repo.getTeamsForUser(owner.id).memberships.find(item => item.id === team.id)?.canLeave).toBe(false);
+    expect(() => repo.leaveTeam(owner.id, team.id)).toThrow("You are the only team admin");
     expect(repo.isTeamMember(owner.id, team.id)).toBe(true);
     expect(repo.getTeamUserRole(owner.id, team.id)).toBe("team_admin");
+    expect(repo.setTeamArchived(owner.id, team.id, true).archived).toBe(true);
+    expect(() => repo.leaveTeam(owner.id, team.id)).toThrow("You are the only team admin");
+  });
+
+  it("allows an admin to leave only while another ordinary team admin remains", () => {
+    const repo = new Repository(createTestConfig());
+    const createUser = (email: string) => repo.verifyLoginCode(email, repo.requestLoginCode(email).code, "Admin", "fox", "teal", undefined, "Password123!")!;
+    const first = createUser("first-admin@example-company.com");
+    const second = createUser("second-admin@example-company.com");
+    const team = repo.createTeam(first.id, "Two Admins");
+    repo.joinTeam(second.id, team.id, "team_admin");
+    expect(repo.getTeamsForUser(first.id).memberships.find(item => item.id === team.id)?.canLeave).toBe(true);
+    repo.leaveTeam(first.id, team.id);
+    expect(repo.isTeamMember(first.id, team.id)).toBe(false);
+    expect(repo.getTeamsForUser(second.id).memberships.find(item => item.id === team.id)?.canLeave).toBe(false);
+    expect(() => repo.leaveTeam(second.id, team.id)).toThrow("You are the only team admin");
   });
 
   it("removes access when a user leaves a team and restores it on rejoin", () => {

@@ -3059,6 +3059,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
   onUpdateQuorumSettings?: (enabled: boolean, minimumVotePercent: number) => Promise<void>;
   onRenameTeam: (name: string) => Promise<void>;
   onLeaveCurrentTeam: () => Promise<void>;
+  canLeaveCurrentTeam?: boolean;
   onShareTeamLink?: () => Promise<void>;
   onOpenAccountSettings: () => void;
   onLoadPendingIssue?: (issueId: string) => Promise<void>;
@@ -3816,6 +3817,8 @@ export const TeamBoard = memo(function TeamBoard(props: {
                         <button
                           type="button"
                           className="settings-option"
+                          disabled={props.canLeaveCurrentTeam === false}
+                          title={props.canLeaveCurrentTeam === false ? "Archive the team from Team admin, or have another team admin assigned before leaving." : undefined}
                           onClick={() => {
                             if (window.confirm(`Leave "${props.state.team.name}"? You will lose board and history access until you join again.`)) {
                               void props.onLeaveCurrentTeam();
@@ -3823,7 +3826,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
                             }
                           }}
                         >
-                          Leave team
+                          {props.canLeaveCurrentTeam === false ? "Only team admin — archive instead" : "Leave team"}
                         </button>
                       ) : null}
                     </div>
@@ -7173,6 +7176,7 @@ export default function App() {
         onUpdateHistoryTimezoneSettings={handleUpdateHistoryTimezoneSettings}
         onUpdateQuorumSettings={handleUpdateQuorumSettings}
         onRenameTeam={handleRenameTeam}
+        canLeaveCurrentTeam={session.memberships.find(team => team.id === selectedTeamId)?.canLeave}
         onLeaveCurrentTeam={() => handleLeaveTeam(selectedTeamId!)}
         onShareTeamLink={handleShareTeamLink}
         onOpenAccountSettings={() => setAccountSettingsOpen(true)}

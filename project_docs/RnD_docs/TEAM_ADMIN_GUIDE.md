@@ -250,3 +250,8 @@ If adding someone would exceed their two-workspace allowance, the invitation for
 ## Helping users sign in
 
 Normal team members and team admins use `/`. Enter a valid-looking email to enable Forgot password or, when offered, Start free public trial. Request access is optional per installation; if it is absent, contact an administrator for admission or use the available trial signup. Platform super-admins use the separate `/admin` address with their configured admin credentials.
+
+
+Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
+
+In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.

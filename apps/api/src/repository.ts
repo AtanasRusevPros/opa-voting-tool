@@ -972,6 +972,7 @@ export class Repository {
           t.archived,
           t.last_activity_at,
           COALESCE(SUM(CASE WHEN member_user.is_super_admin = 0 THEN 1 ELSE 0 END), 0) AS member_count,
+          COALESCE(SUM(CASE WHEN member_user.is_super_admin = 0 AND member_user.deleted_at IS NULL AND tm2.role = 'team_admin' THEN 1 ELSE 0 END), 0) AS team_admin_count,
           tm.role AS membership_role,
           tm.last_opened_at AS membership_last_opened_at,
           utp.user_id AS preference_user_id,
@@ -1008,6 +1009,7 @@ export class Repository {
       archived: number;
       last_activity_at: string;
       member_count: number;
+      team_admin_count: number;
       membership_role: TeamUserRole | null;
       membership_last_opened_at: string | null;
       preference_user_id: string | null;
@@ -1039,6 +1041,7 @@ export class Repository {
         archived: row.archived === 1,
         lastActivityAt: row.last_activity_at,
         memberCount: row.member_count,
+        canLeave: !viewerIsSuperAdmin && row.membership_role !== null && (row.membership_role !== "team_admin" || row.team_admin_count > 1),
         currentUserRole: row.membership_role ?? "none",
         currentUserHistoryTimezonePopupEnabled:
           row.preference_user_id === null ? undefined : row.preference_history_timezone_popup_enabled !== 0,
@@ -1433,6 +1436,16 @@ export class Repository {
   leaveTeam(userId: string, teamId: string): void {
     if (this.isSuperAdmin(userId)) {
       throw new Error("The super-admin always remains a member of every team.");
+    }
+    if (this.getTeamUserRole(userId, teamId) === "team_admin") {
+      const replacement = this.db.prepare(`
+        SELECT 1 FROM team_memberships tm JOIN users u ON u.id = tm.user_id
+        WHERE tm.team_id = ? AND tm.user_id != ? AND tm.role = 'team_admin'
+          AND u.is_super_admin = 0 AND u.deleted_at IS NULL LIMIT 1
+      `).get(teamId, userId);
+      if (!replacement) {
+        throw new Error("You are the only team admin. Archive the team instead, or have another team admin assigned before leaving.");
+      }
     }
     this.db.prepare("DELETE FROM team_memberships WHERE team_id = ? AND user_id = ?").run(teamId, userId);
   }
