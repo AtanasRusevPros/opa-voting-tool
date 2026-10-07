@@ -264,3 +264,13 @@ Authoritative references for operator assessment:
 - [Texas AG privacy-law applicability](https://oag.state.tx.us/consumer-protection/file-consumer-complaint/consumer-privacy-rights/texas-data-privacy-and-security-act)
 - [FTC privacy and security guidance](https://www.ftc.gov/business-guidance/privacy-security)
 - [EU guidance on necessary cookies and consent](https://europa.eu/youreurope/business/growing/digitalising/online-privacy/index_en.htm)
+
+## Implementation versus continuing operations
+
+The implemented backup and notice features provide a practical baseline. Operators
+continue to monitor privacy requests, verify mailbox delivery, inspect backup
+health, enforce retention for separate archives/exports/logs, review provider
+arrangements and rehearse restores with deletion replay. Completing a software
+release does not mark those recurring duties finished or establish legal compliance.
+Self-hosters choose their own deployment policies and contacts; the hosted demo's
+settings are not mandatory for ordinary self-hosted installations.
