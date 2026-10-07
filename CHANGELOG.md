@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Make trial registration policy acceptance easier to read and select with form-sized text and a larger checkbox.
+
 - Prevent the sole team admin from leaving, with archive guidance in the chooser and board and server-side enforcement. Allow full-email member re-add without selecting a suggestion, and match the Team Admin rename pencil to the board.
 
 - Added deployment-configurable access requests, enforced in both login UI and API. Moved super-admin sign-in to `/admin` with noindex and removed its public login button. Grouped email recovery/trial actions beneath Sign in and enable them only after a valid-looking email is entered.

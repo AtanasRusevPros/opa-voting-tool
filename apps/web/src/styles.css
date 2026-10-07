@@ -3283,3 +3283,26 @@ textarea {
 .login-assistance-actions > button { white-space: normal; min-height: 44px; }
 .login-access-actions { padding-top: 6px; }
 @media (max-width: 360px) { .login-assistance-actions { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* Keep trial consent as readable as the registration form, including on phones. */
+.trial-consent-row {
+  font-size: 1rem;
+  line-height: 1.5;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.trial-consent-row input[type="checkbox"] {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 2px 0 0;
+}
+
+.trial-consent-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

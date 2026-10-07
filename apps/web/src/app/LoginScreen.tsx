@@ -235,7 +235,7 @@ export function LoginScreen(props: {
                 </div>
               </div>
               {props.isPublicTrialCodeStep ? (
-                <label className="checkbox-row">
+                <label className="checkbox-row trial-consent-row">
                   <input
                     type="checkbox"
                     checked={props.trialTermsAccepted}
