@@ -69,6 +69,39 @@ afterEach(() => {
 });
 
 describe("usage report CLI helpers", () => {
+  it("excludes deactivated users and purged workspaces while preserving unrelated reports", () => {
+    const config = createTestConfig();
+    process.env.DEPLOYMENT_CONFIG_PATH = config.deploymentConfigPath;
+    const repo = new Repository(config);
+    const signup = (email: string) => repo.completePublicTrialSignup({
+      email, code: repo.requestLoginCode(email).code, displayName: email,
+      avatarIconKey: "bear", avatarColorKey: "azure", password: "Password123!",
+      acceptedTermsVersion: repo.getPublicTrialTermsVersion()
+    })!;
+    const survivor = signup("report-survivor@example.com");
+    const removed = signup("report-removed@example.com");
+    const retainedEmail = "retained-member@example-company.com";
+    const member = repo.verifyLoginCode(retainedEmail, repo.requestLoginCode(retainedEmail).code,
+      "Retained Member", "bear", "azure", undefined, "Password123!")!;
+    repo.joinTeam(member.id, survivor.team.id);
+    const round = repo.createRound(survivor.team.id, "Retained report history");
+    repo.castVote(round.id, member.id, "5");
+    repo.revealRound(round.id);
+    const memberPreview = repo.getOwnAccountDeletionPreview(member.id);
+    repo.deleteOwnAccount(member.id, "Password123!", "DELETE MY ACCOUNT", memberPreview.impactToken);
+    expect(usersExport(config.databasePath)).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: member.id })]));
+    const survivorReport = buildReport(config.databasePath).workspaces.find(w => w.id === survivor.workspace.id);
+    const purgePreview = repo.getOwnAccountDeletionPreview(removed.user.id);
+    repo.deleteOwnAccount(removed.user.id, "Password123!", "DELETE MY WORKSPACE", purgePreview.impactToken);
+    const report = buildReport(config.databasePath);
+    expect(report.totals.users).toBe(1);
+    expect(report.totals.publicTrialWorkspaces).toBe(1);
+    expect(report.totals.historyEntries).toBe(1);
+    expect(report.workspaces.find(w => w.id === survivor.workspace.id)).toEqual(survivorReport);
+    expect(report.workspaces.some(w => w.id === removed.workspace.id)).toBe(false);
+    expect(usersExport(config.databasePath)).toEqual([expect.objectContaining({ id: survivor.user.id })]);
+  });
+
   it("reports default and public-trial workspace usage without counting super-admins as users", () => {
     const config = createTestConfig();
     process.env.DEPLOYMENT_CONFIG_PATH = config.deploymentConfigPath;

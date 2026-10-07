@@ -755,13 +755,25 @@ describe("Repository integration", () => {
     const round = repo.createRound(stacey.team.id, "Retained workspace history");
     repo.castVote(round.id, john.user.id, "5"); repo.revealRound(round.id);
     const history = repo.getHistory(stacey.team.id);
+    const ownRound = repo.createRound(john.team.id, "Own workspace preserved");
+    repo.castVote(ownRound.id, john.user.id, "3");
+    repo.revealRound(ownRound.id);
+    const ownHistory = repo.getHistory(john.team.id);
+    const ownWorkspace = repo.getWorkspaceForTeam(john.team.id);
     repo.leavePublicTrialWorkspace(john.user.id, joined.id);
     expect(repo.getPublicTrialWorkspaces(john.user.id)).toHaveLength(1);
     expect(repo.isTeamMember(john.user.id, stacey.team.id)).toBe(false);
+    expect(() => repo.getTeamState(stacey.team.id, john.user.id)).toThrow("Forbidden");
+    expect(repo.getWorkspaceForTeam(john.team.id)).toEqual(ownWorkspace);
+    expect(repo.getHistory(john.team.id)).toEqual(ownHistory);
+    expect(repo.verifyPasswordLogin(john.user.email, "Password123!")).not.toBeNull();
     expect(repo.getHistory(stacey.team.id)).toEqual(history);
     expect(repo.isTeamMember(stacey.user.id, stacey.team.id)).toBe(true);
     repo.addTeamMemberByEmail(third.user.id, third.team.id, john.user.email);
     expect(repo.getPublicTrialWorkspaces(john.user.id)).toHaveLength(2);
+    expect(repo.isTeamMember(john.user.id, third.team.id)).toBe(true);
+    expect(repo.getHistory(john.team.id)).toEqual(ownHistory);
+    expect(repo.getHistory(stacey.team.id)).toEqual(history);
   });
 
   it("deactivates a retained-workspace account, preserves attributed history, and frees the email", () => {
@@ -874,6 +886,15 @@ describe("Repository integration", () => {
       acceptedTermsVersion: repo.getPublicTrialTermsVersion()
     })!;
 
+    const unrelatedRound = repo.createRound(unrelated.team.id, "Unrelated retained history");
+    repo.castVote(unrelatedRound.id, unrelated.user.id, "8");
+    repo.revealRound(unrelatedRound.id);
+    const unrelatedBefore = {
+      user: repo.getUser(unrelated.user.id),
+      workspace: repo.getWorkspaceForTeam(unrelated.team.id),
+      memberships: repo.getTeamsForUser(unrelated.user.id),
+      history: repo.getHistory(unrelated.team.id)
+    };
     const preview = repo.getOwnAccountDeletionPreview(owner.user.id);
     expect(preview).toMatchObject({
       mode: "purge_trial_workspaces",
@@ -895,6 +916,14 @@ describe("Repository integration", () => {
     expect(repo.getUserByEmail(collaborator.email)?.id).toBe(collaborator.id);
     expect(repo.verifyPasswordLogin(collaborator.email, collaboratorInvite.temporaryPassword!)).not.toBeNull();
     expect(repo.getWorkspaceForTeam(unrelated.team.id)?.id).toBe(unrelated.workspace.id);
+    expect({
+      user: repo.getUser(unrelated.user.id),
+      workspace: repo.getWorkspaceForTeam(unrelated.team.id),
+      memberships: repo.getTeamsForUser(unrelated.user.id),
+      history: repo.getHistory(unrelated.team.id)
+    }).toEqual(unrelatedBefore);
+    expect(repo.getTeamState(unrelated.team.id, unrelated.user.id).history).toHaveLength(1);
+    expect(repo.verifyPasswordLogin(unrelatedEmail, "Password123!")).not.toBeNull();
     expect(repo.getTeamsForUser(unrelated.user.id).memberships.map((team) => team.id)).toContain(unrelated.team.id);
 
     const fresh = repo.completePublicTrialSignup({
