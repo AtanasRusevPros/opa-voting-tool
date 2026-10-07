@@ -77,3 +77,12 @@ Until that later policy exists:
 - Run it only after reviewing the current branch/changelog and taking the built-in backup seriously.
 - Do not move an existing public tag after it is pushed. If a docs-only or deployment fix is needed after `v0.1.0`, release it as a later patch version such as `v0.1.1` when it deserves a public tag.
 - Keep real deployment settings in ignored `config/deployment.local.toml`; release updates should not require operators to overwrite their local config.
+
+
+Backup behavior is part of release verification: deployment updates create a
+consistent database/config archive and prune successful archives to three.
+App-managed database snapshots are a separate opt-in weekly schedule with three
+copies and a 21-day age limit while running. Follow the
+[privacy and backup guide](PRIVACY_AND_BACKUPS.md) for restore rehearsal, retention
+exceptions and operator notices. Policy wording changes update the signup terms
+version; existing acceptance records are preserved, not silently backdated.

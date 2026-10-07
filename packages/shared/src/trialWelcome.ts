@@ -6,7 +6,7 @@ export const TRIAL_WELCOME = {
   name: "OpaVoting",
   landingTitle: "Team voting, free and open source.",
   landingIntro: "Planning poker, polls, and team decisions. Lightweight realtime collaboration, built for demanding workloads.",
-  privacy: "We store account and voting data to run the demo. You can delete your account; shared history and backups have retention exceptions.",
+  privacy: "Use non-sensitive example data. We store account and voting data to run the demo. You can delete your account; shared history and backups have retention exceptions.",
   selfHost: "Self-host without demo limits. Source code and deployment guides are ready for you or your AI assistant to follow.",
   support: "Find it useful? Give it a GitHub ⭐, share it, or contribute.",
   funding: "This demo runs on a small server I personally fund. Limits keep it available for everyone; self-hosted capacity depends on your server.",

@@ -29,6 +29,7 @@ import {
   selectNextReadyTeamBroadcast,
   type TeamBroadcastCandidate
 } from "./broadcastScheduler.js";
+import { BackupManager } from "./backups.js";
 import { loadAllowedDomains } from "./config.js";
 import { DemoModeManager } from "./demoMode.js";
 import { DeploymentConfigManager } from "./deploymentConfig.js";
@@ -1153,7 +1154,11 @@ const simulatorRuntimeVisibilityInterval = setInterval(() => {
 
 simulatorRuntimeVisibilityInterval.unref?.();
 
+const backupManager = new BackupManager(config);
+server.on("close", () => backupManager.stop());
+
 if (process.env.NODE_ENV !== "test") {
+  backupManager.start();
   server.listen(config.port, config.host, () => {
     console.log(`API listening on http://${config.host}:${config.port}`);
   });

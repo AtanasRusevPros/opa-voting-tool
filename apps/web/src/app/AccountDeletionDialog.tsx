@@ -28,7 +28,7 @@ export function AccountDeletionDialog(props: {
         <h3>{purge ? "Delete account and public-trial workspace" : "Delete account"}</h3>
         <p>
           {purge
-            ? "This permanently deletes every public-trial workspace owned by this account and all teams, voting history, comments, and workspace data inside them."
+            ? "This deletes every public-trial workspace owned by this account and its teams, voting history, comments, and workspace data from the live database. Collaborators lose access to these workspaces; their own accounts and unrelated workspaces remain."
             : "This removes account access and memberships. Retained voting history and comments remain attributed to the display name with “(Deactivated)” added."}
         </p>
         <dl className="account-deletion-summary">
@@ -41,7 +41,7 @@ export function AccountDeletionDialog(props: {
             <span>{workspace.teamCount} teams • {workspace.memberCount} members • {workspace.historyEntryCount} history entries • {workspace.activeSessionCount} active sessions</span>
           </div>
         ))}
-        <p className="account-deletion-note">Existing backups and previously exported files are not rewritten automatically.</p>
+        <p className="account-deletion-note">Existing backups expire under the operator’s retention policy; previously exported files are not remotely erased. Operational records and shared history in other workspaces may remain. See the privacy notice or contact the operator for further privacy requests.</p>
         {props.requirePassword ? (
           <label>
             Current password

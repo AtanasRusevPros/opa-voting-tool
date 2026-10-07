@@ -15,6 +15,8 @@ import type {
 } from "@planning-poker/shared";
 
 export interface AppConfig {
+  privacy?: { operatorName: string; contactEmail: string; providerDetails: string };
+  backups?: { enabled: boolean; intervalHours: number; maxAgeDays: number };
   port: number;
   host: string;
   allowedDomainsPath: string;

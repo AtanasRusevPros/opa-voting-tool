@@ -246,11 +246,11 @@ export function LoginScreen(props: {
                     <a href="/public-trial/terms" target="_blank" rel="noreferrer">
                       public trial terms
                     </a>
-                    ,{" "}
+                    , acknowledge the{" "}
                     <a href="/public-trial/privacy" target="_blank" rel="noreferrer">
                       privacy notice
                     </a>
-                    ,{" "}
+                    , and accept the{" "}
                     <a href="/public-trial/acceptable-use" target="_blank" rel="noreferrer">
                       acceptable-use rules
                     </a>

@@ -477,6 +477,16 @@ backup_prune_test_dir="$(mktemp -d)"
 touch -d '2026-05-01 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-old.tar.gz"
 touch -d '2026-05-02 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-middle.tar.gz"
 touch -d '2026-05-03 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-new.tar.gz"
+# Default retention is three, and unrelated files are never counted or removed.
+touch "$backup_prune_test_dir/operator-note.txt"
+touch -d '2026-05-04 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-latest.tar.gz"
+BACKUP_DIR="$backup_prune_test_dir" ./deploy.sh backup:prune >/dev/null
+if [[ -e "$backup_prune_test_dir/planning-poker-backup-old.tar.gz" || ! -e "$backup_prune_test_dir/operator-note.txt" ]]; then
+  echo "Default backup retention must keep three archives and preserve unrelated files." >&2
+  exit 1
+fi
+rm "$backup_prune_test_dir/planning-poker-backup-latest.tar.gz"
+touch -d '2026-05-01 00:00:00 UTC' "$backup_prune_test_dir/planning-poker-backup-old.tar.gz"
 deploy_prune_dry_run_output="$(BACKUP_DIR="$backup_prune_test_dir" BACKUP_PRUNE_KEEP=2 BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune)"
 assert_contains "$deploy_prune_dry_run_output" "Would delete:" "deploy.sh backup:prune dry-run"
 assert_contains "$deploy_prune_dry_run_output" "planning-poker-backup-old.tar.gz" "deploy.sh backup:prune dry-run oldest file"

@@ -224,3 +224,19 @@ Deployment TOML `[auth].access_requests_enabled` defaults to true. Bootstrap exp
 
 
 Team membership summaries expose the server-computed `canLeave` capability. The existing team aggregate counts active, non-super-admin team admins; chooser/board controls use this capability for leave guidance. The leave operation independently rechecks for a replacement team admin before deleting membership, so a stale client cannot bypass sole-admin protection.
+
+
+## Privacy and backup retention
+
+The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
+Owner account deletion purges owned trial workspaces from the live database;
+archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
+attribution. Downloaded exports and operational records require separate handling.
+Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
+copies, and expire after 21 days while enabled/running; restart checks missed work.
+Deployment archives are separately capped at three after successful creation and
+have operator-managed age expiry. There is no external scheduler or daily job.
+The public notice reflects configured backup values and `[privacy]` contact/provider
+details. No-sale/no-advertising and restricted-access promises do not mean “no
+providers process data”. Manual privacy requests and actual operator practices
+remain necessary; no blanket GDPR/California/US compliance claim is made.

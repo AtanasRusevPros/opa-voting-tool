@@ -35,9 +35,10 @@ function createEnvDir() {
   return dir;
 }
 
-async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string; publicTrial?: boolean; smtp?: boolean; accessRequests?: boolean }) {
+async function loadTestServer(options?: { debugToolsEnabled?: boolean; nodeEnv?: string; publicTrial?: boolean; smtp?: boolean; accessRequests?: boolean; privacyConfig?: string }) {
   const dir = createEnvDir();
   const deploymentSections: string[] = [];
+  if (options?.privacyConfig) deploymentSections.push(options.privacyConfig);
   if (options?.accessRequests !== undefined) deploymentSections.push(`[auth]\naccess_requests_enabled = ${options.accessRequests}\n`);
   if (options?.smtp) {
     deploymentSections.push(`
@@ -149,6 +150,24 @@ describe("Password and invite HTTP flows", () => {
     const enabled = await loadTestServer({ accessRequests: true });
     expect((await request(enabled.app).get("/api/bootstrap")).body.accessRequestsEnabled).toBe(true);
     expect((await request(enabled.app).post("/api/auth/request-access").send({ email: "request@example-company.com" })).status).toBe(200);
+  });
+
+  it("publishes the actual backup policy and escapes configured privacy details", async () => {
+    const { app } = await loadTestServer({ publicTrial: true, privacyConfig: '[backups]\nenabled = true\ninterval_hours = 168\nmax_age_days = 21\n[privacy]\noperator_name = "<script>alert(1)</script>"\ncontact_email = "privacy@example.com"\nprovider_details = "EU host & mail provider"\n' });
+    const response = await request(app).get("/public-trial/privacy");
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("every 168 hours");
+    expect(response.text).toContain("after 21 days");
+    expect(response.text).toContain("privacy@example.com");
+    expect(response.text).toContain("&lt;script&gt;");
+    expect(response.text).not.toContain("<script>alert");
+    expect(response.text).toContain("EU host &amp; mail provider");
+    expect(response.text).toContain("still personal data, not anonymisation");
+    const cleanup = await request(app).get("/public-trial/export-cleanup");
+    expect(cleanup.text).toContain("No automatic inactive-workspace deletion deadline");
+    expect(cleanup.text).not.toContain("sixty inactive days");
+    const disabled = await loadTestServer({ publicTrial: true });
+    expect((await request(disabled.app).get("/public-trial/privacy")).text).toContain("scheduled backups are disabled");
   });
 
   it("provides a trial-only project guide and semantic welcome HTML without JavaScript", async () => {

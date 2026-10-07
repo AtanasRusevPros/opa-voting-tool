@@ -13,6 +13,11 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added opt-in app-managed SQLite snapshots: weekly by default, at most three copies, 21-day expiry, restart catch-up, worker-thread copying and integrity verification; no external scheduler.
+- Deployment archives now use consistent SQLite snapshots, exclude nested snapshot history and automatically retain three after successful creation. Added `backup:auto:list` and restore/setup guidance.
+- Rewrote trial privacy/terms/cleanup and deletion guidance around actual live-data deletion, retained identifiable history, providers and backup exceptions. Added configurable public operator/contact/provider details and a lightweight manual privacy-rights procedure without certification/compliance claims.
+
+
 - Make trial registration policy acceptance easier to read and select with form-sized text and a larger checkbox.
 
 - Prevent the sole team admin from leaving, with archive guidance in the chooser and board and server-side enforcement. Allow full-email member re-add without selecting a suggestion, and match the Team Admin rename pencil to the board.

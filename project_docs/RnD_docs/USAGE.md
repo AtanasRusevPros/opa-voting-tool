@@ -116,7 +116,7 @@ Backup/restore rehearsal on a test deployment:
 
 Backup retention:
 - `./deploy.sh backup:prune` removes older `planning-poker-backup-*.tar.gz` archives from `BACKUP_DIR`.
-- It keeps the newest `20` backups by default; set `BACKUP_PRUNE_KEEP=10` or another positive number to change the retention count.
+- It keeps the newest `3` backups by default; set `BACKUP_PRUNE_KEEP=3` or another positive number to change the retention count.
 - Set `BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune` to preview which archives would be deleted.
 
 Operator reporting:
@@ -411,6 +411,30 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 
 ## Hosted-trial collaboration and limits
 
+### Joining another hosted-demo workspace
+
+1. Ask an admin of a team in that workspace to add you from **Team admin** using
+   your complete account email. Selecting a search suggestion is optional for an
+   exact email. Workspace membership is obtained through a team invitation/addition;
+   there is no separate public workspace directory to browse.
+2. Existing users keep their current login and do not need a new signup or SMTP
+   delivery to be added. New trial users need the email invitation/onboarding flow;
+   follow the delivered sign-in instructions.
+3. Sign in and select the team's card in the chooser. **Account → Workspaces**
+   shows your joined workspaces and joined teams; membership in a workspace does
+   not automatically add you to every team in it.
+4. Each normal user may belong to two trial workspaces in total, including their
+   owned workspace. To make room for another, a collaborator uses **Account →
+   Workspaces → Leave workspace**. Leaving one team does not free a workspace slot.
+   Owners use account deletion to purge their owned trial workspaces; review that
+   destructive action carefully.
+
+Each hosted-demo workspace defaults to two teams, ten users across the workspace
+and 80 revealed rounds shared by all its teams per UTC calendar month. Invitations
+do not reset usage. These allowances do not apply to ordinary self-hosted workspaces.
+
+
+
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Team removal or leaving a team does not remove workspace
@@ -464,3 +488,67 @@ Account/About, keyboard dismissal/focus return, rename and diagnostic checks at
 Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
 
 In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.
+
+
+
+## Hosted demo versus self-hosting
+
+The public hosted demo is one deployment of the complete FOSS application. Its
+trial quotas and service policies are not licence restrictions or mandatory
+settings for company installations. Self-hosters control their own data, users,
+branding, integrations, backups and deployment policies, and may modify the source
+under AGPL-3.0-or-later. The same voting features remain available without a paid
+upgrade; practical capacity depends on the server and workload.
+
+For a new ordinary self-hosted installation, leave hosted-trial mode disabled:
+
+```toml
+[public_trial]
+enabled = false
+mode = "disabled"
+```
+
+The hosted demo's two-workspace, two-team, ten-user and 80-monthly-reveal allowances
+do not apply to ordinary self-hosted workspaces. Disabling trial mode is not a
+migration of existing trial workspaces: stored trial workspaces can retain their
+trial rules. Start with an ordinary self-hosted deployment or plan a migration.
+
+App-managed backups are optional and disabled by default. Weekly snapshots,
+three-copy retention and 21-day expiry are the demo's chosen defaults, not a
+requirement to run the app. Operators may select another backup approach or change
+the configurable schedule/age; changing the built-in three-copy cap requires code.
+The demo operator's identity/contact and public-trial notice are not the company's
+own privacy policy. Each self-hoster supplies policies appropriate to its service.
+Normal authentication/team permissions, AGPL obligations and applicable law still
+apply; configuration freedom is not a promise of unlimited hardware capacity.
+
+## Weekly app-managed backups and trial privacy
+
+Opt in using ignored `config/deployment.local.toml`, then `./deploy.sh restart`:
+
+```toml
+[backups]
+enabled = true
+interval_hours = 168
+max_age_days = 21
+```
+
+The app takes consistent database snapshots weekly, keeps at most three completed
+copies, and checks three-week expiry every minute while enabled/running. It takes
+an initial or overdue snapshot on startup. There is no separate cron/systemd job
+and no automatic daily backup. Check `./deploy.sh backup:auto:list`. Snapshots
+persist in the existing data volume; they exclude config/branding. Separate
+`deploy.sh backup` archives include config/branding, exclude snapshot history and
+prune to three after successful creation; they have no automatic age expiry.
+
+Owner account deletion purges owned trial workspace content from the live database.
+Shared history elsewhere remains identifiable as `Name (Deactivated)`; backups,
+operational records and downloaded exports have separate retention. No sale or
+advertising use is promised; necessary hosting/email processing and restricted
+operator access are disclosed. Publish actual `[privacy]` operator/contact/provider
+details before public signup. These measures support common GDPR/US privacy
+principles; they are not certification or a blanket legal compliance claim.
+
+See [privacy, backup setup, restore and operator procedures](PRIVACY_AND_BACKUPS.md)
+for precise scope, downtime/disabled-feature exceptions, server commands and
+manual rights handling. Public copies of private planning evidence are not required.

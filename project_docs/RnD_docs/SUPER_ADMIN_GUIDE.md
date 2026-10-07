@@ -460,3 +460,24 @@ reports to distinguish identically named workspaces.
 
 
 A sole team admin cannot leave their team. Your implicit super-admin membership does not count as a replacement. The team admin can archive the team, or another ordinary team admin can be assigned before departure. This restriction is enforced by the leave API as well as the chooser and board controls.
+
+
+## Privacy and backup retention
+
+The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
+Owner account deletion purges owned trial workspaces from the live database;
+archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
+attribution. Downloaded exports and operational records require separate handling.
+Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
+copies, and expire after 21 days while enabled/running; restart checks missed work.
+Deployment archives are separately capped at three after successful creation and
+have operator-managed age expiry. There is no external scheduler or daily job.
+The public notice reflects configured backup values and `[privacy]` contact/provider
+details. No-sale/no-advertising and restricted-access promises do not mean “no
+providers process data”. Manual privacy requests and actual operator practices
+remain necessary; no blanket GDPR/California/US compliance claim is made.
+
+For company installations, see [hosted demo versus self-hosting](USAGE.md#hosted-demo-versus-self-hosting).
+Trial quotas and the demo's chosen backup/privacy settings are optional deployment
+policy, not restrictions on the FOSS app. A new ordinary deployment uses disabled
+trial mode; changing that flag does not migrate existing trial workspace records.

@@ -131,7 +131,7 @@ type EnsureSeededTeamInput = EnsureSimulatorTeamInput & {
 const JIRA_PENDING_ISSUE_SOURCE = "jira_cloud" as const;
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 const DEFAULT_WORKSPACE_NAME = "Default Workspace";
-const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-06-05";
+const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-10-07";
 function trialWorkspaceName(displayName: string): string {
   return `${displayName.trim().slice(0, 68) || "My"}'s Workspace`;
 }

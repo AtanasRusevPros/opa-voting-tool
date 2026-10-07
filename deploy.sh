@@ -16,7 +16,7 @@ local_operator_config="config/deploy.local.toml"
 backup_dir="${BACKUP_DIR:-$repo_root/../backups}"
 data_volume_name="${DATA_VOLUME_NAME:-containers_planning_poker_data}"
 tail_lines="${TAIL:-200}"
-backup_prune_keep="${BACKUP_PRUNE_KEEP:-20}"
+backup_prune_keep="${BACKUP_PRUNE_KEEP:-3}"
 health_wait_retries="${HEALTH_WAIT_RETRIES:-60}"
 health_wait_sleep_seconds="${HEALTH_WAIT_SLEEP_SECONDS:-1}"
 stack_unit_name="${STACK_UNIT_NAME:-opavotingtool-stack.service}"
@@ -1429,6 +1429,7 @@ Config and backups:
   ./deploy.sh config:edit     Edit config/deployment.local.toml
   ./deploy.sh domains:edit    Edit config/allowed-domains.txt
   ./deploy.sh backup          Archive app data plus deployment config/branding files
+  ./deploy.sh backup:auto:list  Show in-app schedule and retained database snapshots
   ./deploy.sh backup:list     List recent backups
   ./deploy.sh backup:prune    Delete older backups beyond BACKUP_PRUNE_KEEP
   ./deploy.sh restore <file>  Stop the app, restore a backup archive, restart, and health-check
@@ -1488,11 +1489,13 @@ run_demo_count_diagnostics() {
   fi
 }
 
-make_backup() {
+make_backup() (
+  umask 077
   local timestamp tmp_dir archive container_id
-  timestamp="$(date -u '+%Y%m%dT%H%M%SZ')"
+  timestamp="$(date -u '+%Y%m%dT%H%M%S%NZ')"
   archive="$backup_dir/planning-poker-backup-$timestamp.tar.gz"
   tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"; rm -f "$archive.partial"' EXIT
 
   mkdir -p "$backup_dir"
 
@@ -1509,15 +1512,45 @@ make_backup() {
   container_id="$(service_container_id)"
   if [[ -n "$container_id" ]]; then
     mkdir -p "$tmp_dir/api-data"
-    podman cp "$container_id:/app/apps/api/data/." "$tmp_dir/api-data"
+    # SQLite reads committed WAL data consistently. Never recursively archive snapshots.
+    local container_snapshot="/tmp/opa-deploy-backup-$timestamp-$$.db"
+    if ! podman exec "$container_id" node -e '
+      const { DatabaseSync } = require("node:sqlite");
+      const path = require("node:path");
+      const fs = require("node:fs");
+      const source = process.env.DATABASE_PATH || path.join(process.env.DATA_DIR || "/app/apps/api/data", "planning-poker.db");
+      const db = new DatabaseSync(source, { readOnly: true });
+      db.exec("PRAGMA busy_timeout = 5000");
+      db.prepare("VACUUM INTO ?").run(process.argv[1]); db.close();
+      fs.chmodSync(process.argv[1], 0o600);
+      const copy = new DatabaseSync(process.argv[1], { readOnly: true });
+      const rows = copy.prepare("PRAGMA integrity_check").all(); copy.close();
+      if (rows.length !== 1 || rows[0].integrity_check !== "ok") process.exit(1);
+    ' "$container_snapshot"; then
+      podman exec "$container_id" rm -f "$container_snapshot" || true
+      rm -rf "$tmp_dir"
+      return 1
+    fi
+    if ! podman cp "$container_id:$container_snapshot" "$tmp_dir/api-data/planning-poker.db"; then
+      podman exec "$container_id" rm -f "$container_snapshot" || true
+      rm -rf "$tmp_dir"
+      return 1
+    fi
+    podman exec "$container_id" rm -f "$container_snapshot"
   else
-    echo "Warning: no app container found; backup will include config/branding only." >&2
+    echo "No app container found; refusing an incomplete deployment backup." >&2
+    rm -rf "$tmp_dir"
+    return 1
   fi
 
-  tar -C "$tmp_dir" -czf "$archive" .
+  tar -C "$tmp_dir" -czf "$archive.partial" .
+  chmod 600 "$archive.partial"
+  tar -tzf "$archive.partial" >/dev/null
+  mv "$archive.partial" "$archive"
   rm -rf "$tmp_dir"
   echo "Backup written: $archive"
-}
+  prune_backups
+)
 
 list_backup_archives() {
   if [[ ! -d "$backup_dir" ]]; then
@@ -1857,6 +1890,11 @@ case "$cmd" in
     ;;
   backup)
     make_backup
+    ;;
+  backup:auto:list)
+    container_id="$(service_container_id)"
+    [[ -n "$container_id" ]] || { echo "Start the app before listing automatic backups." >&2; exit 1; }
+    podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/backupCli.ts
     ;;
   backup:list)
     if [[ -d "$backup_dir" ]]; then

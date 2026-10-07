@@ -90,3 +90,19 @@ After deployment, inspect page source, fetch robots/sitemap, verify domain owner
 References: [Google supported metadata](https://developers.google.com/search/docs/crawling-indexing/special-tags) and [sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap). Google ignores meta keywords; meaningful visible text and links remain central.
 
 The brief trial welcome uses the same four-step copy in initial HTML and React, including the configured monthly round allowance and honest retention/deletion wording. Privacy and terms are ordinary links. Funding and benchmark evidence use native HTML details/summary, available without JavaScript. Project identity, repository, license and deployment documentation remain direct links; self-hosting instructions can be followed by people or AI assistants without promising a fixed deployment duration.
+
+
+## Privacy and backup retention
+
+The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
+Owner account deletion purges owned trial workspaces from the live database;
+archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
+attribution. Downloaded exports and operational records require separate handling.
+Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
+copies, and expire after 21 days while enabled/running; restart checks missed work.
+Deployment archives are separately capped at three after successful creation and
+have operator-managed age expiry. There is no external scheduler or daily job.
+The public notice reflects configured backup values and `[privacy]` contact/provider
+details. No-sale/no-advertising and restricted-access promises do not mean “no
+providers process data”. Manual privacy requests and actual operator practices
+remain necessary; no blanket GDPR/California/US compliance claim is made.

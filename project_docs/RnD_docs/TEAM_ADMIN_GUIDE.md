@@ -218,6 +218,30 @@ This guide is intentionally limited to the team-admin surface and stays separate
 
 ## Hosted-trial collaboration and limits
 
+### Joining another hosted-demo workspace
+
+1. Ask an admin of a team in that workspace to add you from **Team admin** using
+   your complete account email. Selecting a search suggestion is optional for an
+   exact email. Workspace membership is obtained through a team invitation/addition;
+   there is no separate public workspace directory to browse.
+2. Existing users keep their current login and do not need a new signup or SMTP
+   delivery to be added. New trial users need the email invitation/onboarding flow;
+   follow the delivered sign-in instructions.
+3. Sign in and select the team's card in the chooser. **Account → Workspaces**
+   shows your joined workspaces and joined teams; membership in a workspace does
+   not automatically add you to every team in it.
+4. Each normal user may belong to two trial workspaces in total, including their
+   owned workspace. To make room for another, a collaborator uses **Account →
+   Workspaces → Leave workspace**. Leaving one team does not free a workspace slot.
+   Owners use account deletion to purge their owned trial workspaces; review that
+   destructive action carefully.
+
+Each hosted-demo workspace defaults to two teams, ten users across the workspace
+and 80 revealed rounds shared by all its teams per UTC calendar month. Invitations
+do not reset usage. These allowances do not apply to ordinary self-hosted workspaces.
+
+
+
 The hosted demo supports two public-trial workspace memberships per normal user.
 Existing users can be invited to a second workspace; a third invitation explains
 how to free a slot. Team removal or leaving a team does not remove workspace
@@ -255,3 +279,19 @@ Normal team members and team admins use `/`. Enter a valid-looking email to enab
 Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
 
 In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.
+
+
+## Privacy and backup retention
+
+The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
+Owner account deletion purges owned trial workspaces from the live database;
+archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
+attribution. Downloaded exports and operational records require separate handling.
+Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
+copies, and expire after 21 days while enabled/running; restart checks missed work.
+Deployment archives are separately capped at three after successful creation and
+have operator-managed age expiry. There is no external scheduler or daily job.
+The public notice reflects configured backup values and `[privacy]` contact/provider
+details. No-sale/no-advertising and restricted-access promises do not mean “no
+providers process data”. Manual privacy requests and actual operator practices
+remain necessary; no blanket GDPR/California/US compliance claim is made.

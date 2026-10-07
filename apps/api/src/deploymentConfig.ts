@@ -15,6 +15,8 @@ import { repoRoot, resolveDefaultDeploymentConfigPath } from "./configPaths.js";
 import type { AppConfig } from "./types.js";
 
 type RawDeploymentConfig = {
+  privacy: NonNullable<AppConfig["privacy"]>;
+  backups: NonNullable<AppConfig["backups"]>;
   accessRequestsEnabled: boolean;
   app: {
     baseUrl: string;
@@ -254,6 +256,8 @@ function parseTomlSections(raw: string): Record<string, Record<string, boolean |
 
 function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: string): RawDeploymentConfig {
   return {
+    privacy: { operatorName: "", contactEmail: "", providerDetails: "" },
+    backups: { enabled: false, intervalHours: 168, maxAgeDays: 21 },
     accessRequestsEnabled: true,
     app: {
       baseUrl: appBaseUrl,
@@ -363,6 +367,16 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
     `surface_tint = ${quoteToml(config.branding.palette.surfaceTint)}`,
     `text_emphasis = ${quoteToml(config.branding.palette.textEmphasis)}`,
     "",
+    "[privacy]",
+    `operator_name = ${quoteToml(config.privacy.operatorName)}`,
+    `contact_email = ${quoteToml(config.privacy.contactEmail)}`,
+    `provider_details = ${quoteToml(config.privacy.providerDetails)}`,
+    "",
+    "[backups]",
+    `enabled = ${config.backups.enabled}`,
+    `interval_hours = ${config.backups.intervalHours}`,
+    `max_age_days = ${config.backups.maxAgeDays}`,
+    "",
     "[demo]",
     `enabled = ${config.demo.enabled ? "true" : "false"}`,
     "",
@@ -413,9 +427,27 @@ function parsePublicTrialMode(value: boolean | number | string | undefined, fall
   return fallback;
 }
 
+function parseBackupSettings(section: Record<string, boolean | number | string> = {}): NonNullable<AppConfig["backups"]> {
+  if (section.enabled !== undefined && typeof section.enabled !== "boolean") throw new Error("backups.enabled must be a boolean");
+  const positive = (key: string, fallback: number) => {
+    const value = section[key] ?? fallback;
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > 87600) {
+      throw new Error(`backups.${key} must be a positive integer no greater than 87600`);
+    }
+    return value;
+  };
+  return { enabled: section.enabled === true, intervalHours: positive("interval_hours", 168), maxAgeDays: positive("max_age_days", 21) };
+}
+
 function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawDeploymentConfig {
   const sections = parseTomlSections(raw);
   return {
+    privacy: {
+      operatorName: String(sections.privacy?.operator_name ?? "").trim(),
+      contactEmail: String(sections.privacy?.contact_email ?? "").trim(),
+      providerDetails: String(sections.privacy?.provider_details ?? "").trim()
+    },
+    backups: parseBackupSettings(sections.backups),
     accessRequestsEnabled: typeof sections.auth?.access_requests_enabled === "boolean" ? sections.auth.access_requests_enabled : defaults.accessRequestsEnabled,
     app: {
       baseUrl: String(sections.app?.base_url ?? defaults.app.baseUrl).trim() || defaults.app.baseUrl,
@@ -597,6 +629,8 @@ export class DeploymentConfigManager {
     }
 
     this.currentConfig = {
+      privacy: { ...this.rawConfig.privacy },
+      backups: { ...this.rawConfig.backups },
       port: parseNumber(process.env.PORT, 3001),
       host: process.env.HOST ?? "127.0.0.1",
       allowedDomainsPath: this.rawConfig.app.allowedDomainsPath,

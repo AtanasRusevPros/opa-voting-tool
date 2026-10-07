@@ -41,6 +41,8 @@ import {
   verifyCodeSchema,
   voteSchema
 } from "./schemas.js";
+import { privacySections } from "./privacyNotice.js";
+import type { AppConfig } from "../types.js";
 import type { AuthedRequest } from "./middleware.js";
 import { perfTracker } from "../perf.js";
 import { Repository, RoundNotActiveError, TrialQuotaExceededError } from "../repository.js";
@@ -51,6 +53,8 @@ type RegisterRoutesDeps = {
   app: express.Express;
   webDist: string;
   config: {
+    backups?: AppConfig["backups"];
+    privacy?: AppConfig["privacy"];
     appBaseUrl: string;
     accessRequestsEnabled?: boolean;
     branding: unknown;
@@ -257,12 +261,12 @@ export function registerRoutes({
           {
             heading: "No Confidential Data",
             body:
-              "The operator intends to keep trial data private and not sell or misuse email addresses, but this is still a public alpha test service. Do not enter confidential, regulated, or sensitive production data."
+              "Use synthetic or non-sensitive example data in this free, open-source evaluation service. Do not enter confidential, regulated, or sensitive production data. Account and voting information still receive the protections described in the privacy notice."
           },
           {
             heading: "Account Deletion",
             body:
-              "Any normal user may delete their own account. Deleting a public-trial workspace owner permanently purges that owner's trial workspace, teams, voting history, comments, and workspace data."
+              "Any normal user may delete their own account. Deleting an owner account purges its owned public-trial workspaces, teams, voting history and comments from the live database. Collaborators lose access to those workspaces; their own accounts and unrelated workspaces remain. Shared history elsewhere, operational records, backups and downloaded exports have the exceptions described in the privacy notice. Archiving a team is not deletion."
           }
         ])
       );
@@ -272,28 +276,7 @@ export function registerRoutes({
     res
       .type("html")
       .send(
-        renderPublicTrialInfoPage("OpaVoting Public Trial Privacy Notice", [
-          {
-            heading: "Data Collected",
-            body:
-              "The app stores account email, display name, workspace/team membership, votes, comments, history, sessions, and operational timestamps needed to run the service."
-          },
-          {
-            heading: "Operational Use",
-            body:
-              "Data is used to provide the public trial, prevent abuse, diagnose reliability issues, and decide whether the test server is useful enough to keep online."
-          },
-          {
-            heading: "Email And Third Parties",
-            body:
-              "Email delivery may use a transactional SMTP provider. Public-trial emails are for access, reset, invite, cleanup, and important service notices."
-          },
-          {
-            heading: "Deletion And Retained History",
-            body:
-              "Deleting a normal account removes its email and access. If shared history remains in another workspace, it stays attributed only as the former display name with “(Deactivated)” added. Existing backups and exports are not rewritten automatically."
-          }
-        ])
+        renderPublicTrialInfoPage("OpaVoting Public Trial Privacy Notice", privacySections(config))
       );
   });
 
@@ -324,7 +307,7 @@ export function registerRoutes({
           {
             heading: "Trial Lifecycle",
             body:
-              "Inactive trial workspaces may be cleaned up after the configured inactivity window. The intended first policy is sixty inactive days with warning emails roughly fourteen and seven days before cleanup."
+              "No automatic inactive-workspace deletion deadline is currently implemented. The operator may announce cleanup or service shutdown and provide practical export instructions. Backup expiry is separate from live workspace retention; see the privacy notice for the configured backup policy."
           },
           {
             heading: "Export",
@@ -334,7 +317,7 @@ export function registerRoutes({
           {
             heading: "Delete Your Trial Workspace",
             body:
-              "A public-trial workspace owner can delete their account from Account settings. The confirmation explicitly warns that the owned trial workspace and all of its data will be permanently purged."
+              "A public-trial workspace owner can delete their account from Account settings. This purges all owned trial workspaces from the live database, including teams, voting history and comments. Backups expire separately; downloaded exports are not remotely erased. Shared history in other workspaces remains attributed to the former display name with (Deactivated) added. Contact the operator for further privacy requests."
           }
         ])
       );

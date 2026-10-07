@@ -64,4 +64,4 @@ Use this as the compact execution checklist for an open-source release pass.
 - Backup/restore has been smoke-tested with `./deploy.sh backup`, `./deploy.sh backup:list`, and `./deploy.sh restore <file>`; re-run the rehearsal before a release if backup behavior changes.
 - The first public tag is `v0.1.0`; future release tags should follow the documented versioning policy.
 - Search discoverability should be revisited after launch using real search/referral signals rather than guessed keyword density.
-- Automatic update checks, backup pruning, release-channel selection, and major/minor/patch update policy belong to the later post-launch operations phase.
+- Automatic update checks, release-channel selection, and major/minor/patch update policy belong to the later post-launch operations phase. Backup pruning and opt-in weekly app-managed snapshots are implemented; see [privacy and backups](PRIVACY_AND_BACKUPS.md) for retention and release verification.

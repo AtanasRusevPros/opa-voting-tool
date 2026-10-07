@@ -252,6 +252,28 @@ describe("DeploymentConfigManager", () => {
     return dir;
   }
 
+  it("defaults to opt-in weekly backups and preserves settings through admin saves", () => {
+    const dir = withConfigEnv();
+    const manager = new DeploymentConfigManager();
+    expect(manager.getConfig().backups).toEqual({ enabled: false, intervalHours: 168, maxAgeDays: 21 });
+    const file = path.join(dir, "deployment.toml");
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8")
+      .replace("[backups]\nenabled = false\ninterval_hours = 168\nmax_age_days = 21", "[backups]\nenabled = true\ninterval_hours = 336\nmax_age_days = 42")
+      .replace('operator_name = ""', 'operator_name = "Test Operator"')
+      .replace('contact_email = ""', 'contact_email = "privacy@example.com"')
+      .replace('provider_details = ""', 'provider_details = "Test provider in EU"'));
+    const configured = new DeploymentConfigManager();
+    configured.updateConfig({ admin: { displayName: "Changed" } });
+    expect(new DeploymentConfigManager().getConfig().backups).toEqual({ enabled: true, intervalHours: 336, maxAgeDays: 42 });
+    expect(new DeploymentConfigManager().getConfig().privacy).toEqual({ operatorName: "Test Operator", contactEmail: "privacy@example.com", providerDetails: "Test provider in EU" });
+  });
+
+  it.each(['enabled = "true"', 'interval_hours = 0', 'max_age_days = -1', 'interval_hours = 1.5', 'max_age_days = "21"'])("rejects invalid backup configuration %s", (setting) => {
+    const dir = withConfigEnv();
+    fs.writeFileSync(path.join(dir, "deployment.toml"), `[backups]\n${setting}\n`);
+    expect(() => new DeploymentConfigManager()).toThrow(/backups/);
+  });
+
   it("creates a writable deployment config with redacted secrets and default branding", () => {
     const dir = withConfigEnv();
     const manager = new DeploymentConfigManager();

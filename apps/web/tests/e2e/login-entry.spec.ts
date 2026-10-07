@@ -47,3 +47,19 @@ test("trial login separates email actions and the directly reloadable admin entr
   }
   expect(diagnostics).toEqual([]);
 });
+
+test("trial policies disclose deletion and backup exceptions on desktop and mobile", async ({ page }) => {
+  test.skip(process.env.PLAYWRIGHT_TRIAL !== "1", "Requires hosted trial mode.");
+  await page.goto('/public-trial/privacy');
+  await expect(page.getByRole('heading', { name: 'Your Privacy Requests', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Backup Retention', exact: true })).toBeVisible();
+  await expect(page.getByText(/still personal data, not anonymisation/)).toBeVisible();
+  await expect(page.getByText(/We do not sell personal data/)).toBeVisible();
+  for (const width of [1440, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.goto('/public-trial/export-cleanup');
+  await expect(page.getByText(/No automatic inactive-workspace deletion deadline/)).toBeVisible();
+  await expect(page.getByText(/Backups expire separately/)).toBeVisible();
+});

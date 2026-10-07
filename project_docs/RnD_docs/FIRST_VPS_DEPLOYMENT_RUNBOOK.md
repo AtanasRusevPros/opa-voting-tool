@@ -456,7 +456,7 @@ What `./deploy.sh update` does:
 - preserves deployment-local settings in ignored `config/deployment.local.toml`
 - preserves ignored keep-alive overrides in `config/deploy.local.toml`
 - creates a timestamped backup first
-- lets you prune old update backups later with `./deploy.sh backup:prune`
+- automatically prunes old deployment archives to the latest three after a successful backup; `./deploy.sh backup:prune` also handles existing archives
 - runs `git pull --ff-only`
 - rebuilds the container image with `--no-cache`
 - recreates the service with the latest image
@@ -525,7 +525,7 @@ BACKUP_PRUNE_DRY_RUN=1 ./deploy.sh backup:prune
 ./deploy.sh backup:prune
 ```
 
-`backup:prune` keeps the newest `20` archives by default and deletes older `planning-poker-backup-*.tar.gz` files from `BACKUP_DIR`. Set `BACKUP_PRUNE_KEEP=10` or another positive number to change that retention count.
+`backup:prune` keeps the newest `3` archives by default and deletes older `planning-poker-backup-*.tar.gz` files from `BACKUP_DIR`. Set `BACKUP_PRUNE_KEEP=3` or another positive number to change that retention count.
 
 ## 11. Final Transition To HTTPS-Only App Access
 
@@ -749,3 +749,67 @@ access_requests_enabled = false
 ```
 
 This is the application configuration, not `config/deploy.local.toml`. Omission defaults to `true` for compatibility. Run `./deploy.sh restart`, `./deploy.sh health` and `./deploy.sh public-health`. Check that Request access is absent and `/api/bootstrap` reports `accessRequestsEnabled: false`. New access-request submissions return HTTP 403 when disabled; existing pending requests remain available to admins. Trial signup, invitations and password recovery are independent. Test `/admin` sign-in and return to user sign-in; admin responses carry `X-Robots-Tag: noindex` and are not advertised in the public sitemap.
+
+
+
+## Hosted demo versus self-hosting
+
+The public hosted demo is one deployment of the complete FOSS application. Its
+trial quotas and service policies are not licence restrictions or mandatory
+settings for company installations. Self-hosters control their own data, users,
+branding, integrations, backups and deployment policies, and may modify the source
+under AGPL-3.0-or-later. The same voting features remain available without a paid
+upgrade; practical capacity depends on the server and workload.
+
+For a new ordinary self-hosted installation, leave hosted-trial mode disabled:
+
+```toml
+[public_trial]
+enabled = false
+mode = "disabled"
+```
+
+The hosted demo's two-workspace, two-team, ten-user and 80-monthly-reveal allowances
+do not apply to ordinary self-hosted workspaces. Disabling trial mode is not a
+migration of existing trial workspaces: stored trial workspaces can retain their
+trial rules. Start with an ordinary self-hosted deployment or plan a migration.
+
+App-managed backups are optional and disabled by default. Weekly snapshots,
+three-copy retention and 21-day expiry are the demo's chosen defaults, not a
+requirement to run the app. Operators may select another backup approach or change
+the configurable schedule/age; changing the built-in three-copy cap requires code.
+The demo operator's identity/contact and public-trial notice are not the company's
+own privacy policy. Each self-hoster supplies policies appropriate to its service.
+Normal authentication/team permissions, AGPL obligations and applicable law still
+apply; configuration freedom is not a promise of unlimited hardware capacity.
+
+## Weekly app-managed backups and trial privacy
+
+Opt in using ignored `config/deployment.local.toml`, then `./deploy.sh restart`:
+
+```toml
+[backups]
+enabled = true
+interval_hours = 168
+max_age_days = 21
+```
+
+The app takes consistent database snapshots weekly, keeps at most three completed
+copies, and checks three-week expiry every minute while enabled/running. It takes
+an initial or overdue snapshot on startup. There is no separate cron/systemd job
+and no automatic daily backup. Check `./deploy.sh backup:auto:list`. Snapshots
+persist in the existing data volume; they exclude config/branding. Separate
+`deploy.sh backup` archives include config/branding, exclude snapshot history and
+prune to three after successful creation; they have no automatic age expiry.
+
+Owner account deletion purges owned trial workspace content from the live database.
+Shared history elsewhere remains identifiable as `Name (Deactivated)`; backups,
+operational records and downloaded exports have separate retention. No sale or
+advertising use is promised; necessary hosting/email processing and restricted
+operator access are disclosed. Publish actual `[privacy]` operator/contact/provider
+details before public signup. These measures support common GDPR/US privacy
+principles; they are not certification or a blanket legal compliance claim.
+
+See [privacy, backup setup, restore and operator procedures](PRIVACY_AND_BACKUPS.md)
+for precise scope, downtime/disabled-feature exceptions, server commands and
+manual rights handling. Public copies of private planning evidence are not required.

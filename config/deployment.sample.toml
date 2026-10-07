@@ -59,3 +59,16 @@ timezone_keys = "[\"gmt\",\"usa-davidson\",\"bulgaria-sofia\"]"
 # Set false on the hosted demo; restart after editing deployment.local.toml.
 [auth]
 access_requests_enabled = true
+
+# Opt in to in-app SQLite snapshots; restart after editing. No external scheduler.
+# Weekly, at most 3 completed copies, expiry after three weeks while app runs.
+[backups]
+enabled = false
+interval_hours = 168
+max_age_days = 21
+
+# Publish real operator/contact and hosting/email locations before public signup.
+[privacy]
+operator_name = ""
+contact_email = ""
+provider_details = ""
