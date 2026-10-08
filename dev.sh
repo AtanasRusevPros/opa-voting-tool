@@ -34,7 +34,7 @@ required_node_major() {
 
 is_node_dependent_command() {
   case "$1" in
-    deps | build | lint | typecheck | test:unit | test:int | test:web | test:web:perf | test:e2e | test:e2e:perf | test:e2e:sim | test:e2e:sim:matrix21 | phase:p2:verify | phase:p3:verify | test:full | stack:up | sim:seed | sim:up)
+    deps | build | lint | typecheck | test:unit | test:int | test:web | test:web:perf | test:e2e:responsive | test:e2e | test:e2e:perf | test:e2e:sim | test:e2e:sim:matrix21 | phase:p2:verify | phase:p3:verify | test:full | stack:up | sim:seed | sim:up)
       return 0
       ;;
     *)
@@ -437,6 +437,7 @@ Tests
   ./dev.sh test:web     Run frontend/web tests
   ./dev.sh test:web:perf Run frontend perf-focused tests
   ./dev.sh test:e2e     Run packaged browser e2e flow
+  ./dev.sh test:e2e:responsive  Run opt-in UI viewport/touch suite on disposable local servers
   ./dev.sh test:e2e:perf Run simulator-backed frontend perf checks
   ./dev.sh test:e2e:sim Run simulator-backed board layout e2e flow
   ./dev.sh test:e2e:sim:matrix21 Run strict 21-person simulator viewport matrix
@@ -493,6 +494,10 @@ EOF
     ;;
   test:web:perf)
     pnpm --filter @planning-poker/web test:web:perf
+    ;;
+  test:e2e:responsive)
+    ./dev.sh build
+    pnpm --filter @planning-poker/web test:e2e:responsive
     ;;
   test:e2e)
     ./scripts/test-e2e.sh

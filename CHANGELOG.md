@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Improve phone voting with a compact header and controls-first participant layout; keep settings menus and Platform within short viewports. Fix interrupted touch history resizing, add keyboard resizing and guarded header pull-to-refresh. Add an opt-in disposable-server responsive browser suite and viewport guide.
+
 - Added owner-only hosted workspace statistics under Account, with scoped live updates and JSON export. Added a complete count glossary and separate team/workspace/platform guide sections.
 
 - Let the member who proposed the current round edit its board title, with server authorization, persisted ownership and the same inline editor. Saved History/Search editing remains admin-only; archived teams and former members cannot edit.

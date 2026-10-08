@@ -207,19 +207,18 @@ function mockBoardShellWidth(width: number) {
 }
 
 function dispatchPointerLikeEvent(target: EventTarget, type: string, coords: { clientX?: number; clientY?: number }) {
-  target.dispatchEvent(
-    new MouseEvent(type, {
-      bubbles: true,
-      clientX: coords.clientX ?? 0,
-      clientY: coords.clientY ?? 0
-    })
-  );
+  const event = new MouseEvent(type, { bubbles: true, clientX: coords.clientX ?? 0, clientY: coords.clientY ?? 0 });
+  Object.defineProperties(event, { pointerId: {value: 1}, isPrimary: {value: true}, pointerType: {value: 'mouse'} });
+  target.dispatchEvent(event);
 }
 
 describe("TeamBoard performance boundaries", () => {
   beforeAll(() => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     HTMLElement.prototype.scrollTo = vi.fn();
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    HTMLElement.prototype.releasePointerCapture = vi.fn();
+    HTMLElement.prototype.hasPointerCapture = vi.fn(() => true);
   });
 
   beforeEach(() => {

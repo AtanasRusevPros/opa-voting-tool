@@ -1,3 +1,4 @@
+import { pointerDrag } from "./app/pointerDrag";
 import { closeSocket } from "./app/closeSocket";
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -3537,10 +3538,46 @@ export const TeamBoard = memo(function TeamBoard(props: {
     setStackedHistoryHeight((current) => clampStackedHistoryHeight(current, viewportHeight, maxHeight));
   }, [getStackedHistoryMaxHeight, isStackedHistoryLayout, viewportHeight]);
 
+  const headerPullActive = useRef(false);
+  useEffect(() => {
+    const header = boardHeaderRef.current;
+    const preventPullScroll = (event: TouchEvent) => {
+      if (headerPullActive.current && event.touches.length === 1) event.preventDefault();
+    };
+    header?.addEventListener("touchmove", preventPullScroll, { passive: false });
+    return () => header?.removeEventListener("touchmove", preventPullScroll);
+  }, []);
+  const [pullReady, setPullReady] = useState(false);
+  const pullCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => pullCleanup.current?.(), []);
+  const startHeaderRefresh = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!isStackedHistoryLayout || event.pointerType !== "touch" || !event.isPrimary || window.scrollY > 0) return;
+    if ((event.target as Element).closest("button, input, select, textarea, a, [role='dialog'], [role='menu']")) return;
+    pullCleanup.current?.();
+    headerPullActive.current = true;
+    const x = event.clientX, y = event.clientY;
+    let ready = false;
+    let cancelled = false;
+    pullCleanup.current = pointerDrag(event, next => {
+      if (Math.abs(next.clientX - x) > 40 || next.clientY < y - 10) cancelled = true;
+      ready = !cancelled && next.clientY - y >= 90;
+      setPullReady(ready);
+    }, last => {
+      headerPullActive.current = false;
+      setPullReady(false);
+      if (ready && last?.type === "pointerup") window.location.reload();
+    });
+  };
+
+  const resizeCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => resizeCleanup.current?.(), [isStackedHistoryLayout]);
+
   const startHistoryRailResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (isStackedHistoryLayout) {
       return;
     }
+    if (!event.isPrimary || event.button !== 0) return;
+    resizeCleanup.current?.();
     event.preventDefault();
     const shell = boardShellRef.current;
     if (!shell) {
@@ -3559,22 +3596,15 @@ export const TeamBoard = memo(function TeamBoard(props: {
       setHistoryRailWidth(clamp(nextWidth, HISTORY_RAIL_MIN_WIDTH, maxReasonableWidth));
     };
 
-    const stopResize = () => {
-      setHistoryRailResizing(false);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopResize);
-      window.removeEventListener("pointercancel", stopResize);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopResize);
-    window.addEventListener("pointercancel", stopResize);
+    resizeCleanup.current = pointerDrag(event, handlePointerMove, () => setHistoryRailResizing(false));
   }, [historyRailWidth, isStackedHistoryLayout]);
 
   const startStackedHistoryResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!isStackedHistoryLayout) {
       return;
     }
+    if (!event.isPrimary || event.button !== 0) return;
+    resizeCleanup.current?.();
     event.preventDefault();
     const initialHeight = stackedHistoryHeight;
     const startY = event.clientY;
@@ -3587,16 +3617,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
       setStackedHistoryHeight(clampStackedHistoryHeight(nextHeight, viewportHeight, getStackedHistoryMaxHeight()));
     };
 
-    const stopResize = () => {
-      setStackedHistoryResizing(false);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopResize);
-      window.removeEventListener("pointercancel", stopResize);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopResize);
-    window.addEventListener("pointercancel", stopResize);
+    resizeCleanup.current = pointerDrag(event, handlePointerMove, () => setStackedHistoryResizing(false));
   }, [getStackedHistoryMaxHeight, isStackedHistoryLayout, stackedHistoryHeight, viewportHeight]);
 
   const toggleHistoryTimeZoneDraft = useCallback((key: HistoryTimeZoneKey) => {
@@ -3689,12 +3710,13 @@ export const TeamBoard = memo(function TeamBoard(props: {
         } as CSSProperties
       }
     >
-      <header ref={boardHeaderRef} className="screen-header">
+      <header ref={boardHeaderRef} className="screen-header" onPointerDown={startHeaderRefresh} data-pull-ready={pullReady || undefined}>
+        {pullReady ? <span className="pull-refresh-hint" role="status">Release to refresh</span> : null}
         <div className="screen-header-bar">
           <div className="team-branding">
             <img className="team-icon" src={branding.teamLogo} alt="" />
             <div className="team-name-row">
-              <h1>
+              <h1 title={props.state.team.name}>
                 {props.state.team.name}
                 {props.state.team.demo ? <span className="team-state-chip demo">Demo</span> : null}
                 {props.state.team.archived ? <span className="team-state-chip archived">Archived</span> : null}
@@ -3712,6 +3734,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
                 </button>
                 {timerMenuOpen ? (
                   <div className="timer-settings-popup" role="dialog" aria-label="Team timer settings">
+                    <button type="button" className="ghost-button mobile-menu-close" onClick={() => setTimerMenuOpen(false)}>Close timer settings</button>
                     <div className="team-settings-title">Countdown timer</div>
                     <div className="timer-settings-options">
                       <button
@@ -3757,6 +3780,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
                 </button>
                 {teamSettingsOpen ? (
                   <div className="team-settings-popup" role="dialog" aria-label="Team settings">
+                    <button type="button" className="ghost-button mobile-menu-close" onClick={() => setTeamSettingsOpen(false)}>Close team settings</button>
                     <div className="team-settings-actions">
                       {canEditTeamSettings ? (
                         <button
@@ -3851,6 +3875,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
                                 : "Keyboard shortcuts"
                         }
                       >
+                        <button type="button" className="ghost-button mobile-menu-close" onClick={() => setTeamSettingsSection("none")}>Back to team settings</button>
                         {teamSettingsSection === "deck" ? (
                           <form
                             className="team-deck-form"
@@ -4162,6 +4187,12 @@ export const TeamBoard = memo(function TeamBoard(props: {
             className="history-stack-resize-handle"
             aria-label="Resize issues list height"
             onPointerDown={startStackedHistoryResize}
+            title="Drag to resize, or use Up and Down arrow keys"
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              event.preventDefault();
+              setStackedHistoryHeight(current => clampStackedHistoryHeight(current + (event.key === "ArrowUp" ? 24 : -24), viewportHeight, getStackedHistoryMaxHeight()));
+            }}
           >
             <span className="history-stack-resize-line" />
             <span className="history-stack-resize-symbol" aria-hidden="true">
@@ -4203,6 +4234,12 @@ export const TeamBoard = memo(function TeamBoard(props: {
           className="history-resize-handle"
           aria-label="Resize issues list"
           onPointerDown={startHistoryRailResize}
+          title="Drag to resize, or use Left and Right arrow keys"
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            setHistoryRailWidth(current => clampHistoryRailWidth(current + (event.key === "ArrowLeft" ? 24 : -24)));
+          }}
         >
           <span className="history-resize-grip" />
         </button>

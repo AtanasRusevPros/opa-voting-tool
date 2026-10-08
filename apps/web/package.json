@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "test:e2e:perf": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.perf.spec.ts",
     "test:e2e:sim": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.sim.spec.ts",
-    "test:e2e:sim:matrix21": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.sim.matrix21.spec.ts"
+    "test:e2e:sim:matrix21": "PLAYWRIGHT_SIMULATOR=1 playwright test tests/e2e/planning-poker.sim.matrix21.spec.ts",
+    "test:e2e:responsive": "playwright test --config=playwright.responsive.config.ts"
   },
   "dependencies": {
     "@planning-poker/shared": "workspace:*",

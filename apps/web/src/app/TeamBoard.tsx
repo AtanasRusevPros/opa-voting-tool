@@ -156,8 +156,8 @@ const ParticipantTile = memo(function ParticipantTile(props: {
       className={`member-tile ring-${props.placement.ring} side-${props.placement.side}${props.placement.compact ? " is-compact" : ""}${props.placement.layer > 0 ? " is-layered is-overflow" : ""}`}
       style={
         {
-          left: `${props.placement.left}px`,
-          top: `${props.placement.top}px`,
+          ["--member-left" as string]: `${props.placement.left}px`,
+          ["--member-top" as string]: `${props.placement.top}px`,
           ["--stack-layer" as string]: `${props.placement.layer}`,
           ["--stack-x-step" as string]: `${props.placement.stackOffsetX ?? 0}px`,
           ["--stack-y-step" as string]: `${props.placement.stackOffsetY ?? 0}px`
@@ -316,9 +316,9 @@ export const BoardStageContent = memo(function BoardStageContent(props: {
       }
     >
       <div ref={props.boardScrollAreaRef} className={`board-scroll-area${props.boardNeedsScroll ? " needs-scroll" : ""}`}>
-        <div ref={props.boardStageRef} className="board-stage" style={props.boardStageHeight ? { minHeight: `${props.boardStageHeight}px` } : undefined}>
+        <div ref={props.boardStageRef} className="board-stage" style={props.boardStageHeight ? { ["--board-stage-height" as string]: `${props.boardStageHeight}px` } : undefined}>
           <img className="team-background-art" src={branding.teamBackground} alt="" />
-          <div className="stage-layout" style={props.boardStageHeight ? { minHeight: `${props.boardStageHeight}px` } : undefined}>
+          <div className="stage-layout" style={props.boardStageHeight ? { ["--board-stage-height" as string]: `${props.boardStageHeight}px` } : undefined}>
             <ParticipantRing
               placements={props.memberPlacements}
               activeRound={props.activeRound}

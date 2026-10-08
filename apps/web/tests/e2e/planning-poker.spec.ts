@@ -781,7 +781,9 @@ test("a normal user can delete their account and register fresh with the same em
   const deletionResponsePromise = page.waitForResponse(
     (response) => response.url().endsWith("/api/account/delete") && response.request().method() === "POST"
   );
+  const deletionReload = page.waitForResponse(response => response.request().isNavigationRequest() && response.request().resourceType() === "document");
   await deletionDialog.getByRole("button", { name: "Delete account" }).click();
+  await deletionReload;
   const deletionResponse = await deletionResponsePromise;
   expect(deletionResponse.ok()).toBe(true);
 
@@ -1172,7 +1174,10 @@ test("phase 16 header stays readable and the bell popup stays inside the viewpor
     await expectSelectorsNotOverlapping(page, ".team-branding", ".header-toolbar");
     await expectNoOverlappingMatches(page, ".header-toolbar > *");
     await expectNoOverlappingMatches(page, ".team-name-row > *");
-    await expectElementContentFits(page, ".team-name-row h1");
+    if (viewport.width <= 640) {
+      await expect(page.locator(".team-name-row h1")).toHaveAttribute("title", longTeamName);
+      await expect(page.locator(".team-name-row h1")).toHaveCSS("text-overflow", "ellipsis");
+    } else await expectElementContentFits(page, ".team-name-row h1");
 
     await page.getByRole("button", { name: "Open notifications" }).click();
     await expect(page.getByRole("dialog", { name: "Notifications" })).toBeVisible();
@@ -1225,8 +1230,12 @@ test("phase 16 center voting controls stay compact and off the participant ring 
         };
       });
 
-      if (viewport.width <= 480) {
-        expect(centerMetrics.width).toBeLessThanOrEqual(302);
+      if (viewport.width <= 640) {
+        // Phone flow puts controls before the participant grid, using available width.
+        const controls = (await ownerPage.locator('.center-panel').boundingBox())!;
+        const participants = (await ownerPage.locator('.participant-ring').boundingBox())!;
+        expect(controls.y + controls.height).toBeLessThanOrEqual(participants.y);
+        expect(centerMetrics.width).toBeLessThan(viewport.width - 20);
       } else if (viewport.width <= 720) {
         expect(centerMetrics.width).toBeLessThanOrEqual(336);
       } else {

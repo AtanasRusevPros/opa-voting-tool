@@ -512,7 +512,7 @@ textarea {
 
 .admin-settings-modal {
   width: min(1080px, 100%);
-  height: min(94vh, 960px);
+  height: min(calc(100dvh - 48px), 960px);
   overflow: hidden;
   overscroll-behavior: contain;
   padding: 24px;
@@ -794,6 +794,7 @@ textarea {
   border: none;
   background: transparent;
   cursor: col-resize;
+  touch-action: none;
 }
 
 .history-resize-handle::before {
@@ -822,6 +823,7 @@ textarea {
 .board-shell.is-resizing-stacked-history,
 .board-main.is-resizing-history {
   cursor: row-resize;
+  touch-action: none;
   user-select: none;
 }
 
@@ -1445,6 +1447,8 @@ textarea {
 
 .member-tile {
   position: absolute;
+  left: var(--member-left, auto);
+  top: var(--member-top, auto);
   display: grid;
   justify-items: center;
   align-content: start;
@@ -1848,6 +1852,7 @@ textarea {
 }
 
 .history-stack-resize-handle {
+  touch-action: none;
   position: relative;
   flex: 0 0 18px;
   width: 100%;
@@ -3351,3 +3356,75 @@ textarea {
 .issue-title-pencil svg { width: 15px; height: 15px; }
 .issue-title-trigger:hover .issue-title-pencil, .issue-title-trigger:focus-visible .issue-title-pencil { opacity: 1; }
 .issue-title-error { font-size: .85rem; color: #a12626; overflow-wrap: anywhere; }
+
+/* Phone layouts share the existing 959px board/history transition. */
+@media (max-width: 959px) {
+  .board-shell { height: 100dvh; min-height: 100dvh; contain: style; }
+  .screen-header { contain: style; backdrop-filter: none; }
+  .history-stack-resize-handle { flex-basis: 44px; }
+  .history-stack-resize-line { top: 21px; }
+  .history-stack-resize-symbol { top: 11px; }
+  .timer-settings-popup,
+  .team-settings-popup,
+  .team-settings-secondary {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: auto;
+    width: min(390px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .team-settings-secondary { top: 20px; left: 20px; width: min(390px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); }
+}
+@media (max-width: 640px) {
+  .screen-header { padding: 8px 8px 0; }
+  .screen-header-bar { gap: 8px; padding: 10px; border-radius: 18px; }
+  .team-branding { gap: 8px; }
+  .team-icon { width: 36px; height: 36px; flex-shrink: 0; }
+  .team-name-row { flex: 1; flex-wrap: nowrap; gap: 6px; align-items: center; }
+  .team-name-row h1 { font-size: 1.1rem; white-space: nowrap; flex: 1; }
+  .header-toolbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+  .header-toolbar > button:not(.icon-only):not(.profile-toggle) { grid-column: span 3; }
+  .header-toolbar > .switch-team-wrap, .header-toolbar > .profile-toggle { grid-column: span 3; }
+  .header-toolbar .header-chip { width: 100%; max-width: 100%; min-width: 0; }
+  .header-toolbar > .icon-only { padding: 8px; }
+  .switch-team-trigger { justify-content: space-between; font-size: 0.85rem; }
+  .header-chip { min-height: 44px; padding: 8px 10px; }
+  .profile-toggle { max-width: 160px; }
+  .board-main { padding-top: 6px; }
+  .board-scroll-area { padding-top: 0; }
+  .status-line { max-height: 3.5em; overflow: auto; }
+}
+/* Short landscape/keyboard viewports use document scrolling instead of a zero-height board. */
+@media (max-width: 959px) and (max-height: 500px) {
+  .board-shell { height: auto; overflow: visible; grid-template-rows: auto minmax(360px, auto) var(--stacked-history-height); }
+  .screen-header { position: relative; }
+}
+
+.mobile-menu-close { display: none; }
+.pull-refresh-hint { position: absolute; inset: 0 0 auto; text-align: center; z-index: 80; background: #eaf3ff; padding: 8px; color: #244b80; pointer-events: none; }
+@media (max-width: 959px) {
+  .mobile-menu-close { display: block; margin-bottom: 10px; }
+}
+
+.board-stage, .stage-layout { min-height: var(--board-stage-height, clamp(560px, 70vh, 980px)); }
+@media (max-width: 640px) {
+  .team-name-row h1 { overflow: hidden; text-overflow: ellipsis; }
+  .board-stage, .stage-layout { min-height: 0; }
+  .board-stage { margin-top: 0; border-radius: 20px; }
+  .stage-layout { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+  .board-timer { position: static; align-self: flex-end; order: 0; }
+  .center-panel { position: static; transform: none; order: 1; width: 100%; max-height: none; }
+  .center-control-card { padding: 10px; border-radius: 18px; clip-path: inset(0 round 18px); }
+  .participant-ring { position: relative; inset: auto; order: 2; display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 10px; max-height: 180px; overflow: auto; padding: 4px; pointer-events: auto; }
+  .participant-ring > .member-tile { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+  .board-scroll-area { overflow-y: auto; }
+}
+
+@media (max-height: 500px) {
+  .admin-settings-modal { display: block; overflow: auto; }
+  .admin-settings-tabs { position: static; }
+  .admin-settings-grid { overflow: visible; }
+}

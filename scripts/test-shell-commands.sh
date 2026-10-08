@@ -394,6 +394,7 @@ dev_commands=(
   "test:web"
   "test:web:perf"
   "test:e2e"
+  "test:e2e:responsive"
   "test:e2e:perf"
   "test:e2e:sim"
   "test:e2e:sim:matrix21"
