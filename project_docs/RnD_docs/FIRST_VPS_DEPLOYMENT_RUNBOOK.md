@@ -12,6 +12,8 @@ Example hostname: `vote.example.com`
 
 This runbook captures a practical Ubuntu 24.04 LTS VPS deployment path for the app.
 
+Want to try it before deploying? **[Open the free live demo](https://app.opavotingtool.eu)** — no installation needed. The demo has usage limits; this runbook explains how to self-host your own installation.
+
 The first VPS deployment path was tested on Ubuntu Server 24.04 LTS. The architecture is not Ubuntu-specific and should apply to common Linux server distributions such as Debian, AlmaLinux, Rocky Linux, and similar VPS images, with expected differences around package installation, firewall tooling, service management defaults, and Podman/Compose packaging.
 
 The goal is a safe alpha baseline:

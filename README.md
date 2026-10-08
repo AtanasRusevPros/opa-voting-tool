@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 The Ultimate Open Source Voting Tool, including Scrum planning poker.
 
+**[Try the free live demo → app.opavotingtool.eu](https://app.opavotingtool.eu)** — sign up and start voting. No installation needed.
+
 OpaVoting is an alpha-stage, open-source multi-team realtime voting platform for teams that need fast, self-hosted collaborative voting. It works today as a Scrum planning poker app for agile estimation, and its long-term direction is broader team voting, polling, review, and decision workflows.
 
 If you are looking for an open-source voting tool, a self-hosted voting platform, an agile estimation tool, or a Scrum planning poker alternative that can grow beyond estimation, this is the project.
@@ -34,7 +36,7 @@ Important public-release notes:
 - Status: alpha / self-hosted preview.
 - Current version: `0.1.0`; check a checkout with `./dev.sh version` or `./deploy.sh version`.
 - Generic public deployment examples use `vote.example.com`.
-- The maintainer test deployment is not a public demo yet.
+- The public hosted demo is free to try, with usage limits; self-host for ongoing or company-wide use.
 - SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider.
 - Do not report security vulnerabilities in public issues; see [`SECURITY.md`](SECURITY.md).
 

@@ -7,6 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 Created: 2026-04-03 10:35 EEST
 
+## Try It Online
+
+**[Try the free live demo](https://app.opavotingtool.eu)** — no installation needed. Enter your email, choose **Start free public trial**, and follow the email instructions to start voting with your team. The hosted demo has [usage limits](#hosted-trial-collaboration-and-limits); self-host for ongoing or company-wide use.
+
 ## Local Development
 
 1. Use Node.js `22.22.2`. The pinned local version is in [`.nvmrc`](../../.nvmrc), so nvm users can run `source "$HOME/.nvm/nvm.sh" && nvm use`.

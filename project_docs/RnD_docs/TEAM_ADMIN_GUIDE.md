@@ -224,6 +224,8 @@ This guide is intentionally limited to the team-admin surface and stays separate
 
 ## Hosted-trial collaboration and limits
 
+**[Try the free live demo](https://app.opavotingtool.eu)** with your team, without installing anything. Choose **Start free public trial** after entering your email and follow the email instructions. The allowances below apply to the hosted demo, not ordinary self-hosted installations.
+
 ### Joining another hosted-demo workspace
 
 1. Ask an admin of a team in that workspace to add you from **Team admin** using
