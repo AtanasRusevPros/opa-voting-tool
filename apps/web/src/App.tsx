@@ -4131,7 +4131,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
         onCreateRound={props.onCreateRound}
         onReveal={props.onReveal}
         onCancelActiveRound={props.onCancelActiveRound}
-        onRenameRound={canEditTeamSettings ? props.onRenameRound : undefined}
+        onRenameRound={!isReadOnlyBoard && (canEditTeamSettings || props.state.activeRound?.proposedBy === props.state.currentUser.id) ? props.onRenameRound : undefined}
         onVoteAgainActiveRound={props.onVoteAgainActiveRound}
         onVoteAgain={props.onVoteAgain}
         latestHistoryEntryId={latestHistoryEntryId}

@@ -4566,7 +4566,7 @@ describe("App", () => {
     expect(screen.getByText(/small server I personally fund/)).toBeInTheDocument();
     expect(screen.getByText(/80 voting rounds per calendar month/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Privacy notice" })).toHaveAttribute("href", "/public-trial/privacy");
-    expect(screen.getByText(/shared history and backups have retention exceptions/)).toBeInTheDocument();
+    expect(screen.getByText(/Shared history and backups have exceptions/)).toBeInTheDocument();
   });
 
   it("uses the configured workspace quota in the trial welcome", () => {

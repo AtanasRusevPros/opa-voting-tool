@@ -37,13 +37,14 @@ export function initializeStatistics(db: DatabaseSync) {
       END;
   `);
   db.prepare('INSERT OR IGNORE INTO statistics_metadata VALUES (1, ?)').run(new Date().toISOString());
-}
-
-export function pruneStatistics(db: DatabaseSync, now = Date.now(), retentionDays: number | null = null) {
-  if (retentionDays === null) return;
-  const cutoff = new Date(now - retentionDays * DAY).toISOString();
-  db.prepare('DELETE FROM statistics_activity WHERE last_at < ?').run(cutoff);
-  db.prepare('DELETE FROM statistics_rounds WHERE completed_at < ?').run(cutoff);
+  // Global counters contain no person/team/workspace/issue identifiers or event timestamps.
+  // Seed once from surviving statistics; deleted/previously expired records cannot be reconstructed.
+  db.exec(`CREATE TABLE IF NOT EXISTS statistics_totals (
+    id INTEGER PRIMARY KEY CHECK (id = 1), completed_rounds INTEGER NOT NULL, votes INTEGER NOT NULL);
+    INSERT OR IGNORE INTO statistics_totals SELECT 1, COUNT(*), COALESCE(SUM(votes), 0) FROM statistics_rounds;
+    CREATE TRIGGER IF NOT EXISTS statistics_count_round AFTER INSERT ON statistics_rounds BEGIN
+      UPDATE statistics_totals SET completed_rounds = completed_rounds + 1, votes = votes + NEW.votes WHERE id = 1;
+    END;`);
 }
 
 export function recordActivity(db: DatabaseSync, userId: string, teamId: string, now = Date.now()) {
@@ -68,7 +69,7 @@ export function recordCompletedRound(db: DatabaseSync, roundId: string, teamId: 
 
 type Activity = {user_id: string; team_id: string; day: string; last_at: string};
 type Completed = {round_id: string; team_id: string; issue_id: string; completed_at: string; votes: number; eligible: number; participating: number};
-export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam?: string, days: 1 | 7 | 30 = 30, now = Date.now(), workspaceId?: string, retentionDays: number | null = null): StatisticsResponse {
+export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam?: string, days: 1 | 7 | 30 = 30, now = Date.now(), workspaceId?: string): StatisticsResponse {
   const generatedAt = new Date(now).toISOString();
   const startedAt = (db.prepare('SELECT started_at FROM statistics_metadata WHERE id = 1').get() as {started_at: string}).started_at;
   const from30 = new Date(now - 30 * DAY).toISOString();
@@ -122,7 +123,9 @@ export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam
   const teamRows = teams.map(t => ({ id: t.id, name: t.name, workspaceId: t.workspace_id, workspaceName: t.workspace_name, archived: !!t.archived,
     members: memberships.filter(m => m.team_id === t.id).length, onBoard: boardIds(t.id).size, ...metrics(perTeam.get(t.id)!) }));
   const trend = [...daily].map(([date, value]) => ({date, activePeople: value.people.size, completedRounds: value.rounds}));
-  return { generatedAt, startedAt, retentionDays, days, periodStart: selectedFrom, partialCoverage: startedAt > selectedFrom,
+  const totals = scopeTeam || workspaceId ? null : db.prepare('SELECT completed_rounds, votes FROM statistics_totals WHERE id = 1').get() as {completed_rounds: number; votes: number} | null;
+  const lifetimeTotals = totals ? {completedRounds: totals.completed_rounds, votes: totals.votes} : null;
+  return { generatedAt, startedAt, retentionDays: null, lifetimeTotals, days, periodStart: selectedFrom, partialCoverage: startedAt > selectedFrom,
     windows: {day: metrics(windows.get(1)!), week: metrics(windows.get(7)!), month: metrics(windows.get(30)!)}, selected: metrics(windows.get(days)!), teams: teamRows, trend,
     onlinePeople: scopeTeam || workspaceId ? new Set(memberships.filter(m => online.has(m.user_id)).map(m => m.user_id)).size : online.size,
     onBoards: new Set(teams.flatMap(t => [...boardIds(t.id)])).size,

@@ -28,7 +28,7 @@ The current application includes:
 - Scrum planning poker / agile estimation flow with issue titles, voting cards, reveal, average, and voter history
 - realtime collaborative voting for distributed teams, remote teams, and facilitated workshops
 - persistent issue history with grouped timestamps, paginated loading, and a dedicated history search tab
-- team-admin inline editing of current and saved issue titles: click to edit, Enter/click-away to save, Escape to cancel
+- inline editing of current titles by their proposer or a team admin, and saved titles by admins: click to edit, Enter/click-away to save, Escape to cancel
 - scoped team/platform statistics: active people over 24 hours / 7 days / 30 days, live board counts, voting activity and JSON export
 - replaceable branding assets and avatar icons
 - 200 shipped stylized animal avatar icons for team-visible profiles
@@ -572,4 +572,4 @@ manual rights handling. Public copies of private planning evidence are not requi
 
 Team admins use **Team Admin → Stats**; super-admins use **Platform → Stats**, with workspace filtering. See active people over rolling 24-hour/7-day/30-day periods, completed rounds versus distinct issue records, participation, live app/board presence and daily trends. Demo/simulator data and super-admin activity are excluded. Statistics begin when this version is installed; older activity is not fabricated or backfilled. Both self-hosted and hosted-trial installations support this feature.
 
-Self-hosted statistics have no automatic expiry; hosted-trial statistics expire after 31 days. Reporting periods filter the view without deleting older records. No external analytics service is used. See [statistics definitions and privacy](project_docs/RnD_docs/USAGE.md#usage-statistics) before operating an instance.
+Statistics have no automatic expiry in hosted-trial or self-hosted mode. Account deletion removes activity/voter links; workspace deletion removes its detailed statistics. Only platform-wide round/vote counts survive workspace deletion, without identifying details. Reporting periods filter the view without deleting older records. No external analytics service is used. See [statistics definitions and privacy](project_docs/RnD_docs/USAGE.md#usage-statistics) before operating an instance.

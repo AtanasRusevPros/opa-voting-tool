@@ -828,7 +828,7 @@ function getLiveStatistics() {
   }
   return {online: [...online], boards};
 }
-const statisticsMaintenance = setInterval(() => { repository.pruneStatistics(); notifyStatistics(); }, 60000);
+const statisticsMaintenance = setInterval(() => { notifyStatistics(); }, 60000);
 statisticsMaintenance.unref?.();
 
 const socketSessions = new WeakMap<import("ws").WebSocket, { teamId: string; userId: string }>();

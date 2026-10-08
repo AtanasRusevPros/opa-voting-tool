@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { initializeStatistics, recordActivity, recordCompletedRound, readStatistics, pruneStatistics, type LiveStatistics } from "./repository/statistics.js";
+import { initializeStatistics, recordActivity, recordCompletedRound, readStatistics, type LiveStatistics } from "./repository/statistics.js";
 import { StatisticsReader } from "./statisticsReader.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -134,7 +134,7 @@ type EnsureSeededTeamInput = EnsureSimulatorTeamInput & {
 const JIRA_PENDING_ISSUE_SOURCE = "jira_cloud" as const;
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 const DEFAULT_WORKSPACE_NAME = "Default Workspace";
-const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-10-07";
+const PUBLIC_TRIAL_TERMS_VERSION = "public-trial-alpha-2026-10-09";
 function trialWorkspaceName(displayName: string): string {
   return `${displayName.trim().slice(0, 68) || "My"}'s Workspace`;
 }
@@ -222,7 +222,6 @@ export class Repository {
     this.db.exec("PRAGMA foreign_keys = ON");
     this.migrate();
     initializeStatistics(this.db);
-    this.pruneStatistics();
     this.statisticsReader = new StatisticsReader(this.config.databasePath);
     this.db.exec("CREATE TABLE IF NOT EXISTS workspace_name_migrations (id TEXT PRIMARY KEY)");
     if (!this.db.prepare("SELECT id FROM workspace_name_migrations WHERE id = ?").get("owner-name-v1")) {
@@ -237,11 +236,9 @@ export class Repository {
     }
   }
 
-  getStatisticsAsync(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return this.statisticsReader.read(live, teamId, days, workspaceId, this.statisticsRetentionDays); }
+  getStatisticsAsync(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return this.statisticsReader.read(live, teamId, days, workspaceId); }
   recordStatisticsActivity(userId: string, teamId: string) { recordActivity(this.db, userId, teamId); }
-  private get statisticsRetentionDays(): number | null { return this.config.publicTrial.enabled ? 31 : null; }
-  pruneStatistics() { pruneStatistics(this.db, Date.now(), this.statisticsRetentionDays); }
-  getStatistics(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return readStatistics(this.db, live, teamId, days, Date.now(), workspaceId, this.statisticsRetentionDays); }
+  getStatistics(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return readStatistics(this.db, live, teamId, days, Date.now(), workspaceId); }
 
   private closeDatabase(): void {
     this.db.close();
@@ -2258,7 +2255,7 @@ export class Repository {
     return this.getPendingIssues(teamId);
   }
 
-  loadPendingIssueIntoRound(teamId: string, pendingIssueId: string): RoundState {
+  loadPendingIssueIntoRound(teamId: string, pendingIssueId: string, proposedBy: string | null = null): RoundState {
     const row = this.db
       .prepare(
         `
@@ -2274,10 +2271,10 @@ export class Repository {
       throw new Error("Pending issue not found.");
     }
 
-    return this.createRound(teamId, `${row.issue_key} - ${row.title}`.trim(), null, row.id);
+    return this.createRound(teamId, `${row.issue_key} - ${row.title}`.trim(), null, row.id, proposedBy);
   }
 
-  createRound(teamId: string, title: string, revoteHistoryEntryId: string | null = null, pendingIssueId: string | null = null): RoundState {
+  createRound(teamId: string, title: string, revoteHistoryEntryId: string | null = null, pendingIssueId: string | null = null, proposedBy: string | null = null): RoundState {
     return perfTracker.measure("repository.createRound", () => {
       this.assertTrialRoundAllowance(teamId);
       this.db.prepare("UPDATE rounds SET status = 'archived' WHERE team_id = ? AND status IN ('active', 'revealed')").run(teamId);
@@ -2294,8 +2291,8 @@ export class Repository {
       this.db
         .prepare(
           `
-          INSERT INTO rounds(id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, timer_started_at, timer_expires_at, revealed_at, reveal_average, revote_history_entry_id, pending_issue_id)
-          VALUES(?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, NULL, ?, ?)
+          INSERT INTO rounds(id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, timer_started_at, timer_expires_at, revealed_at, reveal_average, revote_history_entry_id, pending_issue_id, proposed_by)
+          VALUES(?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, NULL, NULL, ?, ?, ?)
         `
         )
         .run(
@@ -2309,7 +2306,8 @@ export class Repository {
           timerStartedAt,
           timerExpiresAt,
           revoteHistoryEntryId,
-          pendingIssueId
+          pendingIssueId,
+          proposedBy
         );
       this.touchTeamActivity(teamId, createdAt);
 
@@ -2368,7 +2366,7 @@ export class Repository {
       if (round.status !== "active") {
         throw new RoundNotActiveError();
       }
-      return this.createRound(round.teamId, round.title, round.revoteHistoryEntryId, round.pendingIssueId);
+      return this.createRound(round.teamId, round.title, round.revoteHistoryEntryId, round.pendingIssueId, round.proposedBy ?? null);
     });
   }
 
@@ -2584,7 +2582,7 @@ export class Repository {
     const row = this.db
       .prepare(
         `
-        SELECT id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, revealed_at, reveal_average, reveal_quorum_blocked, reveal_voted_count, reveal_not_voted_count, revote_history_entry_id, pending_issue_id
+        SELECT id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, revealed_at, reveal_average, reveal_quorum_blocked, reveal_voted_count, reveal_not_voted_count, revote_history_entry_id, pending_issue_id, proposed_by
              , timer_started_at, timer_expires_at
         FROM rounds
         WHERE team_id = ? AND status IN ('active', 'revealed')
@@ -2601,7 +2599,7 @@ export class Repository {
     const row = this.db
       .prepare(
         `
-        SELECT id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, timer_started_at, timer_expires_at, revealed_at, reveal_average, reveal_quorum_blocked, reveal_voted_count, reveal_not_voted_count, revote_history_entry_id, pending_issue_id
+        SELECT id, team_id, title, deck_key, fibonacci_range_start, fibonacci_range_end, status, created_at, timer_started_at, timer_expires_at, revealed_at, reveal_average, reveal_quorum_blocked, reveal_voted_count, reveal_not_voted_count, revote_history_entry_id, pending_issue_id, proposed_by
         FROM rounds
         WHERE id = ?
       `
@@ -3074,6 +3072,7 @@ export class Repository {
       notVotedCount: row.reveal_not_voted_count,
       revoteHistoryEntryId: row.revote_history_entry_id,
       pendingIssueId: row.pending_issue_id,
+      proposedBy: row.proposed_by ?? null,
       votes: this.getVoteSnapshot(row.id, row.status === "revealed")
     };
   }

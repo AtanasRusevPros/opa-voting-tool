@@ -14,7 +14,7 @@ export function AboutDialog(props: { open: boolean; onClose: () => void; brandin
   return <dialog ref={ref} className="about-dialog" aria-labelledby="about-title" onCancel={props.onClose} onClick={event => { if (event.target === event.currentTarget) props.onClose(); }}>
     {props.open ? <><div className="modal-header"><h2 id="about-title">About OpaVoting</h2><button type="button" className="secondary-button" onClick={props.onClose}>Close</button></div>
     <div className="about-body">
-      <p><strong>{welcome.headline}</strong></p><p>{welcome.introduction}</p><p>{welcome.statistics}</p><p>First-party activity statistics are shown as scoped aggregates to admins. {props.trialModeEnabled ? "Hosted-trial statistics are retained for 31 days." : "Self-hosted statistics have no automatic expiry; explicit account/workspace deletion still applies."}</p>
+      <p><strong>{welcome.headline}</strong></p><p>{welcome.introduction}</p><p>{welcome.statistics}</p><p>We respect your privacy. Statistics are shown as scoped aggregates to admins and have no automatic expiry. Account/workspace deletion removes their linked statistics; only platform-wide round and vote counts survive workspace deletion, without identifying details. Shared history and backups follow the privacy notice.</p>
       {props.trialModeEnabled ? <><p>{welcome.hosting}</p><p>Hosted-trial quotas apply per workspace. See <a href="/public-trial/terms">Trial terms</a> and <a href="/public-trial/privacy">Privacy notice</a>.</p></> : <p>Self-hosted capacity depends on your server and workload.</p>}
       <nav className="trial-welcome-links" aria-label="Project resources">
         <a href={welcome.repositoryUrl}>Source on GitHub</a><a href={welcome.deploymentUrl}>Self-hosting guide</a>

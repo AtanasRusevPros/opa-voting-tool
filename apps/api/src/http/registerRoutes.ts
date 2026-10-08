@@ -286,7 +286,7 @@ export function registerRoutes({
           {
             heading: "Account Deletion",
             body:
-              "Any normal user may delete their own account. Deleting an owner account purges its owned public-trial workspaces, teams, voting history and comments from the live database. Collaborators lose access to those workspaces; their own accounts and unrelated workspaces remain. Shared history elsewhere, operational records, backups and downloaded exports have the exceptions described in the privacy notice. Archiving a team is not deletion."
+              "Any normal user may delete their own account. Deleting an owner account purges its owned public-trial workspaces, teams, voting history and comments from the live database. Collaborators lose access to those workspaces; their own accounts and unrelated workspaces remain. Shared history elsewhere, operational records, backups and downloaded exports have the exceptions described in the privacy notice. Only platform-wide round and vote counts survive workspace deletion, without identifying details. Archiving a team is not deletion."
           }
         ])
       );
@@ -337,7 +337,7 @@ export function registerRoutes({
           {
             heading: "Delete Your Trial Workspace",
             body:
-              "A public-trial workspace owner can delete their account from Account settings. This purges all owned trial workspaces from the live database, including teams, voting history and comments. Backups expire separately; downloaded exports are not remotely erased. Shared history in other workspaces remains attributed to the former display name with (Deactivated) added. Contact the operator for further privacy requests."
+              "A public-trial workspace owner can delete their account from Account settings. This purges all owned trial workspaces from the live database, including teams, voting history and comments. Only platform-wide round and vote counts survive without identifying details. Backups expire separately; downloaded exports are not remotely erased. Shared history in other workspaces remains attributed to the former display name with (Deactivated) added. Contact the operator for further privacy requests."
           }
         ])
       );
@@ -1730,7 +1730,7 @@ export function registerRoutes({
     }
 
     try {
-      const round = repository.loadPendingIssueIntoRound(String(req.params.teamId), String(req.params.issueId));
+      const round = repository.loadPendingIssueIntoRound(String(req.params.teamId), String(req.params.issueId), (req as AuthedRequest).user.id);
       res.status(201).json({ round });
       noteTeamRoundStarted(String(req.params.teamId), round);
     } catch (error) {
@@ -1919,7 +1919,18 @@ export function registerRoutes({
 
   for (const kind of ["rounds", "history"] as const) {
     app.patch(`/api/teams/:teamId/${kind}/:itemId/title`, requireUser, (req, res) => {
-      if (!requireTeamAdmin(req, res)) return;
+      if (kind === "history") {
+        if (!requireTeamAdmin(req, res)) return;
+      } else {
+        if (!requireWritableMember(req, res)) return;
+        const user = (req as AuthedRequest).user;
+        const teamId = String(req.params.teamId);
+        const round = repository.getCurrentRound(teamId);
+        if (!user.isSuperAdmin && repository.getTeamUserRole(user.id, teamId) !== "team_admin"
+          && (!round || round.id !== String(req.params.itemId) || round.proposedBy !== user.id)) {
+          res.status(403).json({error: "Only the person who proposed this round or a team admin can edit its title."}); return;
+        }
+      }
       const payload = roundSchema.safeParse(req.body);
       if (!payload.success || typeof req.body?.expectedTitle !== "string") {
         res.status(400).json({error: "Title must contain 1 to 255 characters."}); return;
@@ -1949,7 +1960,7 @@ export function registerRoutes({
 
     const teamId = String(req.params.teamId);
     try {
-      const round = repository.createRound(teamId, payload.data.title);
+      const round = repository.createRound(teamId, payload.data.title, null, null, (req as AuthedRequest).user.id);
       res.status(201).json({ round });
       noteTeamRoundStarted(teamId, round);
     } catch (error) {
@@ -1974,7 +1985,7 @@ export function registerRoutes({
     }
 
     try {
-      const round = repository.createRound(teamId, entry.title, entry.id);
+      const round = repository.createRound(teamId, entry.title, entry.id, null, (_req as AuthedRequest).user.id);
       res.status(201).json({ round });
       noteTeamRoundStarted(teamId, round);
     } catch (error) {

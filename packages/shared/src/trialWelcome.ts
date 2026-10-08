@@ -7,7 +7,7 @@ export const TRIAL_WELCOME = {
   landingTitle: "Team voting, free and open source.",
   landingIntro: "Planning poker, polls, and team decisions. Lightweight realtime collaboration, built for demanding workloads.",
   statistics: "Team and platform admins can view usage statistics, voting activity and live board counts.",
-  privacy: "Use non-sensitive example data. We store account, voting and limited usage data to run the demo. You can delete your account; shared history and backups have retention exceptions.",
+  privacy: "We respect your privacy. Use non-sensitive example data. Account and voting data run the demo; deletion removes linked statistics. Only platform-wide counts survive workspace deletion. Shared history and backups have exceptions.",
   selfHost: "Self-host without demo limits. Source code and deployment guides are ready for you or your AI assistant to follow.",
   support: "Find it useful? Give it a GitHub ⭐, share it, or contribute.",
   funding: "This demo runs on a small server I personally fund. Limits keep it available for everyone; self-hosted capacity depends on your server.",

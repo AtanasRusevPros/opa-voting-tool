@@ -180,7 +180,7 @@ describe("Password and invite HTTP flows", () => {
     const html = renderTrialWelcomeHtml('<html><head><title>Original</title><meta name="description" content="Original" /></head><body><div id="root"></div><script type="module" src="/assets/app.js"></script></body></html>', 'https://vote.example.com/', 40);
     expect(html).toContain("<main");
     expect(html).toContain("40 voting rounds per calendar month");
-    expect(html).toContain("shared history and backups have retention exceptions");
+    expect(html).toContain("Shared history and backups have exceptions");
     expect(html).toContain('href="/public-trial/privacy"');
     expect(html).toContain("400 concurrent simulated users");
     expect(html).toContain("AtanasRusevPros/opa-voting-tool");
@@ -575,6 +575,34 @@ describe("Password and invite HTTP flows", () => {
     expect((await client.patch(historyUrl).set("Cookie", memberCookie).send({title: "Denied title", expectedTitle: entry.title})).status).toBe(403);
     repository.setTeamArchived(owner.id, team.id, true);
     expect((await client.patch(historyUrl).set("Cookie", ownerCookie).send({title: "Archived title", expectedTitle: entry.title})).status).toBe(403);
+  });
+
+  it("allows only the current round proposer or an admin to rename, including re-votes and lost membership", async () => {
+    const {app, repository} = await loadTestServer(); const client = request(app);
+    const ownerCookie = await createRegularUser(client, "proposer-owner@example-company.com", "Owner");
+    const memberCookie = await createRegularUser(client, "proposer-member@example-company.com", "Member");
+    const otherCookie = await createRegularUser(client, "proposer-other@example-company.com", "Other");
+    const owner = (await client.get("/api/auth/session").set("Cookie", ownerCookie)).body.user;
+    const member = (await client.get("/api/auth/session").set("Cookie", memberCookie)).body.user;
+    const other = (await client.get("/api/auth/session").set("Cookie", otherCookie)).body.user;
+    const team = repository.createTeam(owner.id, "Proposer permissions");
+    repository.joinTeam(member.id, team.id); repository.joinTeam(other.id, team.id);
+    const created = await client.post(`/api/teams/${team.id}/rounds`).set("Cookie", memberCookie).send({title: "Member proposal", proposedBy: other.id});
+    expect(created.status).toBe(201); expect(created.body.round.proposedBy).toBe(member.id);
+    const url = `/api/teams/${team.id}/rounds/${created.body.round.id}/title`;
+    expect((await client.patch(url).set("Cookie", otherCookie).send({title: "Stolen", expectedTitle: "Member proposal"})).status).toBe(403);
+    repository.castVote(created.body.round.id, other.id, "5");
+    expect((await client.patch(url).set("Cookie", memberCookie).send({title: "Corrected proposal", expectedTitle: "Member proposal"})).status).toBe(200);
+    expect(repository.getCurrentRound(team.id)?.votes).toHaveLength(1);
+    const restarted = repository.restartActiveRound(created.body.round.id);
+    expect(restarted.proposedBy).toBe(member.id);
+    repository.castVote(restarted.id, other.id, "8"); repository.revealRound(restarted.id);
+    const history = repository.getHistory(team.id)[0];
+    expect((await client.patch(`/api/teams/${team.id}/history/${history.id}/title`).set("Cookie", memberCookie).send({title: "History edit", expectedTitle: history.title})).status).toBe(403);
+    const revote = await client.post(`/api/teams/${team.id}/history/${history.id}/vote-again`).set("Cookie", memberCookie).send({});
+    expect(revote.status).toBe(201); expect(revote.body.round.proposedBy).toBe(member.id);
+    repository.removeTeamMember(owner.id, team.id, member.id);
+    expect((await client.patch(`/api/teams/${team.id}/rounds/${revote.body.round.id}/title`).set("Cookie", memberCookie).send({title: "Left member", expectedTitle: history.title})).status).toBe(403);
   });
 
   it("restricts statistics endpoints and sockets to platform or scoped team administrators", async () => {

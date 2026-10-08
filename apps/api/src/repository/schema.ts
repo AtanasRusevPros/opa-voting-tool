@@ -263,6 +263,8 @@ export function runBaseSchema(db: DatabaseSync): void {
   ensureColumn(db, "teams", "minimum_vote_percent_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "teams", "minimum_vote_percent", "INTEGER NOT NULL DEFAULT 75");
   ensureColumn(db, "rounds", "pending_issue_id", "TEXT");
+  ensureColumn(db, "rounds", "proposed_by", "TEXT REFERENCES users(id) ON DELETE SET NULL");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_rounds_proposer ON rounds(proposed_by)");
   ensureColumn(db, "rounds", "reveal_quorum_blocked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "rounds", "reveal_voted_count", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "rounds", "reveal_not_voted_count", "INTEGER NOT NULL DEFAULT 0");
@@ -275,6 +277,8 @@ export function runBaseSchema(db: DatabaseSync): void {
   ensureColumn(db, "users", "history_timezone_popup_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_keys_json", "TEXT");
   ensureColumn(db, "users", "deleted_at", "TEXT");
+  db.exec(`CREATE TRIGGER IF NOT EXISTS rounds_proposer_deletion AFTER UPDATE OF deleted_at ON users
+    WHEN NEW.deleted_at IS NOT NULL BEGIN UPDATE rounds SET proposed_by = NULL WHERE proposed_by = NEW.id; END;`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_team_preferences (
       user_id TEXT NOT NULL,

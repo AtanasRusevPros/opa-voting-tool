@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { BackupManager } from "../src/backups.js";
-import { recordActivity, readStatistics, pruneStatistics } from "../src/repository/statistics.js";
+import { initializeStatistics, recordActivity, readStatistics } from "../src/repository/statistics.js";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
-  it.each([false, true])("retains the live database while applying mode-specific statistics expiry (hosted=%s)", async (hosted) => {
+  it.each([false, true])("retains the live database while preserving statistics in both modes (hosted=%s)", async (hosted) => {
     const config = createTestConfig(); config.publicTrial.enabled = hosted;
     config.backups = {enabled: true, intervalHours: 168, maxAgeDays: 21};
     let repo = new Repository(config);
@@ -82,40 +82,23 @@ describe("Repository integration", () => {
     expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(1);
     // Reading old data must not prune it, and the 30-day dashboard is only a filter.
     const response = await repo.getStatisticsAsync({online: [], boards: {}}, team.id);
-    expect(response.retentionDays).toBe(hosted ? 31 : null); expect(response.selected.completedRounds).toBe(0);
+    expect(response.retentionDays).toBe(null); expect(response.selected.completedRounds).toBe(0);
     expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(1);
-    repo.pruneStatistics(); // Same entry point used by minute maintenance.
+    repo.getStatistics({online: [], boards: {}}, team.id); // Report periods never prune records.
     for (const table of ['statistics_activity', 'statistics_rounds', 'statistics_voters']) {
-      expect((db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as {n: number}).n).toBe(hosted ? 0 : 1);
+      expect((db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as {n: number}).n).toBe(1);
     }
-    // Recreate expired records to independently verify startup cleanup.
+    // Repeated inserts and startup must preserve these old records without duplication.
     db.prepare("INSERT OR IGNORE INTO statistics_activity VALUES (?, ?, ?, ?)").run(user.id, team.id, old.slice(0, 10), old);
     db.prepare("INSERT OR IGNORE INTO statistics_rounds VALUES (?, ?, ?, ?, 1, 1, 1)").run(round.id, team.id, round.id, old);
     db.prepare("INSERT OR IGNORE INTO statistics_voters VALUES (?, ?)").run(round.id, user.id);
     repo = new Repository(config); // Startup obeys the same policy.
-    expect(repo.getStatistics({online: [], boards: {}}, team.id).retentionDays).toBe(hosted ? 31 : null);
-    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(hosted ? 0 : 1);
+    expect(repo.getStatistics({online: [], boards: {}}, team.id).retentionDays).toBe(null);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(1);
     expect(repo.getHistory(team.id)[0].title).toBe("Keep old history");
     expect(repo.getRoundState(round.id)!.votes).toHaveLength(1);
     expect(repo.getUser(user.id)).not.toBeNull(); expect(repo.getTeam(team.id)).not.toBeNull();
     expect(db.prepare('PRAGMA integrity_check').get()).toEqual({integrity_check: 'ok'});
-    db.close();
-  });
-
-  it("prunes only hosted statistics strictly older than 31 days and leaves the exact boundary", () => {
-    const config = createTestConfig();
-    const repo = new Repository(config);
-    const user = repo.ensureUser({email: "boundary@example-company.com", displayName: "Boundary", avatarIconKey: "bear", avatarColorKey: "azure"});
-    const team = repo.createTeam(user.id, "Boundary retention");
-    const db = new DatabaseSync(config.databasePath);
-    const now = Date.now(), edge = now - 31 * 86400000;
-    recordActivity(db, user.id, team.id, edge);
-    pruneStatistics(db, now); // Safe self-hosted default: no expiry.
-    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(1);
-    pruneStatistics(db, now, 31);
-    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(1);
-    pruneStatistics(db, now + 1, 31);
-    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(0);
     db.close();
   });
 
@@ -124,7 +107,7 @@ describe("Repository integration", () => {
     const user = repo.ensureUser({email: "title@example-company.com", displayName: "Title admin", avatarIconKey: "bear", avatarColorKey: "azure"});
     const team = repo.createTeam(user.id, "Title edits");
     repo.updateTeamSettings(team.id, {timerSeconds: 30});
-    const round = repo.createRound(team.id, "Original issue"); repo.castVote(round.id, user.id, "5");
+    const round = repo.createRound(team.id, "Original issue", null, null, user.id); repo.castVote(round.id, user.id, "5");
     const before = repo.getCurrentRound(team.id)!;
     repo.renameIssueTitle(team.id, "rounds", round.id, " Corrected issue ", "Original issue");
     expect(repo.getCurrentRound(team.id)).toEqual({...before, title: "Corrected issue"});
@@ -148,6 +131,7 @@ describe("Repository integration", () => {
     expect(() => repo.renameIssueTitle(other.id, "history", entry.id, "Cross team", "During re-vote")).toThrow(/no longer/);
     const restarted = new Repository(config);
     expect(restarted.getHistory(team.id)[0].title).toBe("During re-vote");
+    expect(restarted.getRoundState(round.id)?.proposedBy).toBe(user.id);
   });
 
   it("counts rolling active people exactly at boundaries without duplicate tabs or synthetic identities", () => {
@@ -170,8 +154,8 @@ describe("Repository integration", () => {
     expect([stats.windows.day.activePeople, stats.windows.week.activePeople, stats.windows.month.activePeople]).toEqual([0, 1, 2]);
     expect(stats.selected.participationPercent).toBeNull();
     expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(3);
-    pruneStatistics(db, now + 40 * day, 31);
-    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(0);
+    expect(readStatistics(db, live, team.id, 30, now + 400 * day).selected.activePeople).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(3);
     db.close();
   });
 
@@ -182,7 +166,7 @@ describe("Repository integration", () => {
     const other = repo.ensureUser({email: "stats-other@example-company.com", displayName: "Other", avatarIconKey: "bear", avatarColorKey: "azure"});
     const team = repo.createTeam(owner.id, "Round statistics"); repo.joinTeam(other.id, team.id);
     repo.recordStatisticsActivity(owner.id, team.id);
-    const first = repo.createRound(team.id, "Same title"); repo.castVote(first.id, owner.id, "5");
+    const first = repo.createRound(team.id, "Same title", null, null, owner.id); repo.castVote(first.id, owner.id, "5");
     repo.revealRound(first.id, {eligibleParticipantIds: [owner.id, other.id]});
     repo.revealRound(first.id, {eligibleParticipantIds: [owner.id, other.id]}); // idempotent
     const issueId = repo.getHistory(team.id)[0].id;
@@ -198,6 +182,8 @@ describe("Repository integration", () => {
     stats = repo.getStatistics({online: [owner.id], boards: {[team.id]: [owner.id]}}, team.id);
     expect(stats.selected).toMatchObject({activePeople: 0, completedRounds: 3, votes: 4, uniqueVoters: 1});
     expect(stats.onlinePeople).toBe(0);
+    expect(repo.getRoundState(first.id)?.proposedBy).toBeNull();
+    expect(repo.getStatistics({online: [], boards: {}}).lifetimeTotals).toEqual({completedRounds: 3, votes: 4});
   });
 
   it("keeps hosted workspace statistics isolated and cascades purge without damaging another workspace", () => {
@@ -206,12 +192,40 @@ describe("Repository integration", () => {
     const a = signup("stats-a@example.com"), b = signup("stats-b@example.com");
     const ta = repo.getTeamsForUser(a.user.id).memberships[0], tb = repo.getTeamsForUser(b.user.id).memberships[0];
     repo.recordStatisticsActivity(a.user.id, ta.id); repo.recordStatisticsActivity(b.user.id, tb.id);
+    const round = repo.createRound(ta.id, "Purged content", null, null, a.user.id);
+    repo.castVote(round.id, a.user.id, "5"); repo.revealRound(round.id); repo.revealRound(round.id);
     const result = repo.getStatistics({online: [a.user.id, b.user.id], boards: {}}, undefined, 30, a.workspace.id);
     expect(result.teams.map(t => t.id)).toEqual([ta.id]); expect(result.selected.activePeople).toBe(1);
     const preview = repo.getOwnAccountDeletionPreview(a.user.id); repo.deleteOwnAccount(a.user.id, "Password123!", preview.confirmationPhrase, preview.impactToken);
     const all = repo.getStatistics({online: [], boards: {}});
     expect(all.teams.some(t => t.id === ta.id)).toBe(false); expect(all.selected.activePeople).toBe(1);
     expect(all.teams.some(t => t.id === tb.id)).toBe(true);
+    expect(result.lifetimeTotals).toBeNull();
+    expect(all.lifetimeTotals).toEqual({completedRounds: 1, votes: 1});
+    expect(all.selected.completedRounds).toBe(0);
+    const db = new DatabaseSync(config.databasePath);
+    for (const table of ['statistics_activity', 'statistics_rounds', 'statistics_voters']) {
+      expect(JSON.stringify(db.prepare(`SELECT * FROM ${table}`).all())).not.toContain(a.user.id);
+      expect(JSON.stringify(db.prepare(`SELECT * FROM ${table}`).all())).not.toContain(ta.id);
+    }
+    expect(db.prepare('PRAGMA table_info(statistics_totals)').all().map(row => row.name)).toEqual(['id', 'completed_rounds', 'votes']);
+    expect(new Repository(config).getStatistics({online: [], boards: {}}).lifetimeTotals).toEqual(all.lifetimeTotals);
+    db.close();
+  });
+
+  it("seeds permanent counters once from existing statistics without reconstructing expired usage", () => {
+    const config = createTestConfig(); const repo = new Repository(config);
+    const user = repo.ensureUser({email: "counter@example-company.com", displayName: "Counter", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const team = repo.createTeam(user.id, "Counter migration");
+    const round = repo.createRound(team.id, "Existing"); repo.castVote(round.id, user.id, "5"); repo.revealRound(round.id);
+    const db = new DatabaseSync(config.databasePath);
+    db.exec('DROP TRIGGER statistics_count_round; DROP TABLE statistics_totals');
+    initializeStatistics(db); initializeStatistics(db);
+    expect(repo.getStatistics({online: [], boards: {}}).lifetimeTotals).toEqual({completedRounds: 1, votes: 1});
+    const next = repo.createRound(team.id, "Next"); repo.castVote(next.id, user.id, "8"); repo.revealRound(next.id); repo.revealRound(next.id);
+    expect(repo.getStatistics({online: [], boards: {}}).lifetimeTotals).toEqual({completedRounds: 2, votes: 2});
+    expect(repo.getStatistics({online: [], boards: {}}, team.id).lifetimeTotals).toBeNull();
+    db.close();
   });
 
   it("queries a representative 1000-user, 40-team statistics dataset without unbounded per-client work", async () => {

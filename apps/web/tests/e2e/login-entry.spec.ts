@@ -54,7 +54,7 @@ test("trial policies disclose deletion and backup exceptions on desktop and mobi
   await expect(page.getByRole('heading', { name: 'Your Privacy Requests', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Backup Retention', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'First-Party Usage Statistics', exact: true })).toBeVisible();
-  await expect(page.getByText(/Statistics are retained for 31 days/)).toBeVisible();
+  await expect(page.getByText(/Statistics have no automatic expiry/)).toBeVisible();
   await expect(page.getByText(/still personal data, not anonymisation/)).toBeVisible();
   await expect(page.getByText(/We do not sell personal data/)).toBeVisible();
   for (const width of [1440, 768, 390, 320]) {
@@ -67,19 +67,20 @@ test("trial policies disclose deletion and backup exceptions on desktop and mobi
 });
 
 test("statistics retention disclosure matches the deployment in Platform and privacy", async ({ page }) => {
-  const hosted = process.env.PLAYWRIGHT_TRIAL === '1';
   await page.goto('/public-trial/privacy');
-  await expect(page.getByText(hosted ? /Statistics are retained for 31 days/ : /Self-hosted statistics have no automatic age-based expiry/)).toBeVisible();
+  await expect(page.getByText(/Statistics have no automatic expiry/)).toBeVisible();
   await page.goto('/admin');
   await page.getByLabel('Admin username').fill(process.env.E2E_SUPER_ADMIN_USERNAME ?? 'platform-admin');
   await page.getByLabel('Admin password').fill(process.env.E2E_SUPER_ADMIN_PASSWORD ?? 'PlatformAdmin123!');
   await page.getByRole('button', {name: 'Admin sign in'}).click();
   await page.getByRole('button', {name: 'Platform', exact: true}).click();
   await page.getByRole('tab', {name: 'Stats', exact: true}).click();
-  await expect(page.getByText(hosted ? /Hosted-trial statistics are retained for 31 days/ : /Self-hosted statistics have no automatic expiry/)).toBeVisible();
+  await expect(page.getByText(/Statistics have no automatic expiry/)).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', {name: 'Export stats JSON'}).click();
   const stream = await (await downloadPromise).createReadStream(); let json = '';
   for await (const chunk of stream!) json += chunk.toString();
-  expect(JSON.parse(json).retentionDays).toBe(hosted ? 31 : null);
+  expect(JSON.parse(json).retentionDays).toBe(null);
+  expect(Object.keys(JSON.parse(json).lifetimeTotals).sort()).toEqual(["completedRounds", "votes"]);
+  await expect(page.getByTestId("stats-lifetime")).toContainText("Includes deleted workspaces; no identifying details");
 });

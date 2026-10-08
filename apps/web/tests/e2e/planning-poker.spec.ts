@@ -2608,7 +2608,7 @@ test("team stats stay live, deduplicate tabs, separate re-votes and export match
     const dialog = owner.getByRole('dialog', {name: `${name} people`});
     await expect(dialog.getByRole('tab')).toHaveText(['People', 'Stats', 'Import/export']);
     await dialog.getByRole('tab', {name: 'Stats', exact: true}).click();
-    await expect(owner.getByText(/Self-hosted statistics have no automatic expiry/)).toBeVisible();
+    await expect(owner.getByText(/Statistics have no automatic expiry/)).toBeVisible();
     await expect(owner.getByTestId('stats-Active people · 24 hours')).toHaveText('2');
     await expect(owner.getByTestId('stats-On boards now')).toHaveText('2');
     const duplicate = await ownerContext.newPage(); await duplicate.goto(`/?teamId=${teamId}`); await expect(duplicate.locator('.board-shell')).toBeVisible();
@@ -2924,4 +2924,39 @@ test('ten live participants attribute each vote only to its sender on every boar
     await pages[9].reload(); for (const name of names) await expect(card(pages[9], name)).toHaveText('5');
     checks.forEach(check => check());
   } finally { await Promise.all(contexts.map(context => context.close())); }
+});
+
+test('a non-admin proposer edits their current title while other members remain read-only', async ({browser}) => {
+  const contexts = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext()]);
+  const [admin, proposer, viewer] = await Promise.all(contexts.map(c => c.newPage()));
+  const clean = [admin, proposer, viewer].map(attachBrowserIssueCapture);
+  try {
+    await loginWithDebugCode(admin, uniqueEmail('proposer-admin'), 'Proposal Admin');
+    await createTeam(admin, `Proposals ${Date.now()}`);
+    const teamId = new URL(admin.url()).searchParams.get('teamId')!;
+    for (const [page, name] of [[proposer, 'Proposer'], [viewer, 'Viewer']] as const) {
+      const email = uniqueEmail(name);
+      await loginWithDebugCode(page, email, name);
+      expect((await admin.request.post(`/api/teams/${teamId}/members`, {data: {email}})).ok()).toBe(true);
+      await page.goto(`/?teamId=${teamId}`); await expect(page.locator('.board-shell')).toBeVisible();
+    }
+    await proposer.getByLabel('Issue title').fill('My proposal');
+    await proposer.getByRole('button', {name: 'Start voting', exact: true}).click();
+    await viewer.getByRole('button', {name: '5', exact: true}).click();
+    await expect(viewer.getByRole('button', {name: 'Edit current issue title'})).toHaveCount(0);
+    await proposer.getByRole('button', {name: 'Edit current issue title'}).click();
+    await proposer.getByRole('textbox', {name: 'Edit current issue title'}).fill('My corrected proposal');
+    await proposer.getByRole('textbox', {name: 'Edit current issue title'}).press('Enter');
+    for (const page of [admin, proposer, viewer]) await expect(page.locator('h2.floating-chip')).toHaveText('My corrected proposal');
+    await proposer.reload();
+    await proposer.getByRole('button', {name: 'Edit current issue title'}).click();
+    await proposer.getByRole('textbox', {name: 'Edit current issue title'}).fill('Saved on blur');
+    await proposer.getByRole('button', {name: '5', exact: true}).click();
+    await expect(viewer.locator('h2.floating-chip')).toHaveText('Saved on blur');
+    await admin.getByRole('button', {name: 'Reveal score', exact: true}).click();
+    await expectRevealedAverage(viewer, '5');
+    await expect(proposer.locator('.history-card-title button')).toHaveCount(0);
+    await expect(admin.locator('.history-card-title button')).toHaveCount(1);
+    clean.forEach(check => check());
+  } finally { await Promise.all(contexts.map(c => c.close())); }
 });

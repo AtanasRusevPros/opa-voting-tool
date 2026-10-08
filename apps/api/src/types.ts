@@ -102,6 +102,7 @@ export interface RoundRow {
   reveal_not_voted_count: number;
   revote_history_entry_id: string | null;
   pending_issue_id: string | null;
+  proposed_by: string | null;
 }
 
 export interface HistoryRow {

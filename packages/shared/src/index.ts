@@ -543,6 +543,8 @@ export interface RoundState {
   votes: VoteRecord[];
   revoteHistoryEntryId: string | null;
   pendingIssueId: string | null;
+  /** Proposer of this round; absent on legacy snapshots, cleared on account deletion. */
+  proposedBy?: string | null;
 }
 
 export interface TeamStateResponse {
@@ -1019,8 +1021,10 @@ export type StatisticsMetrics = {
   abandonedRounds: number;
 };
 export type StatisticsResponse = {
-  /** null means no automatic age-based expiry (self-hosted); hosted trial uses 31. */
-  retentionDays: number | null;
+  /** null means no automatic age-based expiry in either deployment mode. */
+  retentionDays: null;
+  /** Installation-wide counts only; absent from team/workspace-scoped reports. */
+  lifetimeTotals?: {completedRounds: number; votes: number} | null;
   generatedAt: string; startedAt: string; days: 1 | 7 | 30; periodStart: string; partialCoverage: boolean;
   windows: {day: StatisticsMetrics; week: StatisticsMetrics; month: StatisticsMetrics};
   selected: StatisticsMetrics;
