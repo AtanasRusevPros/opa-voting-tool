@@ -763,6 +763,7 @@ test("super-admin can open the platform settings modal from the chooser", async 
 });
 
 test("a normal user can delete their account and register fresh with the same email", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
   const email = uniqueEmail("self-delete");
 
   await loginWithDebugCode(page, email, "Delete Me");
@@ -772,6 +773,9 @@ test("a normal user can delete their account and register fresh with the same em
 
   const deletionDialog = page.getByRole("dialog", { name: "Confirm account deletion" });
   await expect(deletionDialog).toBeVisible();
+  const bounds = await deletionDialog.boundingBox();
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(600);
   await deletionDialog.getByLabel("Current password").fill(DEFAULT_TEST_PASSWORD);
   await deletionDialog.getByLabel(/Type DELETE MY ACCOUNT to confirm/).fill("DELETE MY ACCOUNT");
   const deletionResponsePromise = page.waitForResponse(
@@ -1983,6 +1987,104 @@ test("team chooser receives newly created teams without manual reload", async ({
     await watcherContext.close();
   }
 });
+
+test("account login destination persists while direct team links keep priority", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const clean = attachBrowserIssueCapture(page);
+  const email = uniqueEmail("destination");
+  const name = `Destination ${Date.now()}`;
+  const signIn = async () => {
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(DEFAULT_TEST_PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  };
+  try {
+    await loginWithDebugCode(page, email, "Destination User");
+    await createTeam(page, name);
+    const link = page.url();
+    await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+    const setting = page.getByRole("checkbox", { name: "Open my last team automatically after sign-in" });
+    await expect(setting).toBeChecked();
+    await setting.click();
+    await expect(setting).not.toBeChecked();
+    await expect(page.getByText("Sign-in destination saved. It will apply the next time you sign in.")).toBeVisible();
+    await page.getByRole("dialog", { name: "Account settings" }).getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.locator(".board-shell")).toBeVisible();
+    await page.getByRole("button", { name: "Open main menu" }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signIn();
+    await expect(page.getByRole("heading", { name: /Choose your team|Switch team/ })).toBeVisible();
+    await expect(page.locator(".board-shell")).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: /Choose your team|Switch team/ })).toBeVisible();
+    await expect(page.locator(".board-shell")).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.goto(link);
+    await signIn();
+    await expect(page.locator(".board-shell")).toBeVisible();
+    await page.goto("/?teamId=missing-destination-team");
+    await expect(page.getByRole("heading", { name: /Choose your team|Switch team/ })).toBeVisible();
+    await page.getByRole("button", { name: "Account", exact: true }).click();
+    await expect(setting).not.toBeChecked();
+    await setting.click();
+    await expect(setting).toBeChecked();
+    await page.getByRole("dialog", { name: "Account settings" }).getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await signIn();
+    await expect(page.locator(".board-shell")).toBeVisible();
+    clean();
+  } finally { await context.close(); }
+});
+
+for (const surface of ["board", "chooser"] as const) {
+  test(`open ${surface} People panel updates when an invited member enters and leaves`, async ({ browser }) => {
+    const ownerContext = await browser.newContext();
+    const memberContext = await browser.newContext();
+    const owner = await ownerContext.newPage(), member = await memberContext.newPage();
+    const clean = attachBrowserIssueCapture(owner);
+    const email = uniqueEmail("live-panel-member");
+    const name = `Live Panel ${surface} ${Date.now()}`;
+    await ownerContext.addInitScript(() => {
+      const OriginalWebSocket = window.WebSocket;
+      const tracked = window as typeof window & { directorySockets?: WebSocket[] };
+      tracked.directorySockets = [];
+      window.WebSocket = class extends OriginalWebSocket {
+        constructor(url: string | URL, protocols?: string | string[]) {
+          super(url, protocols);
+          if (new URL(String(url)).searchParams.get("scope") === "directory") tracked.directorySockets!.push(this);
+        }
+      };
+    });
+    try {
+      await loginWithDebugCode(owner, uniqueEmail("live-panel-owner"), "Panel Owner");
+      await createTeam(owner, name);
+      await loginWithDebugCode(member, email, "Panel Member");
+      if (surface === "chooser") await owner.getByRole("button", { name: "Open main menu" }).click();
+      await owner.getByRole("button", { name: "Team admin", exact: true }).click();
+      await owner.getByLabel("Add or invite by email").fill(email);
+      await owner.getByRole("button", { name: "Add to team", exact: true }).click();
+      const row = owner.getByRole("dialog").locator(".directory-row").filter({ hasText: email });
+      await expect(row.getByText("Not online", { exact: true })).toBeVisible();
+      await member.reload();
+      await openTeamFromChooserOrWaitForAutoOpen(member, name, 15000);
+      await expect(row.getByText("Onboard", { exact: true })).toBeVisible();
+      await member.reload();
+      await expect(row.getByText("Onboard", { exact: true })).toBeVisible();
+      if (surface === "chooser") {
+        await owner.evaluate(() => (window as typeof window & { directorySockets: WebSocket[] }).directorySockets[0].close());
+        await expect.poll(() => owner.evaluate(() => {
+          const sockets = (window as typeof window & { directorySockets: WebSocket[] }).directorySockets;
+          return sockets.length > 1 && sockets.at(-1)?.readyState === WebSocket.OPEN;
+        })).toBe(true);
+        await expect(row.getByText("Onboard", { exact: true })).toBeVisible();
+      }
+      await member.getByRole("button", { name: "Open main menu" }).click();
+      await expect(row.getByText("Not online", { exact: true })).toBeVisible();
+      clean();
+    } finally { await ownerContext.close(); await memberContext.close(); }
+  });
+}
 
 test("team directory modal shows names and emails from board and chooser", async ({ browser }) => {
   const ownerContext = await browser.newContext();

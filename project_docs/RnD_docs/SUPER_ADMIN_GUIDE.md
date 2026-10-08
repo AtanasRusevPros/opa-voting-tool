@@ -251,6 +251,12 @@ Operational expectations:
 - the sample deployment TOML includes example Jira fields so operators know what to fill in
 - disconnecting Jira removes the active platform-wide Jira Cloud binding and stops team imports until reconnected
 
+## Personal Sign-In Destination And Live People
+
+Account settings includes **Open my last team automatically after sign-in**, enabled by default. Normal users can turn it off to start in the team chooser; deliberate accessible team links take priority. The dedicated super-admin sign-in keeps its existing chooser-first default. This is an account preference in both deployment modes, not an operator setting or permission change.
+
+Team Admin / People refreshes while open, including from the chooser. Its read-only subscription does not count as board presence or affect voting quorum. No additional service or configuration is required.
+
 ## Account Deletion
 
 - Any normal user can delete their own account from `Account settings`; self-deletion requires the current password and an explicit typed confirmation.

@@ -23,6 +23,7 @@ export function AccountSettingsModal(props: {
   isBusy: boolean;
   onClose: () => void;
   onSaveProfile: (displayName: string, avatarIconKey: string, avatarColorKey: string) => Promise<void>;
+  onSaveLoginDestinationPreference?: (enabled: boolean) => Promise<void>;
   onSaveBoardShortcutsPreference: (enabled: boolean) => Promise<void>;
   onSaveHistoryTimezonePreference: (enabled: boolean, keys?: readonly HistoryTimeZoneKey[] | null) => Promise<void>;
   onChangePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>;
@@ -203,6 +204,20 @@ export function AccountSettingsModal(props: {
               </div>
             </div>
             <div className="account-settings-inline-toggle">
+              {props.onSaveLoginDestinationPreference ? (
+                <>
+                  <label className="settings-toggle-row">
+                    <input
+                      type="checkbox"
+                      checked={props.user.openLastTeamOnLogin !== false}
+                      disabled={props.isBusy}
+                      onChange={(event) => void props.onSaveLoginDestinationPreference?.(event.target.checked)}
+                    />
+                    <span>Open my last team automatically after sign-in</span>
+                  </label>
+                  <p className="field-hint">Turn off to start in the team chooser. A direct team link still opens that team when you have access.</p>
+                </>
+              ) : null}
               <label className="settings-toggle-row">
                 <input
                   type="checkbox"

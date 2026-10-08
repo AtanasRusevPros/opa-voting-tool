@@ -352,6 +352,7 @@ export type NotificationKind =
 export interface CurrentUserSummary extends UserSummary {
   isSuperAdmin: boolean;
   loginName: string | null;
+  openLastTeamOnLogin?: boolean;
   boardShortcutsEnabled: boolean;
   historyTimezonePopupEnabled?: boolean;
   historyTimezoneKeys?: HistoryTimeZoneKey[] | null;

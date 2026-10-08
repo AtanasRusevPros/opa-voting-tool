@@ -932,6 +932,7 @@ function sameCurrentUserSummary(left: CurrentUserSummary, right: CurrentUserSumm
     sameUserSummary(left, right) &&
     left.isSuperAdmin === right.isSuperAdmin &&
     left.loginName === right.loginName &&
+    left.openLastTeamOnLogin === right.openLastTeamOnLogin &&
     left.boardShortcutsEnabled === right.boardShortcutsEnabled &&
     left.historyTimezonePopupEnabled === right.historyTimezonePopupEnabled &&
     sameHistoryTimeZoneKeys(left.historyTimezoneKeys ?? [], right.historyTimezoneKeys ?? [])
@@ -4275,7 +4276,7 @@ export default function App() {
   const [info, setInfo] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusState>({
     tone: "neutral",
-    text: "Ready. You will return to your last team automatically after sign-in, and you can switch teams from the header."
+    text: "Ready. Choose your sign-in destination in Account settings; switch teams from the header."
   });
   const [isBusy, setIsBusy] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
@@ -4439,6 +4440,7 @@ export default function App() {
     }
   }, [selectedTeamId, showTeamChooser]);
 
+  const loginDestinationResolvedRef = useRef<string | null>(null);
   const loadSession = useCallback(async () => {
     try {
       const response = await api<SessionResponse>("/api/auth/session");
@@ -4448,6 +4450,19 @@ export default function App() {
       });
       const selectedTeamIsMembership = selectedTeamId ? response.memberships.some((membership) => membership.id === selectedTeamId) : false;
       const selectedTeamIsVisible = selectedTeamId ? response.availableTeams.some((team) => team.id === selectedTeamId) : false;
+
+      if (loginDestinationResolvedRef.current !== response.user.id) {
+        loginDestinationResolvedRef.current = response.user.id;
+        const query = new URLSearchParams(window.location.search);
+        const explicitTeam = query.get("teamId");
+        const validDeepLink = query.get("view") !== "teams" && explicitTeam === selectedTeamId && (selectedTeamIsMembership || selectedTeamIsVisible);
+        if (response.user.openLastTeamOnLogin === false && !validDeepLink) {
+          setSelectedTeamId(null);
+          setPendingTargetTeamId(null);
+          setShowTeamChooser(true);
+          return;
+        }
+      }
 
       if (selectedTeamIsMembership) {
         return;
@@ -4476,6 +4491,7 @@ export default function App() {
       setSelectedTeamId(response.memberships[0].id);
     } catch {
       storeSessionToken(null);
+      loginDestinationResolvedRef.current = null;
       setSession(null);
       setTeamState(null);
       setNotificationFeed(null);
@@ -4491,6 +4507,55 @@ export default function App() {
       setTrialTermsVersion(null);
     }
   }, [selectedTeamId]);
+
+  // Observe a chooser-open directory without joining that team's live board.
+  const directoryTeamId = memberDirectory?.team.id;
+  const canObserveDirectory = Boolean(memberDirectory && (memberDirectory.currentUserIsSuperAdmin || memberDirectory.currentUserRole !== "none"));
+  useEffect(() => {
+    if (!chooserVisible || !directoryTeamId || !canObserveDirectory) return;
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    let loading = false;
+    let dirty = false;
+    const refresh = async () => {
+      if (disposed) return;
+      if (loading) { dirty = true; return; }
+      loading = true;
+      try {
+        const directory = await api<TeamDirectoryResponse>(`/api/teams/${directoryTeamId}/directory`);
+        if (!disposed) setMemberDirectory(current => current?.team.id === directoryTeamId ? directory : current);
+      } catch (error) {
+        if (!disposed) {
+          setMemberDirectory(current => current?.team.id === directoryTeamId ? null : current);
+          setErrorStatus((error as Error).message);
+        }
+      } finally {
+        loading = false;
+        if (dirty && !disposed) { dirty = false; void refresh(); }
+      }
+    };
+    const connect = () => {
+      if (disposed) return;
+      const url = new URL(getSocketUrl(directoryTeamId));
+      url.searchParams.set("scope", "directory");
+      socket = new WebSocket(url.toString());
+      socket.onopen = () => void refresh();
+      socket.onmessage = event => {
+        if (JSON.parse(event.data).type === "directory:update") void refresh();
+      };
+      socket.onclose = event => {
+        if (disposed) return;
+        if (event.code === 1008) {
+          setMemberDirectory(current => current?.team.id === directoryTeamId ? null : current);
+          return;
+        }
+        reconnect = setTimeout(connect, 500);
+      };
+    };
+    connect();
+    return () => { disposed = true; clearTimeout(reconnect); if (socket) closeSocket(socket); };
+  }, [chooserVisible, directoryTeamId, canObserveDirectory, setErrorStatus]);
 
   const loadAdminConfig = useCallback(async () => {
     return api<AdminConfigView>("/api/admin/config");
@@ -4557,6 +4622,7 @@ export default function App() {
       setMemberDirectory(null);
       setTeamState(null);
       setNotificationFeed(null);
+      loginDestinationResolvedRef.current = null;
       setSession(null);
       setAuthStep("signin");
       setAuthFlow("standard");
@@ -5197,7 +5263,7 @@ export default function App() {
   }, [chooserVisible, loadSession]);
 
   useEffect(() => {
-    if (!teamState) {
+    if (!teamState || showTeamChooser) {
       return;
     }
 
@@ -5257,7 +5323,7 @@ export default function App() {
         };
       });
     });
-  }, [teamState]);
+  }, [teamState, showTeamChooser]);
 
   useEffect(() => {
     if (!chooserVisible) {
@@ -5836,7 +5902,7 @@ export default function App() {
       setPassword("");
       setConfirmPassword("");
       setInfo("Signed in with password.");
-      setSuccessStatus("Signed in successfully. Returning you to your last team when available.");
+      setSuccessStatus("Signed in successfully. Your account preference determines where you start.");
     } catch (requestError) {
       setError((requestError as Error).message);
     }
@@ -5888,7 +5954,7 @@ export default function App() {
       setTrialTermsAccepted(false);
       setTrialTermsVersion(null);
       setInfo(authFlow === "publicTrial" ? "Public trial workspace created. This browser will stay remembered automatically." : "Access finished. This browser will stay remembered automatically.");
-      setSuccessStatus(authFlow === "publicTrial" ? "Public trial ready. Opening your starter team." : "Access finished successfully. Returning you to your last team when available.");
+      setSuccessStatus(authFlow === "publicTrial" ? "Public trial ready. Opening your starter team." : "Access finished successfully. Your account preference determines where you start.");
     } catch (requestError) {
       setError((requestError as Error).message);
     }
@@ -5944,6 +6010,7 @@ export default function App() {
       await api("/api/auth/signout", { method: "POST" });
       storeSessionToken(null);
       localStorage.removeItem(SELECTED_TEAM_KEY);
+      loginDestinationResolvedRef.current = null;
       setSession(null);
       setTeamState(null);
       setNotificationFeed(null);
@@ -6402,6 +6469,19 @@ export default function App() {
       setIsBusy(false);
     }
   }, [loadSession, loadTeamState, selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus]);
+
+  const handleSaveLoginDestinationPreference = useCallback(async (openLastTeamOnLogin: boolean) => {
+    try {
+      setIsBusy(true);
+      const response = await api<{ user: CurrentUserSummary }>("/api/auth/preferences", {
+        method: "PATCH", body: JSON.stringify({ openLastTeamOnLogin })
+      });
+      setSession(current => current ? { ...current, user: response.user } : current);
+      setTeamState(current => current ? { ...current, currentUser: response.user } : current);
+      setSuccessStatus("Sign-in destination saved. It will apply the next time you sign in.");
+    } catch (error) { setErrorStatus((error as Error).message); }
+    finally { setIsBusy(false); }
+  }, [setSuccessStatus, setErrorStatus]);
 
   const handleSaveBoardShortcutsPreference = useCallback(async (boardShortcutsEnabled: boolean) => {
     try {
@@ -7077,6 +7157,7 @@ export default function App() {
           isBusy={isBusy}
           onClose={() => setAccountSettingsOpen(false)}
           onSaveProfile={handleUpdateProfile}
+          onSaveLoginDestinationPreference={handleSaveLoginDestinationPreference}
           onSaveBoardShortcutsPreference={handleSaveBoardShortcutsPreference}
           onSaveHistoryTimezonePreference={handleSaveHistoryTimezonePreference}
           onChangePassword={handleChangePassword}
@@ -7192,6 +7273,7 @@ export default function App() {
         isBusy={isBusy}
         onClose={() => setAccountSettingsOpen(false)}
         onSaveProfile={handleUpdateProfile}
+        onSaveLoginDestinationPreference={handleSaveLoginDestinationPreference}
         onSaveBoardShortcutsPreference={handleSaveBoardShortcutsPreference}
         onSaveHistoryTimezonePreference={handleSaveHistoryTimezonePreference}
         onChangePassword={handleChangePassword}

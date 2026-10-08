@@ -50,6 +50,12 @@ The system is a structured full-stack repository with:
 21. Minimum participation is evaluated against the current live board participants at reveal/re-evaluation time rather than all team members, so offline members do not block active-room decisions.
 22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
 
+## Login Destination And Directory Presence
+
+`users.open_last_team_on_login` is an additive SQLite preference, defaulting to 1 for new and existing accounts. Auth/session summaries expose `openLastTeamOnLogin`; authenticated `PATCH /api/auth/preferences` validates and persists the boolean for the current account. On initial session resolution, false opens the chooser unless an accessible explicit team link is present. Routine session refreshes and saving the setting do not interrupt an open board. Existing dedicated super-admin entry behavior is preserved.
+
+A chooser-open member directory uses an authenticated `scope=directory` WebSocket for its team. It sends small `directory:update` invalidations on membership/full-state or board-presence changes; the client refetches the permission-checked REST directory with one request in flight and a trailing refresh if needed. Board-open directories reuse board state. Directory observers are separate from board sockets and never enter active participant/quorum counts. Membership is checked at connection and notification time; revoked observers are closed. Closing the panel cleans up the subscription; reconnect refreshes the directory.
+
 ## Account Deletion Flow
 
 1. The API builds a deletion preview before mutation so destructive effects are explicit before confirmation.

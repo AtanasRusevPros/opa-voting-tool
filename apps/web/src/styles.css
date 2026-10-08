@@ -1746,6 +1746,8 @@ textarea {
 
 .account-deletion-card {
   max-width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
 }
 
 .account-deletion-summary {

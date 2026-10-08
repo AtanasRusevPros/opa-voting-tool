@@ -249,6 +249,8 @@ Production deployment note:
 - After sign-in, the app returns directly to the last opened team when possible.
 - Super-admins are always members of every team, but by default they stay on the chooser/platform-settings surface unless they explicitly open a team.
 - Signed-in users can now change their password from the `Account settings` modal available from both the chooser and the board header profile area.
+- In **Account settings**, **Open my last team automatically after sign-in** is on by default. Turn it off to start at the chooser after sign-in or a fresh app entry. Saving does not move you away from the current board. A deliberate team URL still takes priority when accessible; unavailable teams fall back to the chooser. The setting is saved per account, across browsers, for both deployment modes. The dedicated super-admin entry retains its existing chooser-first default.
+- Team Admin / People stays live while open from either the board or chooser: membership and Onboard/Not online status refresh without reopening it. Merely viewing People from the chooser does not count as board participation or affect reveal thresholds.
 - Signed-in users can now also disable board action keyboard shortcuts globally from `Account settings` without affecting normal Enter/Escape form behavior.
 - Signed-in users can personalize the Issues List history time popup from `Account settings`. The first list shown is the current team default, but saving a personal list stores it only for the current team; `Use team default` removes that team's personal override.
 - Team-admins can regenerate lost manually shared credentials for users who are already members of their current team when SMTP is not configured.

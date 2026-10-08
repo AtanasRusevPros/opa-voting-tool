@@ -551,6 +551,65 @@ describe("Password and invite HTTP flows", () => {
     expect(newLogin.status).toBe(200);
   });
 
+  it("persists login destination per account and rejects invalid preferences", async () => {
+    const { app, repository } = await loadTestServer();
+    const client = request(app);
+    const cookie = await createRegularUser(client, "destination@example-company.com", "Destination");
+    const other = await createRegularUser(client, "other-destination@example-company.com", "Other");
+    const session = await client.get("/api/auth/session").set("Cookie", cookie);
+    expect(session.body.user.openLastTeamOnLogin).toBe(true);
+    expect((await client.patch("/api/auth/preferences").send({ openLastTeamOnLogin: false })).status).toBe(401);
+    expect((await client.patch("/api/auth/preferences").set("Cookie", cookie).send({ openLastTeamOnLogin: "false" })).status).toBe(400);
+    const saved = await client.patch("/api/auth/preferences").set("Cookie", cookie).send({ openLastTeamOnLogin: false });
+    expect(saved.body.user.openLastTeamOnLogin).toBe(false);
+    expect(repository.getCurrentUser(session.body.user.id)?.openLastTeamOnLogin).toBe(false);
+    expect((await client.get("/api/auth/session").set("Cookie", other)).body.user.openLastTeamOnLogin).toBe(true);
+    const login = await client.post("/api/auth/signin-password").send({email: "destination@example-company.com", password: "Password123!"});
+    expect(login.body.user.openLastTeamOnLogin).toBe(false);
+    expect((await client.patch("/api/auth/preferences").set("Cookie", cookie).send({ openLastTeamOnLogin: true })).body.user.openLastTeamOnLogin).toBe(true);
+  });
+
+  it("keeps directory observers out of board presence and enforces membership", async () => {
+    const { app, server, repository } = await loadTestServer();
+    const client = request(app);
+    const ownerCookie = await createRegularUser(client, "observer-owner@example-company.com", "Owner");
+    const memberCookie = await createRegularUser(client, "observer-member@example-company.com", "Member");
+    const outsiderCookie = await createRegularUser(client, "observer-outsider@example-company.com", "Outsider");
+    const owner = (await client.get("/api/auth/session").set("Cookie", ownerCookie)).body.user;
+    const member = (await client.get("/api/auth/session").set("Cookie", memberCookie)).body.user;
+    const team = repository.createTeam(owner.id, "Observer Team");
+    repository.joinTeam(member.id, team.id);
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as { port: number }).port;
+    const sockets: WebSocket[] = [];
+    const connect = (cookie: string | string[], scope: string) => {
+      const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?teamId=${team.id}&scope=${scope}`, {
+        headers: { Cookie: (Array.isArray(cookie) ? cookie : [cookie]).map(value => value.split(";")[0]).join("; ") }
+      });
+      sockets.push(socket); return socket;
+    };
+    try {
+      const denied = connect(outsiderCookie, "directory");
+      expect((await once(denied, "close"))[0]).toBe(1008);
+      const observer = connect(memberCookie, "directory");
+      await once(observer, "message");
+      const directory = () => client.get(`/api/teams/${team.id}/directory`).set("Cookie", memberCookie);
+      expect((await directory()).body.activeParticipantIds).toEqual([]);
+      const joined = once(observer, "message");
+      const board = connect(ownerCookie, "board");
+      await once(board, "open"); await joined;
+      expect((await directory()).body.activeParticipantIds).toEqual([owner.id]);
+      const left = once(observer, "message"); board.close(); await left;
+      expect((await directory()).body.activeParticipantIds).toEqual([]);
+      const revoked = once(observer, "close");
+      expect((await client.post(`/api/teams/${team.id}/members/${member.id}/remove`).set("Cookie", ownerCookie)).status).toBe(200);
+      expect((await revoked)[0]).toBe(1008);
+    } finally {
+      for (const socket of sockets) socket.terminate();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
+
   it("persists personal UI preferences for the current user account", async () => {
     const { app } = await loadTestServer();
     const client = request(app);

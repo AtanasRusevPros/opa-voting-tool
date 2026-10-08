@@ -31,6 +31,12 @@ This guide describes what a team-admin can do inside a team, what is intentional
 - load a pending Jira issue into the board for voting
 - view the team-scoped admin/workflow history in the notification bell
 
+## Live People Status
+
+Keep Team Admin → People open while an invited member joins or leaves the board: **Onboard** / **Not online** updates automatically. This works from the board and the team chooser, including after reconnection. Opening People from the chooser does not join the board or affect voting participation thresholds.
+
+Each person can use **Account settings → Open my last team automatically after sign-in** (default on). Turning it off starts them in the chooser; accessible direct team links still take priority. This changes only their navigation, not membership or admin privileges.
+
 ## What A Team-Admin Cannot Do
 
 - admit or deny platform access requests

@@ -583,6 +583,7 @@ export class Repository {
           u.avatar_key,
           u.avatar_icon_key,
           u.avatar_color_key,
+          u.open_last_team_on_login,
           u.board_shortcuts_enabled,
           u.history_timezone_popup_enabled,
           u.history_timezone_keys_json
@@ -603,6 +604,7 @@ export class Repository {
           avatar_key: string;
           avatar_icon_key: string | null;
           avatar_color_key: string | null;
+          open_last_team_on_login: number;
           board_shortcuts_enabled: number;
           history_timezone_popup_enabled: number;
           history_timezone_keys_json: string | null;
@@ -638,6 +640,7 @@ export class Repository {
       sessionToken: row.token,
       isSuperAdmin: row.is_super_admin === 1,
       loginName: row.login_name,
+      openLastTeamOnLogin: row.open_last_team_on_login !== 0,
       boardShortcutsEnabled: row.board_shortcuts_enabled !== 0,
       historyTimezonePopupEnabled: row.history_timezone_popup_enabled !== 0,
       historyTimezoneKeys: row.history_timezone_keys_json ? parseHistoryTimeZoneKeys(row.history_timezone_keys_json) : null
@@ -701,6 +704,7 @@ export class Repository {
     userId: string,
     preferences: {
       teamId?: string | null;
+      openLastTeamOnLogin?: boolean;
       boardShortcutsEnabled?: boolean;
       historyTimezonePopupEnabled?: boolean;
       historyTimezoneKeys?: readonly HistoryTimeZoneKey[] | null;
@@ -712,6 +716,10 @@ export class Repository {
     }
 
     const updatedAt = nowIso();
+    if (preferences.openLastTeamOnLogin !== undefined) {
+      this.db.prepare("UPDATE users SET open_last_team_on_login = ?, updated_at = ? WHERE id = ?")
+        .run(preferences.openLastTeamOnLogin ? 1 : 0, updatedAt, userId);
+    }
     if (preferences.boardShortcutsEnabled !== undefined) {
       this.db
         .prepare("UPDATE users SET board_shortcuts_enabled = ?, updated_at = ?, last_active_at = ? WHERE id = ?")
@@ -844,7 +852,7 @@ export class Repository {
   getCurrentUser(userId: string): CurrentUserSummary | null {
     const row = this.db
       .prepare(
-        "SELECT id, email, login_name, is_super_admin, display_name, avatar_key, avatar_icon_key, avatar_color_key, board_shortcuts_enabled, history_timezone_popup_enabled, history_timezone_keys_json FROM users WHERE id = ?"
+        "SELECT id, email, login_name, is_super_admin, display_name, avatar_key, avatar_icon_key, avatar_color_key, open_last_team_on_login, board_shortcuts_enabled, history_timezone_popup_enabled, history_timezone_keys_json FROM users WHERE id = ?"
       )
       .get(userId) as
       | {
@@ -856,6 +864,7 @@ export class Repository {
           avatar_key: string;
           avatar_icon_key: string | null;
           avatar_color_key: string | null;
+          open_last_team_on_login: number;
           board_shortcuts_enabled: number;
           history_timezone_popup_enabled: number;
           history_timezone_keys_json: string | null;
@@ -880,6 +889,7 @@ export class Repository {
       avatarColorKey: avatarSelection.avatarColorKey,
       isSuperAdmin: row.is_super_admin === 1,
       loginName: row.login_name,
+      openLastTeamOnLogin: row.open_last_team_on_login !== 0,
       boardShortcutsEnabled: row.board_shortcuts_enabled !== 0,
       historyTimezonePopupEnabled: row.history_timezone_popup_enabled !== 0,
       historyTimezoneKeys: row.history_timezone_keys_json ? parseHistoryTimeZoneKeys(row.history_timezone_keys_json) : null
@@ -3724,6 +3734,9 @@ export class Repository {
   private ensureUserShortcutPreferenceColumn(): void {
     const columns = this.db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
     const columnNames = new Set(columns.map((column) => column.name));
+    if (!columnNames.has("open_last_team_on_login")) {
+      this.db.exec("ALTER TABLE users ADD COLUMN open_last_team_on_login INTEGER NOT NULL DEFAULT 1");
+    }
     if (!columnNames.has("board_shortcuts_enabled")) {
       this.db.exec("ALTER TABLE users ADD COLUMN board_shortcuts_enabled INTEGER NOT NULL DEFAULT 1");
     }

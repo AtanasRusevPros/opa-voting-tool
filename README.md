@@ -132,6 +132,8 @@ Local dependency, build, packaged stack build, test, and simulator commands requ
 - First access or password reset: request a 16-digit code, verify it, then set a real password.
 - Returning sign-in: enter email and password.
 - Signed-in users can change their password from the in-app `Account settings` modal.
+- Account settings also controls **Open my last team automatically after sign-in** (on by default). Turn it off to start in the team chooser; intentional team links still respect access permissions. The preference is saved per account in both self-hosted and hosted-trial deployments.
+- An open Team Admin / People panel updates board presence live, including when opened from the chooser. Viewing that panel does not put you on the board.
 - Any normal user can delete their own account from `Account settings`; the confirmation preview explains the deletion impact before commit.
 - The super-admin can delete normal accounts from `Platform settings -> People`, but the configured super-admin account can never be deleted.
 - Signed-in users can also personalize the history date popup from `Account settings`: the popup starts from the current team's default timezone list, but each user can save a different list for that team or return that team back to its default later.

@@ -13,6 +13,11 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Kept long account-deletion confirmations scrollable within short viewports so the confirmation button remains reachable.
+
+- Fixed stale Onboard/Not online status in a People panel left open in the team chooser, using a read-only live subscription that does not affect board participation. Added two-browser and authorization regressions.
+- Added a persisted Account setting to open the chooser instead of the last team after sign-in; automatic entry remains the default and accessible direct links take priority. Added migration, API and browser coverage.
+
 - Added opt-in app-managed SQLite snapshots: weekly by default, at most three copies, 21-day expiry, restart catch-up, worker-thread copying and integrity verification; no external scheduler.
 - Deployment archives now use consistent SQLite snapshots, exclude nested snapshot history and automatically retain three after successful creation. Added `backup:auto:list` and restore/setup guidance.
 - Rewrote trial privacy/terms/cleanup and deletion guidance around actual live-data deletion, retained identifiable history, providers and backup exceptions. Added configurable public operator/contact/provider details and a lightweight manual privacy-rights procedure without certification/compliance claims.

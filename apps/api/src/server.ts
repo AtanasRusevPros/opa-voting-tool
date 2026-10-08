@@ -489,7 +489,9 @@ function updateSocketMetrics() {
   const activeTeamSockets = [...teamClients.values()].reduce((sum, sockets) => sum + sockets.size, 0);
   perfTracker.setGauge("ws.activeTeamSockets", activeTeamSockets);
   perfTracker.setGauge("ws.activeChooserSockets", chooserClients.size);
-  perfTracker.setGauge("ws.activeSockets", activeTeamSockets + chooserClients.size);
+  const directorySockets = [...directoryClients.values()].reduce((sum, sockets) => sum + sockets.size, 0);
+  perfTracker.setGauge("ws.activeDirectorySockets", directorySockets);
+  perfTracker.setGauge("ws.activeSockets", activeTeamSockets + chooserClients.size + directorySockets);
 }
 
 function getActiveParticipantIds(teamId: string): Set<string> {
@@ -778,6 +780,8 @@ function createApp(currentDemoModeManager: DemoModeManager) {
 
 const teamClients = new Map<string, Set<import("ws").WebSocket>>();
 const chooserClients = new Set<import("ws").WebSocket>();
+// Read-only directory observers never join board presence or affect voting quorum.
+const directoryClients = new Map<string, Set<import("ws").WebSocket>>();
 const socketSessions = new WeakMap<import("ws").WebSocket, { teamId: string; userId: string }>();
 const pendingTeamBroadcasts = new Map<string, PendingTeamBroadcast>();
 const pendingBackpressuredTeamBroadcasts = new Map<string, BackpressuredTeamBroadcast>();
@@ -895,6 +899,20 @@ wsServer.on("connection", (socket, request) => {
     return;
   }
 
+  if (scope === "directory") {
+    if (!directoryClients.has(resolvedTeamId)) directoryClients.set(resolvedTeamId, new Set());
+    directoryClients.get(resolvedTeamId)!.add(socket);
+    socketSessions.set(socket, { teamId: resolvedTeamId, userId: user.id });
+    updateSocketMetrics();
+    socket.send(JSON.stringify({ type: "directory:update" }));
+    socket.on("close", () => {
+      directoryClients.get(resolvedTeamId)?.delete(socket);
+      if (!directoryClients.get(resolvedTeamId)?.size) directoryClients.delete(resolvedTeamId);
+      updateSocketMetrics();
+    });
+    return;
+  }
+
   if (!teamClients.has(resolvedTeamId)) {
     teamClients.set(resolvedTeamId, new Set());
   }
@@ -914,7 +932,21 @@ wsServer.on("connection", (socket, request) => {
   });
 });
 
+function notifyDirectoryObservers(teamId: string) {
+  for (const socket of directoryClients.get(teamId) ?? []) {
+    if (socket.readyState !== 1) continue;
+    const session = socketSessions.get(socket);
+    if (!session || (!repository.isTeamMember(session.userId, teamId) && !repository.isSuperAdmin(session.userId))) {
+      socket.close(1008, "Team membership revoked");
+      continue;
+    }
+    try { socket.send(JSON.stringify({ type: "directory:update" })); }
+    catch { socket.close(); }
+  }
+}
+
 function broadcastTeam(teamId: string, mode: TeamBroadcastMode = "full") {
+  if (mode === "full") notifyDirectoryObservers(teamId);
   const sockets = teamClients.get(teamId);
   if (!sockets || sockets.size === 0) {
     return;
@@ -991,6 +1023,7 @@ function broadcastTeam(teamId: string, mode: TeamBroadcastMode = "full") {
 }
 
 function broadcastPresence(teamId: string) {
+  notifyDirectoryObservers(teamId);
   const sockets = teamClients.get(teamId);
   if (!sockets || sockets.size === 0) {
     return;

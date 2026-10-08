@@ -59,6 +59,22 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
+  it("migrates existing accounts to automatic board entry and preserves the saved preference after restart", () => {
+    const config = createTestConfig();
+    const repo = new Repository(config);
+    const email = "destination-migration@example-company.com";
+    const user = repo.verifyLoginCode(email, repo.requestLoginCode(email).code, "Migration", "bear", "azure", undefined, "Password123!")!;
+    const db = new DatabaseSync(config.databasePath);
+    // Simulate the database schema before this preference existed.
+    db.exec("ALTER TABLE users DROP COLUMN open_last_team_on_login");
+    const migrated = new Repository(config);
+    expect(migrated.getCurrentUser(user.id)?.openLastTeamOnLogin).toBe(true);
+    migrated.updateUserPreferences(user.id, { openLastTeamOnLogin: false });
+    const restarted = new Repository(config);
+    expect(restarted.getCurrentUser(user.id)?.openLastTeamOnLogin).toBe(false);
+    db.close();
+  });
+
   it("migrates only legacy trial names once and preserves custom names and usage", () => {
     const config = createTestConfig();
     config.publicTrial.enabled = true;

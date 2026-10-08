@@ -206,6 +206,7 @@ export const profileSchema = z.object({
 });
 
 export const userPreferencesSchema = z.object({
+  openLastTeamOnLogin: z.boolean().optional(),
   teamId: z.string().min(1).optional(),
   boardShortcutsEnabled: z.boolean().optional(),
   historyTimezonePopupEnabled: z.boolean().optional(),

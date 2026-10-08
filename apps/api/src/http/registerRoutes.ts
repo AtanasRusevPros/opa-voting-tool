@@ -723,6 +723,7 @@ export function registerRoutes({
           avatarColorKey: result.user.avatarColorKey,
           isSuperAdmin: result.user.isSuperAdmin,
           loginName: result.user.loginName,
+          openLastTeamOnLogin: result.user.openLastTeamOnLogin,
           boardShortcutsEnabled: result.user.boardShortcutsEnabled,
           historyTimezonePopupEnabled: result.user.historyTimezonePopupEnabled,
           historyTimezoneKeys: result.user.historyTimezoneKeys ?? null
@@ -771,6 +772,7 @@ export function registerRoutes({
         avatarColorKey: user.avatarColorKey,
         isSuperAdmin: user.isSuperAdmin,
         loginName: user.loginName,
+        openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
         historyTimezoneKeys: user.historyTimezoneKeys ?? null
@@ -817,6 +819,7 @@ export function registerRoutes({
         avatarColorKey: user.avatarColorKey,
         isSuperAdmin: user.isSuperAdmin,
         loginName: user.loginName,
+        openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
         historyTimezoneKeys: user.historyTimezoneKeys ?? null
@@ -848,6 +851,7 @@ export function registerRoutes({
         avatarColorKey: user.avatarColorKey,
         isSuperAdmin: user.isSuperAdmin,
         loginName: user.loginName,
+        openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
         historyTimezoneKeys: user.historyTimezoneKeys ?? null
@@ -927,6 +931,7 @@ export function registerRoutes({
         avatarColorKey: authedReq.user.avatarColorKey,
         isSuperAdmin: authedReq.user.isSuperAdmin,
         loginName: authedReq.user.loginName,
+        openLastTeamOnLogin: authedReq.user.openLastTeamOnLogin,
         boardShortcutsEnabled: authedReq.user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: authedReq.user.historyTimezonePopupEnabled,
         historyTimezoneKeys: authedReq.user.historyTimezoneKeys ?? null
@@ -1294,6 +1299,7 @@ export function registerRoutes({
     try {
       user = repository.updateUserPreferences(userId, {
         teamId: payload.data.teamId,
+        openLastTeamOnLogin: payload.data.openLastTeamOnLogin,
         boardShortcutsEnabled: payload.data.boardShortcutsEnabled,
         historyTimezonePopupEnabled: payload.data.historyTimezonePopupEnabled,
         historyTimezoneKeys: payload.data.historyTimezoneKeys
