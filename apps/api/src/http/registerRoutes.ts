@@ -99,6 +99,7 @@ type RegisterRoutesDeps = {
   getEligibleRevealParticipantIds(teamId: string): string[];
   getLiveStatistics(): import("../repository/statistics.js").LiveStatistics;
   notifyStatistics(): void;
+  notifyHistoryTitle(teamId: string, historyId: string, title: string): void;
   broadcastSoon(teamId: string): void;
   broadcastChooserSoon(): void;
   broadcastPlatformSettingsSoon(): void;
@@ -220,6 +221,7 @@ export function registerRoutes({
   getEligibleRevealParticipantIds,
   getLiveStatistics,
   notifyStatistics,
+  notifyHistoryTitle,
   broadcastSoon,
   broadcastChooserSoon,
   broadcastPlatformSettingsSoon,
@@ -1914,6 +1916,24 @@ export function registerRoutes({
       res.status((error as Error).message === "Only the super-admin can perform this action." ? 403 : 400).json({ error: (error as Error).message });
     }
   });
+
+  for (const kind of ["rounds", "history"] as const) {
+    app.patch(`/api/teams/:teamId/${kind}/:itemId/title`, requireUser, (req, res) => {
+      if (!requireTeamAdmin(req, res)) return;
+      const payload = roundSchema.safeParse(req.body);
+      if (!payload.success || typeof req.body?.expectedTitle !== "string") {
+        res.status(400).json({error: "Title must contain 1 to 255 characters."}); return;
+      }
+      const teamId = String(req.params.teamId);
+      try {
+        const result = repository.renameIssueTitle(teamId, kind, String(req.params.itemId), payload.data.title, req.body.expectedTitle);
+        noteTeamRoundChanged(teamId);
+        broadcastSoon(teamId);
+        if (result.historyEntry) notifyHistoryTitle(teamId, result.historyEntry.id, result.title);
+        res.json({...result, round: result.round ? {id: result.round.id, title: result.round.title} : null});
+      } catch (error) { res.status(409).json({error: (error as Error).message}); }
+    });
+  }
 
   app.post("/api/teams/:teamId/rounds", requireUser, (req, res) => {
     const startMs = performance.now();

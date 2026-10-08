@@ -573,3 +573,10 @@ manual rights handling. Public copies of private planning evidence are not requi
 - **Export stats JSON** downloads exactly the displayed snapshot, period and scope. It contains team/workspace names and aggregates, not individual account lists, issue text or vote values. Anyone receiving that file can read it; downloaded files are not remotely erased.
 
 Statistics are built in and enabled in both deployment modes, with a fixed 31-day retention policy; there is no separate TOML switch. Activity buckets and round/voter records are pruned on startup and every minute while running. Account deletion removes activity and voter identifiers; retained shared round aggregates expire normally. Workspace purge cascades its statistics. Leaving a team does not rewrite its historical aggregates; membership/live counts reflect current access. Backups follow their own retention rules and restores must reapply privacy deletions. See [privacy and backups](PRIVACY_AND_BACKUPS.md).
+
+
+### Edit An Issue Title
+
+Team admins (and the platform super-admin) can click the current board title or a saved title in **Issues List → History/Search** to correct it. A small transparent pencil appears on hover or keyboard focus. The editor keeps the displayed title's outer size; longer text scrolls inside it without extending beyond the rounded edges. Press **Enter** or click outside to save; **Escape** cancels. Titles are trimmed and must contain 1–255 characters. Ordinary members see plain, non-editable titles; archived teams remain read-only.
+
+Saving changes only the local issue title: votes, timer, result timestamp, completed-round statistics and monthly quota usage stay unchanged. A re-vote and its saved history item share the correction. A failed save keeps the draft and shows an error; conflicting edits are rejected rather than silently overwriting another admin's correction. Changes appear for connected viewers and persist after reload. This does not rename the source issue in Jira.

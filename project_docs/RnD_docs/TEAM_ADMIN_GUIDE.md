@@ -309,3 +309,10 @@ remain necessary; no blanket GDPR/California/US compliance claim is made.
 Open **Team Admin → Stats**, between People and Import/export, for your team's activity, completed rounds, distinct issues, participation and live counts. Choose a rolling 24-hour/7-day/30-day period or export the displayed JSON snapshot. Archived teams retain read-only statistics. Regular members cannot access this tab or its API; team admin rights never grant another team's statistics.
 
 Counts start with statistics collection, exclude synthetic/demo and super-admin activity, and are retained for 31 days. See [definitions, coverage and deletion behavior](USAGE.md#usage-statistics). Workspace-wide and platform-wide reports belong to the super-admin's **Platform → Stats** view.
+
+
+### Edit An Issue Title
+
+Team admins (and the platform super-admin) can click the current board title or a saved title in **Issues List → History/Search** to correct it. A small transparent pencil appears on hover or keyboard focus. The editor keeps the displayed title's outer size; longer text scrolls inside it without extending beyond the rounded edges. Press **Enter** or click outside to save; **Escape** cancels. Titles are trimmed and must contain 1–255 characters. Ordinary members see plain, non-editable titles; archived teams remain read-only.
+
+Saving changes only the local issue title: votes, timer, result timestamp, completed-round statistics and monthly quota usage stay unchanged. A re-vote and its saved history item share the correction. A failed save keeps the draft and shows an error; conflicting edits are rejected rather than silently overwriting another admin's correction. Changes appear for connected viewers and persist after reload. This does not rename the source issue in Jira.

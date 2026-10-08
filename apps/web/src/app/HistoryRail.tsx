@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { EditableIssueTitle } from "./EditableIssueTitle";
+
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { HistoryEntry, HistoryPageCursor, HistoryTimeZoneKey, TeamHistorySearchFilters } from "@planning-poker/shared";
 import { HistoryTimestamp } from "./shared";
@@ -214,6 +216,7 @@ function renderHistoryEntries(props: {
   isReadOnly: boolean;
   isBusy: boolean;
   latestRevealedHistoryId: string | null;
+  onRenameHistory?: (id: string, title: string, expectedTitle: string) => Promise<void>;
   onVoteAgain: (historyId: string) => Promise<void>;
   onAddComment: (historyId: string, body: string) => Promise<void>;
   onEditComment: (historyId: string, commentId: string, body: string) => Promise<void>;
@@ -233,7 +236,7 @@ function renderHistoryEntries(props: {
       {group.items.map((entry) => (
         <div key={entry.id} className="history-card">
           <div className="history-card-section history-card-section-title">
-            <div className="history-card-title">{entry.title}</div>
+            <EditableIssueTitle className="history-card-title" title={entry.title} label={`Edit history title: ${entry.title}`} onSave={props.onRenameHistory ? (title, expected) => props.onRenameHistory!(entry.id, title, expected) : undefined} />
           </div>
           <div className="history-card-section">
             <div className="history-card-meta">
@@ -314,6 +317,7 @@ export const HistoryRail = memo(function HistoryRail(props: {
   isReadOnly: boolean;
   isBusy: boolean;
   latestRevealedHistoryId: string | null;
+  onRenameHistory?: (id: string, title: string, expectedTitle: string) => Promise<void>;
   onVoteAgain: (historyId: string) => Promise<void>;
   onAddComment: (historyId: string, body: string) => Promise<void>;
   onEditComment: (historyId: string, commentId: string, body: string) => Promise<void>;
@@ -487,6 +491,7 @@ export const HistoryRail = memo(function HistoryRail(props: {
           isReadOnly: props.isReadOnly,
           isBusy: props.isBusy,
           latestRevealedHistoryId: props.latestRevealedHistoryId,
+          onRenameHistory: props.onRenameHistory,
           onVoteAgain: props.onVoteAgain,
           onAddComment: props.onAddComment,
           onEditComment: props.onEditComment,

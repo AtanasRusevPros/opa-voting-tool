@@ -2315,6 +2315,33 @@ export class Repository {
     });
   }
 
+  renameIssueTitle(teamId: string, kind: "rounds" | "history", id: string, title: string, expectedTitle: string) {
+    const next = title.trim();
+    if (!next || next.length > 255) throw new Error("Title must contain 1 to 255 characters.");
+    const round = kind === "rounds" ? this.getCurrentRound(teamId) : null;
+    const entry = kind === "history" ? this.getHistoryEntry(teamId, id) : null;
+    if (kind === "rounds" ? !round || round.id !== id : !entry) throw new Error("Item is no longer available. Reload and try again.");
+    if ((round?.title ?? entry?.title) !== expectedTitle) throw new Error("The title changed while you were editing. Reload and try again.");
+    // Keep the current board and its saved issue consistent, including re-votes.
+    let historyId = entry?.id ?? round?.revoteHistoryEntryId ?? null;
+    if (!historyId && round?.status === "revealed") {
+      const legacy = this.db.prepare("SELECT id FROM history_entries WHERE team_id = ? AND completed_at = ? AND title = ?").all(teamId, round.revealedAt, round.title) as {id: string}[];
+      if (legacy.length === 1) historyId = legacy[0].id;
+    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      if (round) this.db.prepare("UPDATE rounds SET title = ? WHERE id = ? AND team_id = ?").run(next, id, teamId);
+      if (historyId) {
+        const saved = this.getHistoryEntry(teamId, historyId);
+        this.db.prepare("UPDATE history_entries SET title = ? WHERE id = ? AND team_id = ?").run(next, historyId, teamId);
+        this.db.prepare("UPDATE rounds SET title = ? WHERE team_id = ? AND revote_history_entry_id = ? AND status IN ('active', 'revealed')").run(next, teamId, historyId);
+        if (saved) this.db.prepare("UPDATE rounds SET title = ?, revote_history_entry_id = ? WHERE team_id = ? AND status = 'revealed' AND revote_history_entry_id IS NULL AND revealed_at = ? AND title = ?").run(next, historyId, teamId, saved.completedAt, saved.title);
+      }
+      this.db.exec("COMMIT");
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+    return {title: next, historyEntry: historyId ? this.getHistoryEntry(teamId, historyId) : null, round: this.getCurrentRound(teamId)};
+  }
+
   cancelRound(roundId: string): { teamId: string } {
     return perfTracker.measure("repository.cancelRound", () => {
       const round = this.getRoundState(roundId);
@@ -2511,6 +2538,7 @@ export class Repository {
             voteSnapshot
           );
       }
+      this.db.prepare("UPDATE rounds SET revote_history_entry_id = ? WHERE id = ?").run(statisticsIssueId, roundId);
       recordCompletedRound(this.db, roundId, round.teamId, statisticsIssueId, rawVotes.map(v => v.userId), [...(eligibleParticipantIds ?? new Set(this.getTeamMembers(round.teamId).map(u => u.id)))]);
       if (round.pendingIssueId) {
         this.db.prepare("DELETE FROM team_pending_issues WHERE id = ?").run(round.pendingIssueId);

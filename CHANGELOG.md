@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added admin-only inline title corrections on the board and in saved history/search, with Enter/click-away save, Escape cancel, matching pencil styling, contained editors and conflict/error handling. Title changes preserve votes, timers and completed-round totals.
+
 - Added Platform → Stats and Team Admin → Stats with scoped rolling activity, voting/issue counts, participation, live presence, UTC trends, workspace filtering and aggregate JSON export. Renamed the Platform settings navigation to Platform.
 - Added 31-day first-party statistics retention, coverage labels, explicit synthetic metadata, deletion/purge handling and disclosed privacy behavior. Heavy report reads run outside the voting event loop; observer sockets do not alter quorum.
 

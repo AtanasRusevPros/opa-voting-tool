@@ -551,6 +551,32 @@ describe("Password and invite HTTP flows", () => {
     expect(newLogin.status).toBe(200);
   });
 
+  it("authorizes issue-title edits only for admins and validates conflicts and archived teams", async () => {
+    const {app, repository} = await loadTestServer(); const client = request(app);
+    const ownerCookie = await createRegularUser(client, "rename-owner@example-company.com", "Owner");
+    const memberCookie = await createRegularUser(client, "rename-member@example-company.com", "Member");
+    const owner = (await client.get("/api/auth/session").set("Cookie", ownerCookie)).body.user;
+    const member = (await client.get("/api/auth/session").set("Cookie", memberCookie)).body.user;
+    const team = repository.createTeam(owner.id, "Rename permissions"); repository.joinTeam(member.id, team.id);
+    const round = repository.createRound(team.id, "Original title");
+    const url = `/api/teams/${team.id}/rounds/${round.id}/title`;
+    const payload = {title: "Updated title", expectedTitle: "Original title"};
+    expect((await client.patch(url).send(payload)).status).toBe(401);
+    expect((await client.patch(url).set("Cookie", memberCookie).send(payload)).status).toBe(403);
+    expect((await client.patch(url).set("Cookie", ownerCookie).send({...payload, title: " "})).status).toBe(400);
+    expect((await client.patch(url).set("Cookie", ownerCookie).send({...payload, title: "x".repeat(256)})).status).toBe(400);
+    repository.castVote(round.id, member.id, "8");
+    const renamed = await client.patch(url).set("Cookie", ownerCookie).send(payload);
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.round).toEqual({id: round.id, title: "Updated title"});
+    expect((await client.patch(url).set("Cookie", ownerCookie).send(payload)).status).toBe(409);
+    repository.revealRound(round.id); const entry = repository.getHistory(team.id)[0];
+    const historyUrl = `/api/teams/${team.id}/history/${entry.id}/title`;
+    expect((await client.patch(historyUrl).set("Cookie", memberCookie).send({title: "Denied title", expectedTitle: entry.title})).status).toBe(403);
+    repository.setTeamArchived(owner.id, team.id, true);
+    expect((await client.patch(historyUrl).set("Cookie", ownerCookie).send({title: "Archived title", expectedTitle: entry.title})).status).toBe(403);
+  });
+
   it("restricts statistics endpoints and sockets to platform or scoped team administrators", async () => {
     const {app, server, repository} = await loadTestServer(); const client = request(app);
     const ownerCookie = await createRegularUser(client, "stats-owner@example-company.com", "Owner");

@@ -60,6 +60,37 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
+  it("renames live and saved issues without changing votes, timers, result timestamps or statistics", () => {
+    const config = createTestConfig(); const repo = new Repository(config);
+    const user = repo.ensureUser({email: "title@example-company.com", displayName: "Title admin", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const team = repo.createTeam(user.id, "Title edits");
+    repo.updateTeamSettings(team.id, {timerSeconds: 30});
+    const round = repo.createRound(team.id, "Original issue"); repo.castVote(round.id, user.id, "5");
+    const before = repo.getCurrentRound(team.id)!;
+    repo.renameIssueTitle(team.id, "rounds", round.id, " Corrected issue ", "Original issue");
+    expect(repo.getCurrentRound(team.id)).toEqual({...before, title: "Corrected issue"});
+    expect(() => repo.renameIssueTitle(team.id, "rounds", round.id, "Stale edit", "Original issue")).toThrow(/changed while/);
+    repo.revealRound(round.id); const entry = repo.getHistory(team.id)[0];
+    // Exercise an already-revealed database created before stable title linkage.
+    const legacyDb = new DatabaseSync(config.databasePath);
+    legacyDb.prepare("UPDATE rounds SET revote_history_entry_id = NULL WHERE id = ?").run(round.id); legacyDb.close();
+    const stats = repo.getStatistics({online: [], boards: {}}, team.id).selected;
+    repo.renameIssueTitle(team.id, "history", entry.id, "Saved correction", "Corrected issue");
+    expect(repo.getHistory(team.id)[0]).toEqual({...entry, title: "Saved correction"});
+    expect(repo.getCurrentRound(team.id)?.title).toBe("Saved correction");
+    const repeat = repo.createRound(team.id, "Saved correction", entry.id);
+    repo.renameIssueTitle(team.id, "history", entry.id, "During re-vote", "Saved correction");
+    expect(repo.getCurrentRound(team.id)?.title).toBe("During re-vote");
+    repo.cancelRound(repeat.id);
+    expect(repo.getStatistics({online: [], boards: {}}, team.id).selected.completedRounds).toBe(stats.completedRounds);
+    expect(() => repo.renameIssueTitle(team.id, "rounds", round.id, "Obsolete edit", "Saved correction")).toThrow(/no longer/);
+    expect(() => repo.renameIssueTitle(team.id, "history", entry.id, " ", "During re-vote")).toThrow(/1 to 255/);
+    const other = repo.createTeam(user.id, "Other title team");
+    expect(() => repo.renameIssueTitle(other.id, "history", entry.id, "Cross team", "During re-vote")).toThrow(/no longer/);
+    const restarted = new Repository(config);
+    expect(restarted.getHistory(team.id)[0].title).toBe("During re-vote");
+  });
+
   it("counts rolling active people exactly at boundaries without duplicate tabs or synthetic identities", () => {
     const config = createTestConfig(); const repo = new Repository(config); const db = new DatabaseSync(config.databasePath);
     db.exec("PRAGMA foreign_keys = ON");

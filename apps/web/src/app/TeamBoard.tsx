@@ -16,6 +16,8 @@ import {
   renderVoteCardStatus
 } from "./utils";
 
+import { EditableIssueTitle } from "./EditableIssueTitle";
+
 const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
   { keyLabel: "1-0 - = [ ]", description: "Cast a vote with the matching card shortcut." },
   { keyLabel: "R", description: "Reveal the score for the active round." },
@@ -270,6 +272,7 @@ export const BoardStageContent = memo(function BoardStageContent(props: {
   layoutGuideRects: Array<{ key: string; rect: BoardRect }>;
   memberPlacements: BoardMemberPlacement[];
   titleDraft: string;
+  onRenameRound?: (id: string, title: string, expectedTitle: string) => Promise<void>;
   onTitleDraftChange: (value: string) => void;
   canCreateRound: boolean;
   isBusy: boolean;
@@ -334,7 +337,7 @@ export const BoardStageContent = memo(function BoardStageContent(props: {
                 {props.readOnlyMessage ? <div className="board-readonly-banner">{props.readOnlyMessage}</div> : null}
                 {props.activeRound ? (
                   <>
-                    <h2 className="floating-chip">{props.activeRound.title}</h2>
+                    <EditableIssueTitle as="h2" key={props.activeRound.id} className="floating-chip" title={props.activeRound.title} label="Edit current issue title" onSave={props.onRenameRound ? (title, expected) => props.onRenameRound!(props.activeRound!.id, title, expected) : undefined} />
                     {props.activeRound.status === "revealed" ? (
                       <form
                         className="revealed-actions"

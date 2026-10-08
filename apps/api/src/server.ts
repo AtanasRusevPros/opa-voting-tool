@@ -495,6 +495,14 @@ function updateSocketMetrics() {
   perfTracker.setGauge("ws.activeSockets", activeTeamSockets + chooserClients.size + directorySockets + statisticsClients.size);
 }
 
+function notifyHistoryTitle(teamId: string, historyId: string, title: string) {
+  const message = JSON.stringify({type: "team:history-title", payload: {teamId, historyId, title}});
+  for (const socket of teamClients.get(teamId) ?? []) {
+    const session = socketSessions.get(socket);
+    if (socket.readyState === 1 && session && (repository.isTeamMember(session.userId, teamId) || repository.isSuperAdmin(session.userId))) socket.send(message);
+  }
+}
+
 function getActiveParticipantIds(teamId: string): Set<string> {
   const sockets = teamClients.get(teamId);
   const activeUserIds = new Set<string>();
@@ -768,6 +776,7 @@ function createApp(currentDemoModeManager: DemoModeManager) {
     getEligibleRevealParticipantIds,
     getLiveStatistics,
     notifyStatistics,
+    notifyHistoryTitle,
     broadcastSoon,
     broadcastChooserSoon,
     broadcastPlatformSettingsSoon,

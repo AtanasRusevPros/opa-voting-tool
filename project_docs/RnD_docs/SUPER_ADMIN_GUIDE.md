@@ -493,3 +493,6 @@ trial mode; changing that flag does not migrate existing trial workspace records
 Use **Platform → Stats** for installation-wide usage, workspace filtering and team breakdowns. The menu is renamed from Platform settings; existing configuration tabs remain. Stats is read-only and Save settings is disabled on that tab. JSON export uses the displayed aggregate snapshot and selected scope. No public endpoint exposes usage totals.
 
 Statistics are enabled for both deployment modes with fixed 31-day retention, no additional service or TOML key. Review [definitions and operating boundaries](USAGE.md#usage-statistics) and [privacy disclosure](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Collection starts on installation of this version; old usage is not reconstructed. This is adoption/usage reporting, not employee performance ranking. The separate operator usage CLI remains a legacy report with different calendar-month definitions, not a matching Stats export.
+
+
+Team admins and the super-admin can also correct board and saved history titles inline. See [editing issue titles](TEAM_ADMIN_GUIDE.md#edit-an-issue-title) for controls, validation and read-only boundaries.

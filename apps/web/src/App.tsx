@@ -3035,6 +3035,8 @@ export const TeamBoard = memo(function TeamBoard(props: {
   onReveal: () => Promise<void>;
   onCancelActiveRound?: () => Promise<void>;
   onVoteAgainActiveRound?: () => Promise<void>;
+  onRenameRound?: (id: string, title: string, expectedTitle: string) => Promise<void>;
+  onRenameHistory?: (id: string, title: string, expectedTitle: string) => Promise<void>;
   onVoteAgain: (historyId: string) => Promise<void>;
   onAddHistoryComment: (historyId: string, body: string) => Promise<void>;
   onEditHistoryComment: (historyId: string, commentId: string, body: string) => Promise<void>;
@@ -4129,6 +4131,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
         onCreateRound={props.onCreateRound}
         onReveal={props.onReveal}
         onCancelActiveRound={props.onCancelActiveRound}
+        onRenameRound={canEditTeamSettings ? props.onRenameRound : undefined}
         onVoteAgainActiveRound={props.onVoteAgainActiveRound}
         onVoteAgain={props.onVoteAgain}
         latestHistoryEntryId={latestHistoryEntryId}
@@ -4183,6 +4186,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
             isBusy={props.isBusy}
             latestRevealedHistoryId={latestHistoryEntryId}
             onVoteAgain={props.onVoteAgain}
+            onRenameHistory={canEditTeamSettings ? props.onRenameHistory : undefined}
             onAddComment={props.onAddHistoryComment}
             onEditComment={props.onEditHistoryComment}
             onDeleteComment={props.onDeleteHistoryComment}
@@ -4223,6 +4227,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
           isBusy={props.isBusy}
           latestRevealedHistoryId={latestHistoryEntryId}
           onVoteAgain={props.onVoteAgain}
+          onRenameHistory={canEditTeamSettings ? props.onRenameHistory : undefined}
           onAddComment={props.onAddHistoryComment}
           onEditComment={props.onEditHistoryComment}
           onDeleteComment={props.onDeleteHistoryComment}
@@ -4291,6 +4296,7 @@ export default function App() {
   const [historySearchNextCursor, setHistorySearchNextCursor] = useState<HistoryPageCursor | null>(null);
   const [historySearchLoading, setHistorySearchLoading] = useState(false);
   const [historySearchRequested, setHistorySearchRequested] = useState(false);
+  const refreshHistorySearchRef = useRef<() => void>(() => {});
   const [historyTimezonePreferenceOverrides, setHistoryTimezonePreferenceOverrides] = useState<
     Record<string, HistoryTimezonePreferenceOverride>
   >({});
@@ -4885,6 +4891,10 @@ export default function App() {
     }
   }, [selectedTeamId, setErrorStatus]);
 
+  refreshHistorySearchRef.current = () => {
+    if (historySearchRequested) void runHistorySearch(historySearchFilters);
+  };
+
   const loadMoreHistorySearch = useCallback(async () => {
     if (!selectedTeamId || !historySearchNextCursor || historySearchLoading) {
       return;
@@ -5414,6 +5424,7 @@ export default function App() {
     debugReveal("ws:open:start", { teamId: selectedTeamId });
     ws.onopen = () => {
       debugReveal("ws:open:connected", { teamId: selectedTeamId });
+      refreshHistorySearchRef.current();
       clearRoomEntryResyncTimeout();
       roomEntryResyncTimeoutId = window.setTimeout(() => {
         if (closedByCleanup) {
@@ -5438,11 +5449,21 @@ export default function App() {
     };
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data) as
+        | { type: "team:history-title"; payload: {teamId: string; historyId: string; title: string} }
         | { type: "team:update"; payload: TeamStateResponse }
         | { type: "team:round"; payload: TeamRoundUpdatePayload }
         | { type: "team:round-vote"; payload: TeamRoundVoteUpdatePayload }
         | { type: "team:presence"; payload: { teamId: string; activeParticipants: UserSummary[] } }
         | { type: "platform:branding"; payload: Partial<BrandingManifest> };
+      if (message.type === "team:history-title") {
+        const {teamId, historyId, title} = message.payload;
+        if (teamId !== selectedTeamId) return;
+        const update = (entries: HistoryEntry[]) => entries.map(entry => entry.id === historyId ? {...entry, title} : entry);
+        setTeamState(current => current?.team.id === teamId ? {...current, history: update(current.history)} : current);
+        setHistorySearchItems(update);
+        return;
+      }
+
       if (message.type === "platform:branding") {
         setBranding(mergeBrandingManifest(message.payload));
         return;
@@ -6247,6 +6268,18 @@ export default function App() {
       setIsBusy(false);
     }
   }, [selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus]);
+
+  const handleRenameIssue = useCallback(async (kind: "rounds" | "history", id: string, title: string, expectedTitle: string) => {
+    if (!selectedTeamId) return;
+    const response = await api<{historyEntry: HistoryEntry | null; round: Pick<RoundState, "id" | "title"> | null}>(`/api/teams/${selectedTeamId}/${kind}/${id}/title`, {
+      method: "PATCH", body: JSON.stringify({title, expectedTitle})
+    });
+    setTeamState(current => !current || current.team.id !== selectedTeamId ? current : {
+      ...current, activeRound: current.activeRound && current.activeRound.id === response.round?.id ? {...current.activeRound, title: response.round.title} : current.activeRound,
+      history: response.historyEntry ? replaceHistoryEntry(current.history, response.historyEntry) : current.history
+    });
+    if (response.historyEntry) setHistorySearchItems(current => replaceHistoryEntry(current, response.historyEntry!));
+  }, [selectedTeamId]);
 
   const handleAddHistoryComment = useCallback(async (historyId: string, body: string) => {
     if (!selectedTeamId) {
@@ -7243,6 +7276,8 @@ export default function App() {
         onCancelActiveRound={handleCancelActiveRound}
         onVoteAgainActiveRound={handleVoteAgainActiveRound}
         onVoteAgain={handleVoteAgain}
+        onRenameRound={(id, title, expected) => handleRenameIssue("rounds", id, title, expected)}
+        onRenameHistory={(id, title, expected) => handleRenameIssue("history", id, title, expected)}
         onAddHistoryComment={handleAddHistoryComment}
         onEditHistoryComment={handleEditHistoryComment}
         onDeleteHistoryComment={handleDeleteHistoryComment}

@@ -2723,3 +2723,121 @@ test("stats show a recoverable read failure and clear it after retry", async ({ 
   await expect(page.getByTestId('stats-Completed rounds')).toHaveText('0'); await expect(page.getByRole('alert')).toHaveCount(0);
   expect(failures).toEqual([]);
 });
+
+test('admins edit live and historical issue titles inline without changing the title box or votes', async ({browser}) => {
+  const a = await browser.newContext(), b = await browser.newContext();
+  const owner = await a.newPage(), member = await b.newPage();
+  const cleanOwner = attachBrowserIssueCapture(owner), cleanMember = attachBrowserIssueCapture(member);
+  try {
+    const email = uniqueEmail('title-member');
+    await loginWithDebugCode(owner, uniqueEmail('title-owner'), 'Title Owner'); await createTeam(owner, `Title team ${Date.now()}`);
+    const teamId = new URL(owner.url()).searchParams.get('teamId')!;
+    await loginWithDebugCode(member, email, 'Title Member');
+    expect((await owner.request.post(`/api/teams/${teamId}/members`, {data: {email}})).ok()).toBe(true);
+    await member.goto(`/?teamId=${teamId}`); await expect(member.locator('.board-shell')).toBeVisible();
+    const {round} = await (await owner.request.post(`/api/teams/${teamId}/rounds`, {data: {title: 'Original editable issue'}})).json();
+    await owner.request.post(`/api/teams/${teamId}/rounds/${round.id}/vote`, {data: {value: '5'}});
+    const boardTitle = owner.locator('h2.floating-chip');
+    await expect(boardTitle).toHaveText('Original editable issue');
+    await expect(member.getByRole('button', {name: 'Edit current issue title'})).toHaveCount(0);
+    await member.locator('h2.floating-chip').click(); await expect(member.getByRole('textbox', {name: 'Edit current issue title'})).toHaveCount(0);
+    const before = await boardTitle.boundingBox();
+    await owner.getByRole('button', {name: 'Edit current issue title'}).hover();
+    await expect(boardTitle.locator('.issue-title-pencil')).toHaveCSS('opacity', '1');
+    await owner.getByRole('button', {name: 'Edit current issue title'}).click();
+    const editor = owner.getByRole('textbox', {name: 'Edit current issue title'});
+    await editor.fill('Corrected live issue');
+    const during = await boardTitle.boundingBox();
+    expect(during!.width).toBeCloseTo(before!.width, 1); expect(during!.height).toBeCloseTo(before!.height, 1);
+    await editor.press('Enter'); await expect(boardTitle).toHaveText('Corrected live issue');
+    await expect(member.locator('h2.floating-chip')).toHaveText('Corrected live issue');
+    let state = await (await owner.request.get(`/api/teams/${teamId}/state`)).json();
+    expect(state.activeRound.votes).toHaveLength(1); expect(state.activeRound.status).toBe('active');
+    await owner.request.post(`/api/teams/${teamId}/rounds/${round.id}/reveal`);
+    const historyTitle = owner.locator('.history-card-title').first();
+    await expect(historyTitle).toHaveText('Corrected live issue');
+    await historyTitle.getByRole('button').click();
+    await historyTitle.getByRole('textbox').fill('Saved history correction');
+    await owner.locator('.history-card-meta').first().click();
+    await expect(historyTitle).toHaveText('Saved history correction');
+    await expect(member.locator('.history-card-title').first()).toHaveText('Saved history correction');
+    await expect(boardTitle).toHaveText('Saved history correction');
+    await expect(member.locator('.history-card-title button')).toHaveCount(0);
+    await owner.reload(); await expect(owner.locator('h2.floating-chip')).toHaveText('Saved history correction');
+    await owner.getByRole('button', {name: 'Edit current issue title'}).click();
+    await editor.fill('Cancelled change'); await editor.press('Escape');
+    await expect(boardTitle).toHaveText('Saved history correction');
+    for (const width of [1280, 768, 390]) {
+      await owner.setViewportSize({width, height: 900});
+      await owner.getByRole('button', {name: 'Edit current issue title'}).click();
+      const box = await boardTitle.boundingBox();
+      await editor.fill('A long title '.repeat(20));
+      const inputBox = await editor.boundingBox();
+      expect(inputBox!.width).toBeLessThanOrEqual(box!.width); expect(inputBox!.height).toBeLessThanOrEqual(box!.height);
+      expect(await editor.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
+      await boardTitle.screenshot({path: `/tmp/opa-inline-title-${width}.png`});
+      await editor.press('Escape');
+    }
+    cleanOwner(); cleanMember();
+  } finally { await a.close(); await b.close(); }
+});
+
+test('inline title editing retains failed drafts, validates empty input and prevents lost concurrent edits', async ({page}) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => {
+    if (!['error', 'warning'].includes(message.type())) return;
+    const path = (() => { try { return new URL(message.location().url).pathname; } catch { return ''; } })();
+    if (path === '/api/auth/session' && /\b401\b/.test(message.text())) return;
+    if (path.endsWith('/title') && /\b(409|503)\b/.test(message.text())) return;
+    errors.push(message.text());
+  });
+  await loginWithDebugCode(page, uniqueEmail('title-errors'), 'Title Editor'); await createTeam(page, `Edit recovery ${Date.now()}`);
+  const teamId = new URL(page.url()).searchParams.get('teamId')!;
+  const {round} = await (await page.request.post(`/api/teams/${teamId}/rounds`, {data: {title: 'Original recovery title'}})).json();
+  const trigger = page.getByRole('button', {name: 'Edit current issue title'});
+  const editor = page.getByRole('textbox', {name: 'Edit current issue title'});
+  await trigger.click(); await editor.fill(' '); await editor.press('Enter');
+  await expect(page.getByRole('alert')).toHaveText('Use 1 to 255 characters.');
+  await editor.fill('Recovered title');
+  const url = `**/api/teams/${teamId}/rounds/${round.id}/title`;
+  await page.route(url, route => route.fulfill({status: 503, contentType: 'application/json', body: JSON.stringify({error: 'Temporary save failure'})}));
+  await editor.press('Enter'); await expect(page.getByRole('alert')).toHaveText('Temporary save failure');
+  await expect(editor).toHaveValue('Recovered title');
+  await page.unroute(url); await editor.press('Enter'); await expect(page.locator('h2.floating-chip')).toHaveText('Recovered title');
+  await trigger.click(); await editor.fill('My concurrent draft');
+  expect((await page.request.patch(`/api/teams/${teamId}/rounds/${round.id}/title`, {data: {title: 'Other admin change', expectedTitle: 'Recovered title'}})).ok()).toBe(true);
+  await editor.press('Enter'); await expect(page.getByRole('alert')).toContainText('changed while you were editing');
+  await expect(editor).toHaveValue('My concurrent draft'); await editor.press('Escape');
+  await expect(page.locator('h2.floating-chip')).toHaveText('Other admin change');
+  expect(errors).toEqual([]);
+});
+
+test('older history titles remain editable in search and update another open search', async ({browser}) => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  const cleanPage = attachBrowserIssueCapture(page);
+  try {
+    await loginWithDebugCode(page, uniqueEmail('older-title'), 'History Editor'); await createTeam(page, `Older titles ${Date.now()}`);
+    const teamId = new URL(page.url()).searchParams.get('teamId')!;
+    for (let i = 0; i < 22; i++) {
+      const {round} = await (await page.request.post(`/api/teams/${teamId}/rounds`, {data: {title: i === 0 ? 'Old searchable issue' : `Recent issue ${i}`}})).json();
+      await page.request.post(`/api/teams/${teamId}/rounds/${round.id}/reveal`);
+    }
+    const other = await context.newPage(); const cleanOther = attachBrowserIssueCapture(other); await other.goto(`/?teamId=${teamId}`);
+    for (const view of [page, other]) {
+      await view.getByRole('tab', {name: 'Search', exact: true}).click();
+      await view.getByLabel('Title or words').fill('Old searchable');
+      await view.getByRole('button', {name: 'Search history', exact: true}).click();
+      await expect(view.locator('.history-card-title')).toHaveText('Old searchable issue');
+    }
+    const title = page.locator('.history-card-title'); const before = await title.boundingBox();
+    await title.getByRole('button').click(); const editor = title.getByRole('textbox');
+    await editor.fill('Old searchable corrected');
+    expect((await title.boundingBox())!.height).toBeCloseTo(before!.height, 1);
+    await editor.press('Enter');
+    await expect(title).toHaveText('Old searchable corrected');
+    await expect(other.locator('.history-card-title')).toHaveText('Old searchable corrected');
+    await expect(page.locator('h2.floating-chip')).toHaveText('Recent issue 21');
+    cleanPage(); cleanOther();
+  } finally { await context.close(); }
+});
