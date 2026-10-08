@@ -454,7 +454,10 @@ cd /opt/opa-voting-tool/app
 ./deploy.sh public-health
 ```
 
-What `./deploy.sh update` does:
+
+`./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
+
+When newer sources are available, `./deploy.sh update`:
 - preserves deployment-local settings in ignored `config/deployment.local.toml`
 - preserves ignored keep-alive overrides in `config/deploy.local.toml`
 - creates a timestamped backup first

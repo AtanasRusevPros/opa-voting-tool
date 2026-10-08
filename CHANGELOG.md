@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- `./deploy.sh update` now reports when tracked repository sources are already up to date and skips an unnecessary backup/rebuild/restart. Use `./deploy.sh rebuild` to redeploy unchanged sources.
+
 - Corrected statistics retention: self-hosted records no longer expire automatically; hosted-trial records retain the 31-day policy. Reports, exports, About and privacy text show the applicable policy. Backup rotation only deletes backup copies, preserving the live database and voting history.
 
 - Fixed another participant incorrectly appearing as Voted when only one person voted. Live vote indexes now follow the transmitted membership order rather than a separate name-sorted list; added reversed-order two-browser and unit regressions.

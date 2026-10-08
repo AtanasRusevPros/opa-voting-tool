@@ -258,6 +258,17 @@ EOF
   exit 1
 }
 
+check_source_update() {
+  # Fetch before comparing: a cached remote ref cannot prove we are up to date.
+  git rev-parse --verify '@{upstream}' >/dev/null
+  git fetch
+  if [[ "$(git rev-parse HEAD)" == "$(git rev-parse '@{upstream}')" ]]; then
+    echo "Already up to date: no newer sources in the tracked repository branch."
+    echo "No backup, rebuild or restart performed. To redeploy these sources, run ./deploy.sh rebuild."
+    exit 0
+  fi
+}
+
 prepare_git_update_config() {
   local created_local=1
   ensure_deployment_local_config && created_local=0
@@ -1395,7 +1406,7 @@ Stack:
   ./deploy.sh down            Stop and remove the compose service
   ./deploy.sh restart         Restart the app service and wait for local health
   ./deploy.sh rebuild         Build with --no-cache and recreate the service
-  ./deploy.sh update          Backup, git pull --ff-only, rebuild, and health-check
+  ./deploy.sh update          Check for new sources; if changed, backup, pull, rebuild, health-check
   ./deploy.sh ps              Show compose/container status
 
 Health and diagnostics:
@@ -1754,6 +1765,7 @@ case "$cmd" in
     clear_planned_action
     ;;
   update)
+    check_source_update
     prepare_git_update_config
     ensure_super_admin_credentials
     mark_planned_action "update"

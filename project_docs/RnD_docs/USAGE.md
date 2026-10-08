@@ -103,6 +103,8 @@ New release/update flow on the VPS:
 5. Open the HTTPS app and do a short login/team/vote/reveal smoke test.
 6. If anything looks wrong, run `./deploy.sh diagnose` before editing Caddy or firewall settings.
 
+`./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
+
 Migration note for replacing or moving an existing deployment checkout:
 - take a backup before changing the checkout
 - preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/deploy.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`

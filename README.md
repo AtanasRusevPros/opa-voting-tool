@@ -78,6 +78,9 @@ podman compose -f infra/containers/compose.yaml up -d
 
 Use `./deploy.sh update` for new releases on an existing deployment.
 
+`./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
+
+
 The first tested deployment path is Ubuntu Server 24.04 LTS with Podman and Caddy. Other common Linux server distributions should be adaptable, but may need package-manager, firewall, service-management, or Podman/Compose adjustments.
 
 Internet-facing deployments should be HTTPS-only after initial bring-up/testing. HTTP-only use is for temporary local testing or protected internal networks at the operator's own risk.
@@ -344,7 +347,7 @@ Jira Cloud:
 - `./dev.sh stack:verify` checks packaged stack health on `localhost:3001`
 - `./deploy.sh help` shows the deployed VPS operator command list
 - `./deploy.sh rebuild` builds the deployed image with `--no-cache`, recreates the service, and waits for local health
-- `./deploy.sh update` backs up the current deployment, pulls the latest Git commit with `--ff-only`, rebuilds, recreates, and waits for local health
+- when source updates are available, `./deploy.sh update` backs up the current deployment, pulls the latest Git commit with `--ff-only`, rebuilds, recreates, and waits for local health
 - `./deploy.sh config:migrate` creates ignored `config/deployment.local.toml` from the tracked config so live deployment settings survive future pulls
 - `./deploy.sh health` prints local API/web health plus startup/watchdog/incident summary
 - `./deploy.sh public-health` checks the public HTTPS health endpoint through Caddy and prints the same keep-alive summary
