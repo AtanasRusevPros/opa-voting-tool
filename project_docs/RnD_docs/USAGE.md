@@ -303,7 +303,7 @@ Fallback public branding assets:
 - [`scripts/generate-animal-avatars.mjs`](../../scripts/generate-animal-avatars.mjs)
 
 Operational notes:
-1. super-admins can open `Platform settings` in the app to edit the tabbed platform surface:
+1. super-admins can open `Platform` in the app to edit the tabbed platform surface:
    `People`, `Branding`, `App settings`, `SMTP`, and `Super-admin`
 2. the `People` tab owns pending platform access requests, admitted platform users, and super-admin-only existing-user password reset
 3. the `Super-admin` tab owns admin credentials plus Jira Cloud client credentials, site connection, and disconnect/site-selection actions
@@ -317,7 +317,7 @@ Operational notes:
 11. the public branding files remain the fallback defaults when no managed override is configured
 12. if you want to regenerate the shipped 200-avatar animal set, run `node scripts/generate-animal-avatars.mjs`
 13. if SMTP is not configured, team-admin add/invite still works for new allowlisted users by revealing a one-time generated password for manual sharing
-14. if SMTP is not configured, existing-user password reset is done from the super-admin `Platform settings -> People` tab for platform-wide recovery, or from a team's `Team admin -> People` tab when the requester is already a member of that team; team-admin reset is disabled while the target user is currently live on that team's board, and replacement credentials appear inline under the selected member row
+14. if SMTP is not configured, existing-user password reset is done from the super-admin `Platform -> People` tab for platform-wide recovery, or from a team's `Team admin -> People` tab when the requester is already a member of that team; team-admin reset is disabled while the target user is currently live on that team's board, and replacement credentials appear inline under the selected member row
 15. automated SMTP-capable verification uses mocked transport tests and does not require a real external mail server
 16. managed branding upload/application is now covered in both the backend admin-config suite and the web settings suite so asset-regression checks are not left to manual testing alone
 17. for manual local SMTP validation, point the app to Mailpit or MailHog and confirm invite/reset mail appears there
@@ -353,7 +353,7 @@ Operational notes:
 
 ## Import And Export Notes
 
-- Super-admins can open `Platform settings -> Super-admin` to export the full SQLite database as a snapshot and import a previously exported snapshot back into the app.
+- Super-admins can open `Platform -> Super-admin` to export the full SQLite database as a snapshot and import a previously exported snapshot back into the app.
 - Whole-database import is a maintenance operation: it replaces the current live database contents with the imported snapshot.
 - Team-admins and super-admins can open the team `People` modal to export that team's revealed-history package as JSON.
 - Team-history export includes comments by default, and comments can be excluded explicitly before export.
@@ -363,7 +363,7 @@ Operational notes:
 ## Jira Cloud Notes
 
 - This app supports Jira Cloud only in the current integration pass.
-- Super-admins configure the global Jira Cloud connection from `Platform settings -> Super-admin`.
+- Super-admins configure the global Jira Cloud connection from `Platform -> Super-admin`.
 - The supported Jira Cloud auth model is Atlassian OAuth 2.0 3LO.
 - If Atlassian returns more than one accessible site, the super-admin must choose which site to bind globally.
 - Team-admins and super-admins can save team-level Jira source settings:
@@ -471,7 +471,7 @@ documentation, source and GitHub-star links. This appears whenever public-trial 
 is enabled, including deployments with closed signup; signup availability is still
 controlled separately. Normal self-hosted sign-in remains unchanged.
 
-Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
+Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. Search discovery adds no tracking, crawler-specific rendering or frontend dependencies; built-in first-party usage statistics are described separately. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
 Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
 
@@ -558,3 +558,18 @@ principles; they are not certification or a blanket legal compliance claim.
 See [privacy, backup setup, restore and operator procedures](PRIVACY_AND_BACKUPS.md)
 for precise scope, downtime/disabled-feature exceptions, server commands and
 manual rights handling. Public copies of private planning evidence are not required.
+
+## Usage Statistics
+
+- **Team Admin → People / Stats / Import/export:** Stats is available to that team's admins, including for archived teams. Ordinary members do not gain analytics access.
+- **Platform → Stats:** super-admins see installation totals and team/workspace breakdowns; select a workspace to narrow the totals. The former “Platform settings” menu is now **Platform**; configuration tabs remain available.
+- Select **Last 24 hours**, **Last 7 days** or **Last 30 days**. These are rolling windows, not the hosted trial's UTC calendar-month quota. Active-person cards always show all three windows. Tables, other cards, trend and JSON export use the selected period.
+- Activity means opening a board or a successful team action such as voting or managing membership. Heartbeats, idle sockets and reading Stats do not create activity. Each human counts once within the selected scope/window, across tabs/teams. “Online” includes authenticated chooser connections; “On boards” includes only board connections. Team-scoped online counts refer to current team members online in the app, not necessarily on that board.
+- Completed rounds count each reveal, including re-votes. Distinct issue records use the saved history identifier; re-votes share that identifier and identical titles alone never merge issues. Old history/imported results are not backfilled; a new re-vote of an old issue is counted from this version onward. Unfinished and abandoned counters cover rounds started within the selected period.
+- Votes include valid non-numeric selections. Participation is the sum of votes by eligible board participants divided by the sum of eligible board participants at reveal, not total team membership. A missing denominator is shown explicitly. Unique-voter counts exclude deleted users; aggregate votes/participation in retained teams persist until statistics expiry.
+- Active teams/workspaces have qualifying activity in the period. New registrations are installation-wide surviving real accounts created within both the period and collection coverage. Daily trends use UTC dates; the first and last day may be partial. Coverage starts when the statistics schema is installed, and partial coverage is labelled rather than presented as complete historic totals.
+- Marked synthetic accounts/teams, demo teams, deleted accounts and super-admin operational activity are excluded. Classification is assigned by the demo/simulator seeding paths, never guessed from names or email prefixes. Existing dormant synthetic records acquire their marker when their seeder next runs; there is no historical activity backfill. These exclusions apply to Stats; existing People lists and operator usage exports retain their own counting rules.
+- Live changes use a read-only subscription, coalesced to about one update per second, with a periodic one-minute refresh. Disconnected clients are expired after a missed 30-second heartbeat (normally within 60 seconds). Stats viewers do not join board presence or voting quorum. The snapshot timestamp identifies the displayed results; **Refresh stats** is available after inactivity or errors.
+- **Export stats JSON** downloads exactly the displayed snapshot, period and scope. It contains team/workspace names and aggregates, not individual account lists, issue text or vote values. Anyone receiving that file can read it; downloaded files are not remotely erased.
+
+Statistics are built in and enabled in both deployment modes, with a fixed 31-day retention policy; there is no separate TOML switch. Activity buckets and round/voter records are pruned on startup and every minute while running. Account deletion removes activity and voter identifiers; retained shared round aggregates expire normally. Workspace purge cascades its statistics. Leaving a team does not rewrite its historical aggregates; membership/live counts reflect current access. Backups follow their own retention rules and restores must reapply privacy deletions. See [privacy and backups](PRIVACY_AND_BACKUPS.md).

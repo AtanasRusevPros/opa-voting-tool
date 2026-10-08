@@ -551,6 +551,61 @@ describe("Password and invite HTTP flows", () => {
     expect(newLogin.status).toBe(200);
   });
 
+  it("restricts statistics endpoints and sockets to platform or scoped team administrators", async () => {
+    const {app, server, repository} = await loadTestServer(); const client = request(app);
+    const ownerCookie = await createRegularUser(client, "stats-owner@example-company.com", "Owner");
+    const memberCookie = await createRegularUser(client, "stats-member@example-company.com", "Member");
+    const outsiderCookie = await createRegularUser(client, "stats-outside@example-company.com", "Outside");
+    const owner = (await client.get("/api/auth/session").set("Cookie", ownerCookie)).body.user;
+    const member = (await client.get("/api/auth/session").set("Cookie", memberCookie)).body.user;
+    const team = repository.createTeam(owner.id, "Scoped statistics"); repository.joinTeam(member.id, team.id);
+    expect((await client.get(`/api/teams/${team.id}/statistics`)).status).toBe(401);
+    for (const cookie of [memberCookie, outsiderCookie]) expect((await client.get(`/api/teams/${team.id}/statistics`).set("Cookie", cookie)).status).toBe(403);
+    expect((await client.get("/api/admin/statistics").set("Cookie", ownerCookie)).status).toBe(403);
+    expect((await client.get(`/api/teams/${team.id}/statistics?days=365`).set("Cookie", ownerCookie)).status).toBe(400);
+    const result = await client.get(`/api/teams/${team.id}/statistics`).set("Cookie", ownerCookie);
+    expect(result.status).toBe(200); expect(result.headers['cache-control']).toBe('no-store'); expect(result.body.teams).toHaveLength(1);
+    const admin = await client.post("/api/auth/signin-admin").send({username: "platform-admin", password: "PlatformAdmin123!"});
+    expect((await client.get("/api/admin/statistics").set("Cookie", admin.headers['set-cookie'])).status).toBe(200);
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as {port: number}).port;
+    const sockets: WebSocket[] = [];
+    const connect = (cookie: string | string[]) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?scope=statistics&teamId=${team.id}`, {headers: {Cookie: (Array.isArray(cookie) ? cookie : [cookie]).map(c => c.split(';')[0]).join('; ')}});
+      sockets.push(ws); return ws;
+    };
+    try {
+      expect((await once(connect(memberCookie), 'close'))[0]).toBe(1008);
+      const ws = connect(ownerCookie); await once(ws, 'message');
+      const revoked = once(ws, 'close');
+      repository.promoteTeamMember(owner.id, team.id, member.id);
+      repository.demoteTeamAdmin(repository.getSuperAdminUser()!.id, team.id, owner.id);
+      await client.post(`/api/teams/${team.id}/statistics/activity`).set('Cookie', memberCookie);
+      expect((await revoked)[0]).toBe(1008);
+      expect((await client.get(`/api/teams/${team.id}/statistics`).set('Cookie', ownerCookie)).status).toBe(403);
+    } finally { sockets.forEach(ws => ws.terminate()); await new Promise<void>(resolve => server.close(() => resolve())); }
+  });
+
+  it("expires an unresponsive chooser connection without treating its heartbeat as activity", async () => {
+    vi.useFakeTimers({toFake: ['setInterval', 'clearInterval']});
+    const {app, server} = await loadTestServer(); const client = request(app);
+    let ws: WebSocket | undefined;
+    try {
+      const cookie = await createRegularUser(client, "stats-idle@example-company.com", "Idle");
+      const admin = await client.post('/api/auth/signin-admin').send({username: 'platform-admin', password: 'PlatformAdmin123!'});
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+      const port = (server.address() as {port: number}).port;
+      ws = new WebSocket(`ws://127.0.0.1:${port}/ws?scope=chooser`, {autoPong: false, headers: {Cookie: (Array.isArray(cookie) ? cookie : [cookie]).map(c => c.split(';')[0]).join('; ')}});
+      await once(ws, 'open');
+      const before = await client.get('/api/admin/statistics?days=1').set('Cookie', admin.headers['set-cookie']);
+      expect(before.body.onlinePeople).toBe(1); expect(before.body.selected.activePeople).toBe(0);
+      await vi.advanceTimersByTimeAsync(30000);
+      const closed = once(ws, 'close'); await vi.advanceTimersByTimeAsync(30000); await closed;
+      const after = await client.get('/api/admin/statistics?days=7').set('Cookie', admin.headers['set-cookie']);
+      expect(after.body.onlinePeople).toBe(0); expect(after.body.selected.activePeople).toBe(0);
+    } finally { ws?.terminate(); await new Promise<void>(resolve => server.close(() => resolve())); vi.useRealTimers(); }
+  });
+
   it("persists login destination per account and rejects invalid preferences", async () => {
     const { app, repository } = await loadTestServer();
     const client = request(app);

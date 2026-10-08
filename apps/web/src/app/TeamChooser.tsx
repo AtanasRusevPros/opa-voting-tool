@@ -149,7 +149,7 @@ export function TeamChooser(props: {
           <div className="chooser-header-side chooser-header-actions">
             {props.user.isSuperAdmin ? (
               <button className="secondary-button" type="button" onClick={() => void props.onOpenAdminSettings()}>
-                Platform settings
+                Platform
               </button>
             ) : null}
             <button className="secondary-button" type="button" onClick={props.onOpenAccountSettings}>

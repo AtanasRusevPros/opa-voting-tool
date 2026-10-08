@@ -735,7 +735,7 @@ JavaScript: its HTML should contain the project text and SoftwareSourceCode JSON
 and the configured signup availability still work; no additional configuration is
 needed beyond the existing public-trial enabled setting.
 
-Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
+Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. Search discovery adds no tracking, crawler-specific rendering or frontend dependencies; built-in first-party usage statistics are described separately. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
 On the workspace-naming upgrade, a transactional, one-time database migration renames existing public-trial workspaces still named `My First Workspace` using their owner's display name. Custom names and non-trial workspaces are preserved. A later intentional rename back to the old name is not overwritten on restart. After deployment, verify trial-owner Save/Cancel and collaborator visibility, and reject a third-workspace invitation with an inline error while retaining the entered email.
 
@@ -815,3 +815,16 @@ principles; they are not certification or a blanket legal compliance claim.
 See [privacy, backup setup, restore and operator procedures](PRIVACY_AND_BACKUPS.md)
 for precise scope, downtime/disabled-feature exceptions, server commands and
 manual rights handling. Public copies of private planning evidence are not required.
+
+
+## Statistics Upgrade And Acceptance
+
+Statistics is built in for self-hosted and hosted-trial instances; no TOML edit is required. Use the normal backup/update procedure, then check `./deploy.sh version`, `./deploy.sh health` and `./deploy.sh public-health`. Startup adds the statistics schema automatically. Collection starts with this upgrade; existing voting history remains available but is not backfilled into statistics.
+
+- As super-admin, open **Platform → Stats** and try the period selector, workspace filter and JSON export.
+- As team admin, open **Team Admin → Stats**. With two disposable accounts, vote and reveal, then vote again on the same issue. Rounds should increase twice; distinct issues should increase once.
+- Check live board counts when the second person joins/leaves. Two tabs for one person should still count once. Ordinary members should have no Stats tab.
+- Keep Stats open while voting; confirm normal board/history behavior and responsive controls on desktop and phone.
+- Review `/public-trial/privacy` on hosted-trial deployments and the [statistics retention and privacy guidance](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Records have a fixed 31-day retention window; backups and exported files require their own retention handling.
+
+Local regression/query-scale tests do not replace deployment health checks or representative concurrent-load testing on the operator's hardware.

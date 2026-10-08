@@ -491,7 +491,8 @@ function updateSocketMetrics() {
   perfTracker.setGauge("ws.activeChooserSockets", chooserClients.size);
   const directorySockets = [...directoryClients.values()].reduce((sum, sockets) => sum + sockets.size, 0);
   perfTracker.setGauge("ws.activeDirectorySockets", directorySockets);
-  perfTracker.setGauge("ws.activeSockets", activeTeamSockets + chooserClients.size + directorySockets);
+  perfTracker.setGauge("ws.activeStatisticsSockets", statisticsClients.size);
+  perfTracker.setGauge("ws.activeSockets", activeTeamSockets + chooserClients.size + directorySockets + statisticsClients.size);
 }
 
 function getActiveParticipantIds(teamId: string): Set<string> {
@@ -765,6 +766,8 @@ function createApp(currentDemoModeManager: DemoModeManager) {
     requireSimulatorMode,
     buildTeamState,
     getEligibleRevealParticipantIds,
+    getLiveStatistics,
+    notifyStatistics,
     broadcastSoon,
     broadcastChooserSoon,
     broadcastPlatformSettingsSoon,
@@ -782,6 +785,43 @@ const teamClients = new Map<string, Set<import("ws").WebSocket>>();
 const chooserClients = new Set<import("ws").WebSocket>();
 // Read-only directory observers never join board presence or affect voting quorum.
 const directoryClients = new Map<string, Set<import("ws").WebSocket>>();
+const statisticsClients = new Map<WebSocket, {userId: string; teamId?: string}>();
+let statisticsTimer: ReturnType<typeof setTimeout> | undefined;
+function canReadStatistics(userId: string, teamId?: string) {
+  const user = repository.getCurrentUser(userId);
+  return !!user && (repository.isSuperAdmin(userId) || (!!teamId && repository.getTeamUserRole(userId, teamId) === "team_admin"));
+}
+function notifyStatistics() {
+  if (statisticsTimer || !statisticsClients.size) return;
+  statisticsTimer = setTimeout(() => {
+    statisticsTimer = undefined;
+    for (const [socket, scope] of statisticsClients) {
+      if (!canReadStatistics(scope.userId, scope.teamId)) { socket.close(1008, "Statistics access revoked"); continue; }
+      if (socket.readyState === 1) socket.send(JSON.stringify({type: "statistics:update"}));
+    }
+  }, 1000);
+  statisticsTimer.unref?.();
+}
+function getLiveStatistics() {
+  const online = new Set<string>();
+  const boards: Record<string, string[]> = {};
+  for (const socket of chooserClients) {
+    const session = socketSessions.get(socket);
+    if (socket.readyState === 1 && session) online.add(session.userId);
+  }
+  for (const [teamId, sockets] of teamClients) {
+    const users = new Set<string>();
+    for (const socket of sockets) {
+      const session = socketSessions.get(socket);
+      if (socket.readyState === 1 && session) { users.add(session.userId); online.add(session.userId); }
+    }
+    boards[teamId] = [...users];
+  }
+  return {online: [...online], boards};
+}
+const statisticsMaintenance = setInterval(() => { repository.pruneStatistics(); notifyStatistics(); }, 60000);
+statisticsMaintenance.unref?.();
+
 const socketSessions = new WeakMap<import("ws").WebSocket, { teamId: string; userId: string }>();
 const pendingTeamBroadcasts = new Map<string, PendingTeamBroadcast>();
 const pendingBackpressuredTeamBroadcasts = new Map<string, BackpressuredTeamBroadcast>();
@@ -845,7 +885,20 @@ wsServer.on("error", (error) => {
   });
 });
 
+const heartbeatAlive = new WeakSet<WebSocket>();
+const heartbeatInterval = setInterval(() => {
+  for (const socket of wsServer.clients) {
+    if (!heartbeatAlive.has(socket)) { socket.terminate(); continue; }
+    heartbeatAlive.delete(socket);
+    if (socket.readyState === 1) socket.ping();
+  }
+}, 30000);
+heartbeatInterval.unref?.();
+wsServer.on("close", () => { clearInterval(heartbeatInterval); clearInterval(statisticsMaintenance); });
+
 wsServer.on("connection", (socket, request) => {
+  heartbeatAlive.add(socket);
+  socket.on("pong", () => heartbeatAlive.add(socket));
   const url = new URL(request.url ?? "/ws", config.appBaseUrl);
   const cookies = parseCookieHeader(request.headers.cookie ?? "");
   const token = url.searchParams.get("token") ?? cookies.session_token ?? undefined;
@@ -857,7 +910,7 @@ wsServer.on("connection", (socket, request) => {
     scope
   }));
   const user = repository.getSessionUser(token);
-  if (!user || (!teamId && scope !== "chooser")) {
+  if (!user || (!teamId && scope !== "chooser" && scope !== "statistics")) {
     perfTracker.incrementCounter("ws.rejectedConnections");
     logWsDebug("[ws-debug] rejected connection", {
       path: request.url ?? null,
@@ -877,12 +930,24 @@ wsServer.on("connection", (socket, request) => {
     userId: user.id
   });
 
+  if (scope === "statistics") {
+    if (!canReadStatistics(user.id, teamId ?? undefined)) { socket.close(1008, "Statistics permission required"); return; }
+    statisticsClients.set(socket, {userId: user.id, teamId: teamId ?? undefined});
+    updateSocketMetrics();
+    socket.send(JSON.stringify({type: "statistics:update"}));
+    socket.on("close", () => { statisticsClients.delete(socket); updateSocketMetrics(); });
+    return;
+  }
+
   if (scope === "chooser") {
     perfTracker.incrementCounter("ws.acceptedChooserConnections");
     chooserClients.add(socket);
+    socketSessions.set(socket, {teamId: "", userId: user.id});
+    notifyStatistics();
     updateSocketMetrics();
     socket.on("close", () => {
       chooserClients.delete(socket);
+      notifyStatistics();
       updateSocketMetrics();
     });
     return;
@@ -946,6 +1011,7 @@ function notifyDirectoryObservers(teamId: string) {
 }
 
 function broadcastTeam(teamId: string, mode: TeamBroadcastMode = "full") {
+  notifyStatistics();
   if (mode === "full") notifyDirectoryObservers(teamId);
   const sockets = teamClients.get(teamId);
   if (!sockets || sockets.size === 0) {
@@ -1023,6 +1089,7 @@ function broadcastTeam(teamId: string, mode: TeamBroadcastMode = "full") {
 }
 
 function broadcastPresence(teamId: string) {
+  notifyStatistics();
   notifyDirectoryObservers(teamId);
   const sockets = teamClients.get(teamId);
   if (!sockets || sockets.size === 0) {

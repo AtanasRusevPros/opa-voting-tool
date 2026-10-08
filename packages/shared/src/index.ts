@@ -1006,3 +1006,22 @@ export const BRANDING_MANIFEST: BrandingManifest = {
 };
 
 export { TRIAL_WELCOME, trialWelcomeStart } from "./trialWelcome.js";
+
+export type StatisticsMetrics = {
+  activePeople: number;
+  completedRounds: number;
+  distinctIssues: number;
+  votes: number;
+  uniqueVoters: number;
+  participationPercent: number | null;
+  activeRounds: number;
+  abandonedRounds: number;
+};
+export type StatisticsResponse = {
+  generatedAt: string; startedAt: string; days: 1 | 7 | 30; periodStart: string; partialCoverage: boolean;
+  windows: {day: StatisticsMetrics; week: StatisticsMetrics; month: StatisticsMetrics};
+  selected: StatisticsMetrics;
+  onlinePeople: number; onBoards: number; activeTeams: number; activeWorkspaces: number; newRegistrations: number | null;
+  teams: Array<StatisticsMetrics & {id: string; name: string; workspaceId: string; workspaceName: string; archived: boolean; members: number; onBoard: number}>;
+  trend: Array<{date: string; activePeople: number; completedRounds: number}>;
+};

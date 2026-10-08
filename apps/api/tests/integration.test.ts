@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { recordActivity, readStatistics, pruneStatistics } from "../src/repository/statistics.js";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
@@ -59,6 +60,130 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
+  it("counts rolling active people exactly at boundaries without duplicate tabs or synthetic identities", () => {
+    const config = createTestConfig(); const repo = new Repository(config); const db = new DatabaseSync(config.databasePath);
+    db.exec("PRAGMA foreign_keys = ON");
+    const user = (name: string, synthetic = false) => repo.ensureUser({email: `${name}@example-company.com`, displayName: name, avatarIconKey: "bear", avatarColorKey: "azure", synthetic});
+    const alice = user("demo.real"), bob = user("bob"), bot = user("robot", true), month = user("month-edge");
+    const team = repo.createTeam(alice.id, "Statistics"); repo.joinTeam(bob.id, team.id); repo.joinTeam(bot.id, team.id); repo.joinTeam(month.id, team.id);
+    const now = Date.parse("2026-10-08T12:00:00Z"), day = 86400000;
+    db.prepare("UPDATE statistics_metadata SET started_at = ?").run(new Date(now - 40 * day).toISOString());
+    recordActivity(db, alice.id, team.id, now - day); recordActivity(db, alice.id, team.id, now - day);
+    recordActivity(db, bob.id, team.id, now - 7 * day); recordActivity(db, month.id, team.id, now - 30 * day); recordActivity(db, bot.id, team.id, now);
+    recordActivity(db, repo.getSuperAdminUser()!.id, team.id, now);
+    const live = {online: [alice.id, alice.id, bot.id], boards: {[team.id]: [alice.id, alice.id, bot.id]}};
+    let stats = readStatistics(db, live, team.id, 30, now);
+    expect([stats.windows.day.activePeople, stats.windows.week.activePeople, stats.windows.month.activePeople]).toEqual([1, 2, 3]);
+    expect(stats.onlinePeople).toBe(1); expect(stats.onBoards).toBe(1); expect(stats.teams[0].members).toBe(3);
+    expect(stats.partialCoverage).toBe(false);
+    stats = readStatistics(db, live, team.id, 30, now + 1);
+    expect([stats.windows.day.activePeople, stats.windows.week.activePeople, stats.windows.month.activePeople]).toEqual([0, 1, 2]);
+    expect(stats.selected.participationPercent).toBeNull();
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(3);
+    pruneStatistics(db, now + 40 * day);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(0);
+    db.close();
+  });
+
+  it("separates re-votes from identical-titled issues and removes deleted-user activity while retaining aggregate rounds", () => {
+    const config = createTestConfig(); const repo = new Repository(config);
+    const email = "stats-owner@example-company.com";
+    const owner = repo.verifyLoginCode(email, repo.requestLoginCode(email).code, "Owner", "bear", "azure", undefined, "Password123!")!;
+    const other = repo.ensureUser({email: "stats-other@example-company.com", displayName: "Other", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const team = repo.createTeam(owner.id, "Round statistics"); repo.joinTeam(other.id, team.id);
+    repo.recordStatisticsActivity(owner.id, team.id);
+    const first = repo.createRound(team.id, "Same title"); repo.castVote(first.id, owner.id, "5");
+    repo.revealRound(first.id, {eligibleParticipantIds: [owner.id, other.id]});
+    repo.revealRound(first.id, {eligibleParticipantIds: [owner.id, other.id]}); // idempotent
+    const issueId = repo.getHistory(team.id)[0].id;
+    const revote = repo.createRound(team.id, "Same title", issueId); repo.castVote(revote.id, owner.id, "?"); repo.castVote(revote.id, other.id, "8");
+    repo.revealRound(revote.id, {eligibleParticipantIds: [owner.id, other.id]});
+    const another = repo.createRound(team.id, "Same title"); repo.castVote(another.id, owner.id, "3"); repo.revealRound(another.id, {eligibleParticipantIds: [owner.id]});
+    const abandoned = repo.createRound(team.id, "Abandoned"); repo.cancelRound(abandoned.id);
+    repo.createRound(team.id, "Unfinished");
+    let stats = repo.getStatistics({online: [], boards: {}}, team.id);
+    expect(stats.selected).toMatchObject({completedRounds: 3, distinctIssues: 2, votes: 4, uniqueVoters: 2, participationPercent: 80, abandonedRounds: 1, activeRounds: 1});
+    const preview = repo.getOwnAccountDeletionPreview(owner.id);
+    repo.deleteOwnAccount(owner.id, "Password123!", preview.confirmationPhrase, preview.impactToken);
+    stats = repo.getStatistics({online: [owner.id], boards: {[team.id]: [owner.id]}}, team.id);
+    expect(stats.selected).toMatchObject({activePeople: 0, completedRounds: 3, votes: 4, uniqueVoters: 1});
+    expect(stats.onlinePeople).toBe(0);
+  });
+
+  it("keeps hosted workspace statistics isolated and cascades purge without damaging another workspace", () => {
+    const config = createTestConfig(); config.publicTrial.enabled = true; const repo = new Repository(config);
+    const signup = (email: string) => repo.completePublicTrialSignup({email, code: repo.requestLoginCode(email).code, displayName: email, password: "Password123!", acceptedTermsVersion: repo.getPublicTrialTermsVersion()})!;
+    const a = signup("stats-a@example.com"), b = signup("stats-b@example.com");
+    const ta = repo.getTeamsForUser(a.user.id).memberships[0], tb = repo.getTeamsForUser(b.user.id).memberships[0];
+    repo.recordStatisticsActivity(a.user.id, ta.id); repo.recordStatisticsActivity(b.user.id, tb.id);
+    const result = repo.getStatistics({online: [a.user.id, b.user.id], boards: {}}, undefined, 30, a.workspace.id);
+    expect(result.teams.map(t => t.id)).toEqual([ta.id]); expect(result.selected.activePeople).toBe(1);
+    const preview = repo.getOwnAccountDeletionPreview(a.user.id); repo.deleteOwnAccount(a.user.id, "Password123!", preview.confirmationPhrase, preview.impactToken);
+    const all = repo.getStatistics({online: [], boards: {}});
+    expect(all.teams.some(t => t.id === ta.id)).toBe(false); expect(all.selected.activePeople).toBe(1);
+    expect(all.teams.some(t => t.id === tb.id)).toBe(true);
+  });
+
+  it("queries a representative 1000-user, 40-team statistics dataset without unbounded per-client work", async () => {
+    const config = createTestConfig(); const repo = new Repository(config); const db = new DatabaseSync(config.databasePath);
+    const now = Date.now(), at = new Date(now - 3600000).toISOString();
+    const owner = repo.getSuperAdminUser()!;
+    const teams = Array.from({length: 40}, (_, i) => repo.createTeam(owner.id, `Scale ${i}`));
+    const addUser = db.prepare("INSERT INTO users(id, email, display_name, avatar_key, created_at, updated_at, last_active_at) VALUES (?, ?, ?, 'bear', ?, ?, ?)");
+    const addMember = db.prepare("INSERT INTO team_memberships(team_id, user_id, role, created_at, last_opened_at) VALUES (?, ?, 'member', ?, ?)");
+    const addActivity = db.prepare("INSERT INTO statistics_activity VALUES (?, ?, ?, ?)");
+    const addRound = db.prepare("INSERT INTO rounds(id, team_id, title, deck_key, status, created_at, revealed_at) VALUES (?, ?, 'Scale issue', 'fibonacci', 'archived', ?, ?)");
+    const addStat = db.prepare("INSERT INTO statistics_rounds VALUES (?, ?, ?, ?, 10, 10, 10)");
+    const addVoter = db.prepare("INSERT INTO statistics_voters VALUES (?, ?)");
+    db.exec('BEGIN');
+    for (let i = 0; i < 1000; i++) {
+      const id = `scale-${i}`, team = teams[Math.floor(i / 25)].id;
+      addUser.run(id, `${id}@example.com`, id, at, at, at); addMember.run(team, id, at, at);
+      for (let day = 0; day < 30; day++) { const date = new Date(now - day * 86400000).toISOString(); addActivity.run(id, team, date.slice(0, 10), date); }
+    }
+    for (let i = 0; i < 4000; i++) {
+      const teamIndex = Math.floor(i / 100), team = teams[teamIndex].id, id = `scale-round-${i}`;
+      addRound.run(id, team, at, at); addStat.run(id, team, `issue-${i}`, at);
+      for (let v = 0; v < 10; v++) addVoter.run(id, `scale-${teamIndex * 25 + v}`);
+    }
+    db.exec('COMMIT');
+    const start = performance.now(); const stats = repo.getStatistics({online: [], boards: {}}); const elapsed = performance.now() - start;
+    expect(stats.selected.activePeople).toBe(1000); expect(stats.selected.completedRounds).toBe(4000); expect(stats.selected.votes).toBe(40000);
+    expect(stats.teams).toHaveLength(40); expect(elapsed).toBeLessThan(1500);
+    console.info(`Statistics query: 1000 users, 40 teams, 30000 activity buckets, 4000 rounds, 40000 voters: ${elapsed.toFixed(1)}ms`);
+    let ticks = 0; const ticker = setInterval(() => ticks++, 1);
+    const pending = repo.getStatisticsAsync({online: [], boards: {}});
+    expect(repo.getStatisticsAsync({online: [], boards: {}})).toBe(pending);
+    const background = await pending; clearInterval(ticker);
+    expect(background.selected).toEqual(stats.selected); expect(ticks).toBeGreaterThan(5);
+    const scoped = repo.getStatistics({online: [], boards: {}}, teams[0].id); expect(scoped.selected.completedRounds).toBe(100); expect(scoped.selected.activePeople).toBe(25);
+    db.close();
+  });
+
+  it("starts statistics coverage without inventing usage for pre-existing history", () => {
+    const config = createTestConfig(); const repo = new Repository(config); const owner = repo.getSuperAdminUser()!;
+    const team = repo.createTeam(owner.id, "Legacy history"); const round = repo.createRound(team.id, "Before collection"); repo.revealRound(round.id);
+    const db = new DatabaseSync(config.databasePath);
+    db.exec("DROP TABLE statistics_voters; DROP TABLE statistics_rounds; DROP TABLE statistics_activity; DROP TABLE statistics_metadata");
+    const migrated = new Repository(config); const statistics = migrated.getStatistics({online: [], boards: {}});
+    expect(migrated.getHistory(team.id)).toHaveLength(1); expect(statistics.selected.completedRounds).toBe(0); expect(statistics.partialCoverage).toBe(true);
+    db.close();
+  });
+
+  it("excludes marked synthetic teams and voters without guessing human names", () => {
+    const repo = new Repository(createTestConfig());
+    const real = repo.ensureUser({email: "demo.real@example.com", displayName: "Demo Real Human", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const bot = repo.ensureUser({email: "robot@example.com", displayName: "Ordinary Name", avatarIconKey: "bear", avatarColorKey: "azure", synthetic: true});
+    const team = repo.createTeam(real.id, "Real team"); repo.joinTeam(bot.id, team.id);
+    const round = repo.createRound(team.id, "Mixed voters"); repo.castVote(round.id, real.id, "5"); repo.castVote(round.id, bot.id, "8");
+    repo.revealRound(round.id, {eligibleParticipantIds: [real.id, bot.id]});
+    const seeded = repo.syncSimulatorTeams(repo.getSuperAdminUser()!.id, [{name: "Synthetic team", memberUserIds: [bot.id]}])[0];
+    const simulation = repo.createRound(seeded.id, "Synthetic votes"); repo.castVote(simulation.id, bot.id, "3"); repo.revealRound(simulation.id);
+    const result = repo.getStatistics({online: [real.id, bot.id], boards: {[team.id]: [real.id, bot.id]}});
+    expect(result.selected).toMatchObject({completedRounds: 1, votes: 1, uniqueVoters: 1, participationPercent: 100});
+    expect(result.teams.map(t => t.id)).toEqual([team.id]); expect(result.onBoards).toBe(1);
+  });
+
   it("migrates existing accounts to automatic board entry and preserves the saved preference after restart", () => {
     const config = createTestConfig();
     const repo = new Repository(config);

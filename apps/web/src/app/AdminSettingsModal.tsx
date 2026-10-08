@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { StatsPanel } from "./StatsPanel";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AccountDeletionPreview, AdminConfigSaveResult, AdminConfigView, AdminSettingsTab, BrandingAssetSlot, PlatformAccessRequestActionResponse, PlatformAccessRequestSummary, PlatformPeopleResponse, PlatformPeopleSort, PlatformUserSummary, TeamMemberPasswordResetResponse } from "./types";
@@ -478,6 +479,7 @@ export function AdminSettingsModal(props: {
 
   const tabs: Array<{ key: AdminSettingsTab; label: string }> = [
     { key: "people", label: "People" },
+    { key: "stats", label: "Stats" },
     { key: "branding", label: "Branding" },
     { key: "app", label: "App settings" },
     { key: "smtp", label: "SMTP" },
@@ -486,12 +488,12 @@ export function AdminSettingsModal(props: {
 
   return createPortal(
     <div className="admin-settings-backdrop" role="presentation" onClick={props.onClose}>
-      <div className="admin-settings-modal" role="dialog" aria-modal="true" aria-label="Platform settings" onClick={(event) => event.stopPropagation()}>
+      <div className="admin-settings-modal" role="dialog" aria-modal="true" aria-label="Platform" onClick={(event) => event.stopPropagation()}>
         <div className="admin-settings-header">
-          <h2>Platform settings</h2>
+          <h2>Platform</h2>
         </div>
 
-        <div className="admin-settings-tabs" role="tablist" aria-label="Platform settings sections">
+        <div className="admin-settings-tabs" role="tablist" aria-label="Platform sections">
           <div className="admin-settings-tab-row">
             {tabs.map((tab) => (
               <button
@@ -507,7 +509,7 @@ export function AdminSettingsModal(props: {
             ))}
           </div>
           <div className="admin-settings-top-actions">
-            <button className="primary-button" type="button" disabled={loading || saving || !draft} onClick={() => void handleSave()}>
+            <button className="primary-button" type="button" disabled={loading || saving || !draft || activeTab === "stats"} onClick={() => void handleSave()}>
               {saving ? "Saving..." : "Save settings"}
             </button>
             <button className="ghost-button admin-settings-close" type="button" onClick={props.onClose}>
@@ -524,6 +526,7 @@ export function AdminSettingsModal(props: {
 
         {draft ? (
           <div className="admin-settings-grid">
+            {activeTab === "stats" ? <div className="admin-settings-section-wide"><StatsPanel /></div> : null}
             {activeTab === "people" ? (
               <section className="admin-settings-section admin-settings-section-wide">
                 <h3>People</h3>

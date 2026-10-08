@@ -993,7 +993,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByText("Your teams")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Team")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Alpha Team" })).not.toBeInTheDocument();
   });
@@ -1122,16 +1122,16 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Platform settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Platform" }));
 
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("tab", { name: "Branding" }));
     fireEvent.change(screen.getByLabelText("Footer creator text"), { target: { value: "Created by Luke" } });
     fireEvent.change(screen.getByLabelText("Footer company text"), { target: { value: "Example Company" } });
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform settings" })).getAllByRole("button", { name: "Save settings" })[0]!);
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform" })).getAllByRole("button", { name: "Save settings" })[0]!);
 
     await waitFor(() => expect(screen.getByText("Created by Luke")).toBeInTheDocument());
     expect(screen.getByText("Example Company")).toBeInTheDocument();
@@ -1221,10 +1221,10 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Platform settings" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Platform" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("tab", { name: "Super-admin" }));
     fireEvent.click(screen.getByRole("button", { name: "Reveal admin password" }));
@@ -1362,9 +1362,9 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Platform settings" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Platform" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
     await waitFor(() => expect(screen.queryByText("Loading settings...")).not.toBeInTheDocument());
 
     expect(screen.getByText("pending.user@example-company.com")).toBeInTheDocument();
@@ -1523,14 +1523,14 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Platform settings" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Platform" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("tab", { name: "App settings" }));
     fireEvent.click(screen.getByLabelText("Enable super-admin demo mode"));
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform settings" })).getAllByRole("button", { name: "Save settings" })[0]!);
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform settings" })).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform" })).getAllByRole("button", { name: "Save settings" })[0]!);
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Platform" })).getByRole("button", { name: "Close" }));
 
     await waitFor(() => expect(screen.getByText("Demo Team 10")).toBeInTheDocument());
     expect(screen.getAllByText("Demo")[0]).toBeInTheDocument();
@@ -3787,7 +3787,7 @@ describe("App", () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("tab", { name: "Super-admin" }));
     await waitFor(() => expect(screen.getByLabelText("Client ID")).toHaveValue("jira-client-id"));
 
@@ -3891,7 +3891,7 @@ describe("App", () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
     const searchInput = screen.getByLabelText("Search");
     fireEvent.change(searchInput, { target: { value: "Ada" } });
 
@@ -4380,7 +4380,7 @@ describe("App", () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("tab", { name: "Branding" }));
 
     fireEvent.change(screen.getByLabelText("Team logo"), {
@@ -4527,9 +4527,9 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Platform settings" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Platform settings" }));
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform settings" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Platform" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Platform" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Platform" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
 
     await waitFor(() => expect(screen.getByText("Share this replacement password manually")).toBeInTheDocument());

@@ -247,7 +247,7 @@ export type TeamMemberPasswordResetResponse = {
   secureSaveReminder: string | null;
 };
 
-export type AdminSettingsTab = "people" | "branding" | "app" | "smtp" | "super-admin";
+export type AdminSettingsTab = "stats" | "people" | "branding" | "app" | "smtp" | "super-admin";
 
 export type RouteState = {
   selectedTeamId: string | null;

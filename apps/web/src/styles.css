@@ -3308,3 +3308,25 @@ textarea {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.statistics-panel { min-width: 0; overflow-wrap: anywhere; }
+.statistics-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.statistics-controls label { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
+.statistics-controls select { max-width: 100%; padding: 8px; }
+.statistics-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 12px; }
+.statistics-cards > div { padding: 12px; border: 1px solid #d7e1ef; border-radius: 12px; background: #f5f8fc; }
+.statistics-cards dt { font-size: .85rem; color: #425570; }
+.statistics-cards dd { font-size: 1.5rem; font-weight: 700; margin: 6px 0 0; }
+.statistics-table-scroll { max-width: 100%; overflow-x: auto; margin: 16px 0; }
+.statistics-table-scroll table { width: 100%; border-collapse: collapse; text-align: left; }
+.statistics-table-scroll th, .statistics-table-scroll td { padding: 8px; border-bottom: 1px solid #d7e1ef; }
+.statistics-table-scroll caption { text-align: left; font-weight: 700; margin-bottom: 8px; }
+
+@media (max-width: 720px) {
+  .admin-settings-backdrop { padding: 12px; }
+  .admin-settings-modal { height: calc(100dvh - 24px); padding: 16px; }
+  .admin-settings-tabs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+  .admin-settings-top-actions { order: -1; max-width: 100%; }
+  .admin-settings-tab-row { min-width: 0; gap: 6px; }
+  .admin-settings-tab { padding: 8px 12px; }
+}

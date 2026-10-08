@@ -130,7 +130,7 @@ export class DemoModeManager {
     const scenario = buildDemoScenario();
     const usersByEmail = new Map<string, { id: string }>();
     for (const user of scenario.users) {
-      const ensured = this.repository.ensureUser(user);
+      const ensured = this.repository.ensureUser({ ...user, synthetic: true });
       usersByEmail.set(user.email, { id: ensured.id });
     }
 

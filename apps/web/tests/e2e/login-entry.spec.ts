@@ -53,6 +53,8 @@ test("trial policies disclose deletion and backup exceptions on desktop and mobi
   await page.goto('/public-trial/privacy');
   await expect(page.getByRole('heading', { name: 'Your Privacy Requests', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Backup Retention', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'First-Party Usage Statistics', exact: true })).toBeVisible();
+  await expect(page.getByText(/Statistics are retained for 31 days/)).toBeVisible();
   await expect(page.getByText(/still personal data, not anonymisation/)).toBeVisible();
   await expect(page.getByText(/We do not sell personal data/)).toBeVisible();
   for (const width of [1440, 768, 390, 320]) {

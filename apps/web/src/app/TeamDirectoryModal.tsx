@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { StatsPanel } from "./StatsPanel";
 import { EditPencilIcon } from "./icons";
 import { useEffect, useMemo, useState } from "react";
 import type { TeamDirectoryResponse, TeamHistoryImportResponse, TeamMemberCandidateResponse, TeamMemberInviteResponse, TeamMemberPasswordResetResponse } from "./types";
@@ -55,7 +56,7 @@ export function TeamDirectoryModal(props: {
   const [teamImportFile, setTeamImportFile] = useState<File | null>(null);
   const [jiraProjectKey, setJiraProjectKey] = useState(props.directory.team.jiraProjectKey ?? "");
   const [jiraJql, setJiraJql] = useState(props.directory.team.jiraJql ?? "");
-  const [activeAdminTab, setActiveAdminTab] = useState<"people" | "import-export">("people");
+  const [activeAdminTab, setActiveAdminTab] = useState<"people" | "stats" | "import-export">("people");
   const pendingIssues = props.directory.pendingIssues ?? [];
   const canManageMembers = props.directory.currentUserIsSuperAdmin || props.directory.currentUserRole === "team_admin";
   const canEditMembership = canManageMembers && !props.directory.team.archived;
@@ -160,12 +161,14 @@ export function TeamDirectoryModal(props: {
             <button className={activeAdminTab === "people" ? "history-tab active" : "history-tab"} type="button" role="tab" aria-selected={activeAdminTab === "people"} onClick={() => setActiveAdminTab("people")}>
               People
             </button>
+            <button className={activeAdminTab === "stats" ? "history-tab active" : "history-tab"} type="button" role="tab" aria-selected={activeAdminTab === "stats"} onClick={() => setActiveAdminTab("stats")}>Stats</button>
             <button className={activeAdminTab === "import-export" ? "history-tab active" : "history-tab"} type="button" role="tab" aria-selected={activeAdminTab === "import-export"} onClick={() => setActiveAdminTab("import-export")}>
               Import/export
             </button>
           </div>
         ) : null}
         <div className="modal-scroll-body">
+        {canManageMembers && activeAdminTab === "stats" ? <StatsPanel teamId={props.directory.team.id} /> : null}
         {canManageMembers && activeAdminTab === "people" ? (
           <div className="directory-admin-panel">
             {canEditMembership ? (

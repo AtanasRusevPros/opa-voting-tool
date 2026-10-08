@@ -97,6 +97,8 @@ type RegisterRoutesDeps = {
   requireSimulatorMode(req: express.Request, res: express.Response): boolean;
   buildTeamState(teamId: string, userId: string, options?: { includeHistory?: boolean }): TeamStateResponse;
   getEligibleRevealParticipantIds(teamId: string): string[];
+  getLiveStatistics(): import("../repository/statistics.js").LiveStatistics;
+  notifyStatistics(): void;
   broadcastSoon(teamId: string): void;
   broadcastChooserSoon(): void;
   broadcastPlatformSettingsSoon(): void;
@@ -216,6 +218,8 @@ export function registerRoutes({
   requireSimulatorMode,
   buildTeamState,
   getEligibleRevealParticipantIds,
+  getLiveStatistics,
+  notifyStatistics,
   broadcastSoon,
   broadcastChooserSoon,
   broadcastPlatformSettingsSoon,
@@ -225,6 +229,20 @@ export function registerRoutes({
   noteTeamRoundRevealed,
   noteTeamVoteChanged
 }: RegisterRoutesDeps): void {
+  app.use((req, res, next) => {
+    const match = /^\/api\/teams\/([^/]+)\//.exec(req.path);
+    if (match && !req.path.endsWith("/statistics/activity") && ["POST", "PATCH", "DELETE"].includes(req.method)) {
+      res.once("finish", () => {
+        const user = (req as AuthedRequest).user;
+        if (res.statusCode < 300 && user) {
+          repository.recordStatisticsActivity(user.id, decodeURIComponent(match[1]));
+          notifyStatistics();
+        }
+      });
+    }
+    next();
+  });
+
   app.get("/health", (_req, res) => {
     try {
       const snapshot = repository.getHealthSnapshot();
@@ -374,6 +392,7 @@ export function registerRoutes({
 
     const ensuredUsers = payload.data.users.map((user) =>
       repository.ensureUser({
+        synthetic: true,
         email: user.email.toLowerCase(),
         displayName: user.displayName,
         avatarIconKey: user.avatarIconKey,
@@ -381,6 +400,7 @@ export function registerRoutes({
       })
     );
     const owner = repository.ensureUser({
+        synthetic: true,
       email: "sim.owner@example-company.com",
       displayName: "Simulator Owner",
       avatarIconKey: "cog",
@@ -939,6 +959,33 @@ export function registerRoutes({
       token: authedReq.user.sessionToken,
       ...teams
     });
+  });
+
+  const statisticsResponse = async (req: express.Request, res: express.Response, teamId?: string) => {
+    const days = Number(req.query.days ?? 30);
+    if (![1, 7, 30].includes(days)) { res.status(400).json({error: "Choose 1, 7 or 30 days."}); return; }
+    const workspaceId = !teamId && typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const statistics = await repository.getStatisticsAsync(getLiveStatistics(), teamId, days as 1 | 7 | 30, workspaceId);
+      // Recheck permission after a queued read; permissions may change while it runs.
+      if (teamId ? !requireTeamAdmin(req, res, {allowArchived: true}) : !requireSuperAdmin(req, res)) return;
+      res.json(statistics);
+    } catch { res.status(503).json({error: "Statistics are temporarily unavailable. Please retry."}); }
+  };
+  app.get("/api/admin/statistics", requireUser, (req, res) => {
+    if (!requireSuperAdmin(req, res)) return;
+    statisticsResponse(req, res);
+  });
+  app.get("/api/teams/:teamId/statistics", requireUser, (req, res) => {
+    if (!requireTeamAdmin(req, res, {allowArchived: true})) return;
+    statisticsResponse(req, res, String(req.params.teamId));
+  });
+  app.post("/api/teams/:teamId/statistics/activity", requireUser, (req, res) => {
+    if (!requireTeamAccess(req, res)) return;
+    repository.recordStatisticsActivity((req as AuthedRequest).user.id, String(req.params.teamId));
+    notifyStatistics();
+    res.json({ok: true});
   });
 
   app.get("/api/admin/config", requireUser, (req, res) => {

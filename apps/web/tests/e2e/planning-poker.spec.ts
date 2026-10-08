@@ -145,7 +145,7 @@ async function signInAsSuperAdmin(
         if (await page.getByRole("heading", { name: "Choose your team" }).isVisible().catch(() => false)) {
           return "chooser";
         }
-        if (await page.getByRole("button", { name: "Platform settings" }).isVisible().catch(() => false)) {
+        if (await page.getByRole("button", { name: "Platform" }).isVisible().catch(() => false)) {
           return "chooser-actions";
         }
         if (await page.getByRole("button", { name: "Open main menu" }).isVisible().catch(() => false)) {
@@ -740,9 +740,9 @@ test("super-admin can open the platform settings modal from the chooser", async 
   await page.setViewportSize({ width: 900, height: 640 });
   await signInAsSuperAdmin(page);
 
-  const settingsDialog = page.getByRole("dialog", { name: "Platform settings" });
-  await expect(page.getByRole("button", { name: "Platform settings" })).toBeVisible();
-  await page.getByRole("button", { name: "Platform settings" }).click();
+  const settingsDialog = page.getByRole("dialog", { name: "Platform" });
+  await expect(page.getByRole("button", { name: "Platform" })).toBeVisible();
+  await page.getByRole("button", { name: "Platform" }).click();
   await expect(settingsDialog).toBeVisible();
   await expect(settingsDialog.getByRole("button", { name: "Save settings" })).toHaveCount(1);
   await expect(settingsDialog.getByRole("button", { name: "Close" })).toHaveCount(1);
@@ -792,10 +792,10 @@ test("a normal user can delete their account and register fresh with the same em
 
 test("demo mode is super-admin-only and shows seeded demo teams when enabled", async ({ page }) => {
   const assertNoBrowserIssues = attachBrowserIssueCapture(page);
-  const settingsDialog = page.getByRole("dialog", { name: "Platform settings" });
+  const settingsDialog = page.getByRole("dialog", { name: "Platform" });
 
   await signInAsSuperAdmin(page);
-  await page.getByRole("button", { name: "Platform settings" }).click();
+  await page.getByRole("button", { name: "Platform" }).click();
   await expect(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("tab", { name: "App settings" }).click();
   await page.getByLabel("Enable super-admin demo mode").check();
@@ -815,11 +815,11 @@ test("demo mode is super-admin-only and shows seeded demo teams when enabled", a
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await signInAsSuperAdmin(page);
-  await page.getByRole("button", { name: "Platform settings" }).click();
+  await page.getByRole("button", { name: "Platform" }).click();
   await settingsDialog.getByRole("tab", { name: "App settings" }).click();
   await page.getByLabel("Enable super-admin demo mode").uncheck();
   await settingsDialog.getByRole("button", { name: "Save settings" }).first().click();
-  await page.getByRole("dialog", { name: "Platform settings" }).getByRole("button", { name: "Close" }).first().click();
+  await page.getByRole("dialog", { name: "Platform" }).getByRole("button", { name: "Close" }).first().click();
   await expect(page.getByText("Demo Team 10")).toHaveCount(0);
 
   assertNoBrowserIssues();
@@ -2375,8 +2375,8 @@ test("super-admin database snapshot export and import restore the previous SQLit
 
   await signInAsSuperAdmin(page);
 
-  await page.getByRole("button", { name: "Platform settings" }).click();
-  const settingsDialog = page.getByRole("dialog", { name: "Platform settings" });
+  await page.getByRole("button", { name: "Platform" }).click();
+  const settingsDialog = page.getByRole("dialog", { name: "Platform" });
   await expect(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("tab", { name: "Super-admin" }).click();
 
@@ -2391,7 +2391,7 @@ test("super-admin database snapshot export and import restore the previous SQLit
 
   await page.getByRole("button", { name: "Open main menu" }).click();
   await expect(getChooserTeamRow(page, restoredAwayTeam)).resolves.toBeTruthy();
-  await page.getByRole("button", { name: "Platform settings" }).click();
+  await page.getByRole("button", { name: "Platform" }).click();
   await expect(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("tab", { name: "Super-admin" }).click();
   await settingsDialog.getByLabel("Import SQLite snapshot").setInputFiles(snapshotPath!);
@@ -2423,8 +2423,8 @@ test("super-admin can open Jira Cloud controls and start the OAuth popup", async
 
   await signInAsSuperAdmin(page);
 
-  await page.getByRole("button", { name: "Platform settings" }).click();
-  const settingsDialog = page.getByRole("dialog", { name: "Platform settings" });
+  await page.getByRole("button", { name: "Platform" }).click();
+  const settingsDialog = page.getByRole("dialog", { name: "Platform" });
   await expect(settingsDialog).toBeVisible();
   await settingsDialog.getByRole("tab", { name: "Super-admin" }).click();
   await expect(settingsDialog.getByRole("heading", { name: "Jira Cloud" })).toBeVisible();
@@ -2590,4 +2590,136 @@ test("login and chooser-to-board transitions have no unexpected browser diagnost
   // Let pending handshake/cleanup complete before checking browser diagnostics.
   await page.waitForTimeout(600);
   assertNoBrowserIssues();
+});
+
+test("team stats stay live, deduplicate tabs, separate re-votes and export matching totals", async ({ browser }) => {
+  const ownerContext = await browser.newContext(), memberContext = await browser.newContext();
+  const owner = await ownerContext.newPage(), member = await memberContext.newPage();
+  const cleanOwner = attachBrowserIssueCapture(owner), cleanMember = attachBrowserIssueCapture(member);
+  const email = uniqueEmail('stats-member'), name = `Statistics ${Date.now()}`;
+  try {
+    await loginWithDebugCode(owner, uniqueEmail('stats-owner'), 'Stats Owner'); await createTeam(owner, name);
+    const teamId = new URL(owner.url()).searchParams.get('teamId')!;
+    await loginWithDebugCode(member, email, 'Stats Member');
+    expect((await owner.request.post(`/api/teams/${teamId}/members`, {data: {email}})).ok()).toBe(true);
+    await member.goto(`/?teamId=${teamId}`); await expect(member.locator('.board-shell')).toBeVisible();
+    expect((await member.request.get(`/api/teams/${teamId}/statistics`)).status()).toBe(403);
+    await owner.getByRole('button', {name: 'Team admin', exact: true}).click();
+    const dialog = owner.getByRole('dialog', {name: `${name} people`});
+    await expect(dialog.getByRole('tab')).toHaveText(['People', 'Stats', 'Import/export']);
+    await dialog.getByRole('tab', {name: 'Stats', exact: true}).click();
+    await expect(owner.getByTestId('stats-Active people · 24 hours')).toHaveText('2');
+    await expect(owner.getByTestId('stats-On boards now')).toHaveText('2');
+    const duplicate = await ownerContext.newPage(); await duplicate.goto(`/?teamId=${teamId}`); await expect(duplicate.locator('.board-shell')).toBeVisible();
+    await expect(owner.getByTestId('stats-On boards now')).toHaveText('2'); await duplicate.close();
+    const complete = async (historyId?: string) => {
+      const path = historyId ? `/api/teams/${teamId}/history/${historyId}/vote-again` : `/api/teams/${teamId}/rounds`;
+      const response = await owner.request.post(path, {data: {title: 'Same statistics title'}}); expect(response.ok()).toBe(true);
+      const {round} = await response.json();
+      for (const page of [owner, member]) expect((await page.request.post(`/api/teams/${teamId}/rounds/${round.id}/vote`, {data: {value: '5'}})).ok()).toBe(true);
+      expect((await owner.request.post(`/api/teams/${teamId}/rounds/${round.id}/reveal`)).ok()).toBe(true);
+    };
+    await complete();
+    const state = await (await owner.request.get(`/api/teams/${teamId}/state`)).json();
+    await complete(state.history[0].id); await complete();
+    await expect(owner.getByTestId('stats-Completed rounds')).toHaveText('3');
+    await expect(owner.getByTestId('stats-Distinct issue records')).toHaveText('2');
+    await expect(owner.getByTestId('stats-Votes in completed rounds')).toHaveText('6');
+    await expect(owner.getByTestId('stats-Participation')).toHaveText('100%');
+    await member.getByRole('button', {name: 'Open main menu'}).click();
+    await expect(owner.getByTestId('stats-On boards now')).toHaveText('1');
+    await expect(owner.getByTestId('stats-Members online now')).toHaveText('2');
+    const downloadPromise = owner.waitForEvent('download'); await owner.getByRole('button', {name: 'Export stats JSON'}).click();
+    const download = await downloadPromise; const stream = await download.createReadStream(); let content = '';
+    for await (const chunk of stream!) content += chunk.toString();
+    const exported = JSON.parse(content); expect(exported.selected.completedRounds).toBe(3); expect(exported.teams).toHaveLength(1);
+    expect(content).not.toContain(email); expect(exported.teams[0].id).toBe(teamId);
+    await dialog.getByRole('button', {name: 'Close', exact: true}).click();
+    await owner.getByRole('button', {name: 'Open main menu'}).click(); await owner.getByRole('button', {name: 'Team admin', exact: true}).click();
+    await owner.getByRole('tab', {name: 'Stats', exact: true}).click(); await expect(owner.getByTestId('stats-On boards now')).toHaveText('0');
+    cleanOwner(); cleanMember();
+  } finally { await ownerContext.close(); await memberContext.close(); }
+});
+
+test("platform stats have scoped filters, readable responsive tables and reconnect cleanly", async ({ page }) => {
+  const clean = attachBrowserIssueCapture(page);
+  await page.addInitScript(() => {
+    const Base = window.WebSocket;
+    (window as typeof window & {statsSockets: WebSocket[]}).statsSockets = [];
+    window.WebSocket = class extends Base {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        if (new URL(String(url)).searchParams.get('scope') === 'statistics') (window as typeof window & {statsSockets: WebSocket[]}).statsSockets.push(this);
+      }
+    };
+  });
+  await signInAsSuperAdmin(page); await page.getByRole('button', {name: 'Platform', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: 'Platform', exact: true});
+  await dialog.getByRole('tab', {name: 'Stats', exact: true}).click();
+  await expect(dialog.getByText(/Coverage starts/)).toBeVisible();
+  await expect(dialog.getByRole('button', {name: 'Save settings'})).toBeDisabled();
+  for (const period of ['1', '7', '30']) {
+    await dialog.getByRole('combobox', {name: 'Period', exact: true}).selectOption(period);
+    await expect(dialog.getByText(/Coverage starts/)).toBeVisible();
+  }
+  const workspace = dialog.getByRole('combobox', {name: 'Workspace', exact: true});
+  const value = await workspace.locator('option').nth(1).getAttribute('value');
+  if (value) { await workspace.selectOption(value); await expect(dialog.getByTestId('stats-Members online now')).toBeVisible(); }
+  await workspace.selectOption(''); await expect(dialog.getByTestId('stats-People online now')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {statsSockets: WebSocket[]}).statsSockets.at(-1)?.readyState)).toBe(1);
+  await page.evaluate(() => (window as typeof window & {statsSockets: WebSocket[]}).statsSockets.at(-1)!.close());
+  await expect(dialog.getByText(/Live updates connected/)).toBeVisible();
+  for (const width of [390, 768, 1280]) {
+    await page.setViewportSize({width, height: 844});
+    await expect(dialog).toBeVisible();
+    const sizing = await dialog.locator('.statistics-panel').evaluate(el => ({client: el.clientWidth, scroll: el.scrollWidth}));
+    expect(sizing.scroll).toBeLessThanOrEqual(sizing.client + 1);
+    const box = await dialog.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    const close = await dialog.getByRole('button', {name: 'Close', exact: true}).boundingBox();
+    expect(close!.x + close!.width).toBeLessThanOrEqual(box!.x + box!.width);
+    if (width === 390) expect((await dialog.locator('.admin-settings-tab-row').boundingBox())!.height).toBeLessThan(150);
+  }
+  await page.screenshot({path: '/tmp/opavoting-statistics-desktop.png'});
+  await page.setViewportSize({width: 390, height: 844}); await page.screenshot({path: '/tmp/opavoting-statistics-mobile.png'});
+  await dialog.getByRole('button', {name: 'Close', exact: true}).click();
+  clean();
+});
+
+test("ordinary members cannot open a Stats tab and a new team shows an honest empty state", async ({ browser }) => {
+  const a = await browser.newContext(), b = await browser.newContext();
+  const owner = await a.newPage(), member = await b.newPage();
+  const clean = attachBrowserIssueCapture(owner);
+  try {
+    const email = uniqueEmail('stats-ordinary'), name = `Empty statistics ${Date.now()}`;
+    await loginWithDebugCode(owner, uniqueEmail('stats-empty'), 'Stats Empty'); await createTeam(owner, name);
+    const teamId = new URL(owner.url()).searchParams.get('teamId')!;
+    await owner.getByRole('button', {name: 'Open main menu'}).click();
+    await owner.getByRole('button', {name: 'Team admin', exact: true}).click(); await owner.getByRole('tab', {name: 'Stats', exact: true}).click();
+    await expect(owner.getByTestId('stats-Completed rounds')).toHaveText('0');
+    await expect(owner.getByText(/Partial coverage: older activity was not collected/)).toBeVisible();
+    await loginWithDebugCode(member, email, 'Ordinary Member');
+    expect((await owner.request.post(`/api/teams/${teamId}/members`, {data: {email}})).ok()).toBe(true);
+    await member.goto(`/?teamId=${teamId}`); await expect(member.locator('.board-shell')).toBeVisible();
+    await member.getByRole('button', {name: 'Members', exact: true}).click();
+    await expect(member.getByRole('tab', {name: 'Stats', exact: true})).toHaveCount(0);
+    expect((await member.request.get('/api/admin/statistics')).status()).toBe(403);
+    clean();
+  } finally {await a.close(); await b.close();}
+});
+
+test("stats show a recoverable read failure and clear it after retry", async ({ page }) => {
+  const failures: string[] = [];
+  page.on('pageerror', error => failures.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error' && !/503|401/.test(message.text())) failures.push(message.text());
+  });
+  await loginWithDebugCode(page, uniqueEmail('stats-retry'), 'Stats Retry'); await createTeam(page, `Stats Retry ${Date.now()}`);
+  const route = '**/api/teams/*/statistics?*';
+  await page.route(route, request => request.fulfill({status: 503, contentType: 'application/json', body: JSON.stringify({error: 'Deliberate test failure'})}));
+  await page.getByRole('button', {name: 'Team admin', exact: true}).click(); await page.getByRole('tab', {name: 'Stats', exact: true}).click();
+  await expect(page.getByRole('alert')).toContainText('Statistics could not be loaded');
+  await expect(page.getByRole('button', {name: 'Export stats JSON'})).toBeDisabled();
+  await page.unroute(route); await page.getByRole('button', {name: 'Refresh stats'}).click();
+  await expect(page.getByTestId('stats-Completed rounds')).toHaveText('0'); await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(failures).toEqual([]);
 });

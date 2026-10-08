@@ -28,6 +28,7 @@ The current application includes:
 - Scrum planning poker / agile estimation flow with issue titles, voting cards, reveal, average, and voter history
 - realtime collaborative voting for distributed teams, remote teams, and facilitated workshops
 - persistent issue history with grouped timestamps, paginated loading, and a dedicated history search tab
+- scoped team/platform statistics: active people over 24 hours / 7 days / 30 days, live board counts, voting activity and JSON export
 - replaceable branding assets and avatar icons
 - 200 shipped stylized animal avatar icons for team-visible profiles
 - single-container Linux deployment target with Podman-first local/runtime workflow
@@ -137,7 +138,7 @@ Local dependency, build, packaged stack build, test, and simulator commands requ
 - Account settings also controls **Open my last team automatically after sign-in** (on by default). Turn it off to start in the team chooser; intentional team links still respect access permissions. The preference is saved per account in both self-hosted and hosted-trial deployments.
 - An open Team Admin / People panel updates board presence live, including when opened from the chooser. Viewing that panel does not put you on the board.
 - Any normal user can delete their own account from `Account settings`; the confirmation preview explains the deletion impact before commit.
-- The super-admin can delete normal accounts from `Platform settings -> People`, but the configured super-admin account can never be deleted.
+- The super-admin can delete normal accounts from `Platform -> People`, but the configured super-admin account can never be deleted.
 - Signed-in users can also personalize the history date popup from `Account settings`: the popup starts from the current team's default timezone list, but each user can save a different list for that team or return that team back to its default later.
 - The login screen now includes `Forgot password`; when SMTP/debug-code delivery is unavailable, it explicitly directs the user to a team admin or the super-admin for manual reset.
 - Team-admins can regenerate or replace manually shared credentials when SMTP is not configured.
@@ -219,7 +220,7 @@ Local default behavior:
 - `[history_popup].timezone_keys` defines the global Issues List date-popup timezone rows used when new teams are created; team-admin changes override that team default later
 - the shipped default is intentionally `no SMTP`, so you can test the manual-share onboarding and reset flows without extra setup
 
-Super-admins can edit the deployment configuration from the in-app `Platform settings` modal, including:
+Super-admins can edit the deployment configuration from the in-app `Platform` modal, including:
 - admin username/display name/password
 - SMTP host, port, user, password, and from-address
 - Jira Cloud client id/client secret plus the connected site binding
@@ -304,12 +305,12 @@ History and portability:
 - minimum-participation reveal attempts use the people currently live on the board as the denominator; attempts that do not meet the configured threshold keep the round active and do not write a history entry, and the server reveals automatically if later votes, reconnects/leaves, or a lowered threshold satisfy the rule
 - the history date popup uses the global deployment default for newly created teams, then any team-admin timezone default for that team, and finally a per-team personal list saved in `Account settings`; personal lists do not leak across teams and can be reset back to the current team default
 - imported team-history comments preserve a signed `Name (email)` snapshot and stay immutable after import
-- super-admins can export/import the whole SQLite database from `Platform settings -> Super-admin`
+- super-admins can export/import the whole SQLite database from `Platform -> Super-admin`
 - team-admins and super-admins can export/import team history packages in JSON, with comments included by default
 - team-admin password reset is available for other current-team members, including peer team-admins, but the reset button is disabled while that member is currently live on the board; generated replacement credentials appear inline under the selected member row
 
 Jira Cloud:
-- super-admins can connect one global Jira Cloud integration from `Platform settings -> Super-admin`
+- super-admins can connect one global Jira Cloud integration from `Platform -> Super-admin`
 - team-admins and super-admins can save `Project key + optional JQL` in the team `Team admin -> Import/export` tab
 - importing Jira issues creates or refreshes a pending estimation queue
 - queue items show both the Jira key and the Jira title
@@ -469,7 +470,7 @@ links directly to self-hosting documentation, and explains the demo's limits. Se
 HTML, structured project metadata and `/llms.txt` make that information readable by
 clients that do not execute JavaScript. See [discoverability notes](project_docs/RnD_docs/SEARCH_DISCOVERABILITY_NOTES.md#hosted-trial-welcome-and-machine-readable-discovery).
 
-Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. No analytics, crawler-specific rendering, or additional frontend dependencies are added. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
+Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. Search discovery adds no tracking, crawler-specific rendering or frontend dependencies; built-in first-party usage statistics are described separately. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
 
 Enabled hosted-trial installations automatically upgrade the legacy 40-round monthly setting to 80 on startup, updating the saved configuration and both enforcement and displayed limits. Other custom limits and disabled-trial installations are unchanged.
 
@@ -562,3 +563,9 @@ principles; they are not certification or a blanket legal compliance claim.
 See [privacy, backup setup, restore and operator procedures](project_docs/RnD_docs/PRIVACY_AND_BACKUPS.md)
 for precise scope, downtime/disabled-feature exceptions, server commands and
 manual rights handling. Public copies of private planning evidence are not required.
+
+## Usage Statistics
+
+Team admins use **Team Admin → Stats**; super-admins use **Platform → Stats**, with workspace filtering. See active people over rolling 24-hour/7-day/30-day periods, completed rounds versus distinct issue records, participation, live app/board presence and daily trends. Demo/simulator data and super-admin activity are excluded. Statistics begin when this version is installed; older activity is not fabricated or backfilled. Both self-hosted and hosted-trial installations support this feature.
+
+The first-party statistics records expire after 31 days. No external analytics service is used. See [statistics definitions and privacy](project_docs/RnD_docs/USAGE.md#usage-statistics) before operating an instance.

@@ -36,6 +36,7 @@ export function renderTrialWelcomeHtml(template: string, appBaseUrl: string, mon
     </ol>
     <details class="trial-welcome-details"><summary>About this demo &amp; performance</summary>
       <p>${text.funding}</p>
+      <p>${text.statistics}</p>
       <p>Load-tested with <a href="${text.benchmarkUrl}">400 concurrent simulated users across multiple teams</a>.</p>
     </details>
     <nav class="trial-welcome-links" aria-label="OpaVoting project resources">
@@ -80,6 +81,7 @@ export function trialProjectGuide(): string {
 
 Created by ${welcome.author}. Repository: ${welcome.repositoryName}.
 ${welcome.introduction}
+${welcome.statistics}
 
 ## Hosted demo versus self-hosting
 

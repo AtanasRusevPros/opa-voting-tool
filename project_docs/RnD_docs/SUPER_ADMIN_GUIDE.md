@@ -76,7 +76,7 @@ Deployment security note:
 
 ## Platform Settings Responsibilities
 
-The in-app `Platform settings` surface currently controls:
+The in-app `Platform` surface currently controls:
 
 - `People`:
   - pending platform access requests at the top
@@ -195,7 +195,7 @@ Current supported behavior:
 - the app generates an initial password automatically
 - the generated password is shown once to the team-admin for manual delivery
 - the UI reminds the admin to save that password somewhere secure before closing
-- existing-user replacement password generation is available to the super-admin from `Platform settings -> People`, and to team-admins for other current-team members from `Team admin -> People`
+- existing-user replacement password generation is available to the super-admin from `Platform -> People`, and to team-admins for other current-team members from `Team admin -> People`
 - team-admin replacement password generation is intentionally disabled for people currently live on that team's board; wait until the user leaves the board, or use an agreed operational recovery path
 - super-admin replacement passwords appear in the Platform People reveal overlay, while team-admin replacement passwords appear inline under the specific member row; in both cases the replacement password is shown once and must be delivered manually
 
@@ -206,13 +206,13 @@ Operational expectation:
 
 ## Current Admin Surfaces
 
-- `Platform settings -> People` keeps pending platform-access requests at the top and the admitted platform user list below.
+- `Platform -> People` keeps pending platform-access requests at the top and the admitted platform user list below.
 - The `People` tab now pages existing users in batches of `30`, supports `Recently updated`, `Oldest updated first`, `Alphabetical A-Z`, and `Alphabetical Z-A` sorting, and activates search at `2+` characters so large installations stay usable.
 - The notification bell now separates live pending actions from a paginated action history.
 - Super-admin action history is platform-wide across all teams.
 - Team-admin action history is limited to actions relevant to the current team.
 - Automated packaged verification uses isolated test data, so repeated e2e/simulator runs should no longer leave old test teams in the normal local stack.
-- `Platform settings -> Super-admin` now also exposes whole-database SQLite snapshot export/import for maintenance and recovery use.
+- `Platform -> Super-admin` now also exposes whole-database SQLite snapshot export/import for maintenance and recovery use.
 - Team member management now supports JSON team-history export/import, with comments included by default and imported comments preserved as immutable historical records.
 
 ## Jira Cloud Setup And Operations
@@ -228,7 +228,7 @@ Current integration scope:
 Operator setup flow:
 
 1. create an Atlassian OAuth 2.0 3LO app and obtain the Jira Cloud client id and client secret
-2. open `Platform settings -> Super-admin`
+2. open `Platform -> Super-admin`
 3. enter the Jira client id and client secret
 4. start the Jira Cloud connection flow
 5. complete Atlassian sign-in/consent in the popup
@@ -260,7 +260,7 @@ Team Admin / People refreshes while open, including from the chooser. Its read-o
 ## Account Deletion
 
 - Any normal user can delete their own account from `Account settings`; self-deletion requires the current password and an explicit typed confirmation.
-- The super-admin can delete another normal account from `Platform settings -> People`; the action requires typing the selected account's exact email.
+- The super-admin can delete another normal account from `Platform -> People`; the action requires typing the selected account's exact email.
 - The configured super-admin account can never be deleted.
 - Shared history is retained as `Name (Deactivated)` and the original email is no longer exposed through normal product surfaces.
 - The deletion preview explains the destructive impact before confirmation.
@@ -386,7 +386,7 @@ For manual operator verification, recommended local capture tools are:
 Suggested local verification flow:
 
 1. point the deployment SMTP host/port to the local Mailpit or MailHog instance
-2. save the SMTP settings from `Platform settings`
+2. save the SMTP settings from `Platform`
 3. trigger a safe password-reset or invite test
 4. confirm the message appears in the local capture UI
 5. disable or replace the local capture settings before real deployment handoff
@@ -487,3 +487,9 @@ For company installations, see [hosted demo versus self-hosting](USAGE.md#hosted
 Trial quotas and the demo's chosen backup/privacy settings are optional deployment
 policy, not restrictions on the FOSS app. A new ordinary deployment uses disabled
 trial mode; changing that flag does not migrate existing trial workspace records.
+
+## Platform Statistics
+
+Use **Platform → Stats** for installation-wide usage, workspace filtering and team breakdowns. The menu is renamed from Platform settings; existing configuration tabs remain. Stats is read-only and Save settings is disabled on that tab. JSON export uses the displayed aggregate snapshot and selected scope. No public endpoint exposes usage totals.
+
+Statistics are enabled for both deployment modes with fixed 31-day retention, no additional service or TOML key. Review [definitions and operating boundaries](USAGE.md#usage-statistics) and [privacy disclosure](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Collection starts on installation of this version; old usage is not reconstructed. This is adoption/usage reporting, not employee performance ranking. The separate operator usage CLI remains a legacy report with different calendar-month definitions, not a matching Stats export.

@@ -4440,6 +4440,11 @@ export default function App() {
     }
   }, [selectedTeamId, showTeamChooser]);
 
+  useEffect(() => {
+    if (!session?.user.id || !selectedTeamId || chooserVisible) return;
+    void api(`/api/teams/${selectedTeamId}/statistics/activity`, {method: "POST"}).catch(() => {});
+  }, [session?.user.id, selectedTeamId, chooserVisible]);
+
   const loginDestinationResolvedRef = useRef<string | null>(null);
   const loadSession = useCallback(async () => {
     try {

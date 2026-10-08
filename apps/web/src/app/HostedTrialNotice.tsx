@@ -26,6 +26,7 @@ export function HostedTrialNotice({ prominent = false, monthlyLimit = 80 }: { pr
     <details className="trial-welcome-details">
       <summary>About this demo &amp; performance</summary>
       <p>{welcome.funding}</p>
+      <p>{welcome.statistics}</p>
       <p>Load-tested with <a href={welcome.benchmarkUrl}>400 concurrent simulated users across multiple teams</a>.</p>
     </details>
     <nav className="trial-welcome-links" aria-label="OpaVoting project resources">

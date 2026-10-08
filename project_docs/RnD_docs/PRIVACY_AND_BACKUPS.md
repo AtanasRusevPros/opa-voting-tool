@@ -81,7 +81,7 @@ The shipped template has `enabled = false`: an operator must explicitly opt in.
 The other two defaults are 168 hours (one week) and 21 days (three weeks).
 At most **three completed snapshots** are retained; this cap is fixed. Self-hosters
 can change the interval and maximum age using the same three settings. Values must
-be positive whole numbers up to 87600. Restart after editing. Platform settings
+be positive whole numbers up to 87600. Restart after editing. Platform
 saves preserve these deployment-only settings.
 
 No cron job, extra systemd unit or external scheduler is needed. The running API:
@@ -274,3 +274,11 @@ arrangements and rehearse restores with deletion replay. Completing a software
 release does not mark those recurring duties finished or establish legal compliance.
 Self-hosters choose their own deployment policies and contacts; the hosted demo's
 settings are not mandatory for ordinary self-hosted installations.
+
+## First-Party Usage Statistics
+
+The application now collects limited activity and completed-round statistics for adoption and usage reporting in both hosted and self-hosted installations. It stores user/team identifiers with the last qualifying activity timestamp per UTC day, round/history issue identifiers, aggregate vote/eligible counts and voter identifiers. These are personal or potentially identifying records, not a claim of anonymous collection. No third-party analytics service or advertising tracker is added.
+
+The built-in retention window is 31 days, with startup/minute cleanup while the app runs. Team admins receive only their team's aggregates; super-admins can view installation/workspace/team aggregates. Downloads contain team/workspace names and totals but no individual account list or vote content. Account deletion removes activity/voter identifiers, workspace purge removes its statistics, and retained shared round aggregates expire normally. Backups and downloaded exports require their separate retention handling. There is no separate statistics configuration switch in this release.
+
+The rendered privacy notice and About text explain this processing. Operators must review their own notice and applicable privacy basis before deployment, including employee-use expectations; this functionality does not establish legal compliance or justify employee scoring.

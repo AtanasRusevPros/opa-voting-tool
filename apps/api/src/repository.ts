@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { initializeStatistics, recordActivity, recordCompletedRound, readStatistics, pruneStatistics, type LiveStatistics } from "./repository/statistics.js";
+import { StatisticsReader } from "./statisticsReader.js";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -112,6 +114,7 @@ interface PlatformUserSummary {
 }
 
 type EnsureUserInput = {
+  synthetic?: boolean;
   email: string;
   displayName: string;
   avatarIconKey: string;
@@ -203,6 +206,7 @@ export class TrialQuotaExceededError extends Error {}
 export class Repository {
   private db!: DatabaseSync;
   private simulatorHeartbeatAt = 0;
+  private statisticsReader!: StatisticsReader;
 
   constructor(private readonly config: AppConfig) {
     this.openDatabase();
@@ -217,6 +221,8 @@ export class Repository {
     this.db.exec("PRAGMA wal_autocheckpoint = 200");
     this.db.exec("PRAGMA foreign_keys = ON");
     this.migrate();
+    initializeStatistics(this.db);
+    this.statisticsReader = new StatisticsReader(this.config.databasePath);
     this.db.exec("CREATE TABLE IF NOT EXISTS workspace_name_migrations (id TEXT PRIMARY KEY)");
     if (!this.db.prepare("SELECT id FROM workspace_name_migrations WHERE id = ?").get("owner-name-v1")) {
       this.db.exec("BEGIN IMMEDIATE");
@@ -229,6 +235,11 @@ export class Repository {
       } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     }
   }
+
+  getStatisticsAsync(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return this.statisticsReader.read(live, teamId, days, workspaceId); }
+  recordStatisticsActivity(userId: string, teamId: string) { recordActivity(this.db, userId, teamId); }
+  pruneStatistics() { pruneStatistics(this.db); }
+  getStatistics(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return readStatistics(this.db, live, teamId, days, Date.now(), workspaceId); }
 
   private closeDatabase(): void {
     this.db.close();
@@ -926,6 +937,7 @@ export class Repository {
     const safeAvatar = buildAvatarAssetKey(avatarSelection.avatarIconKey, avatarSelection.avatarColorKey);
 
     if (existingUser) {
+      if (input.synthetic) this.db.prepare("UPDATE users SET is_synthetic = 1 WHERE id = ?").run(existingUser.id);
       this.db
         .prepare("UPDATE users SET display_name = ?, avatar_key = ?, avatar_icon_key = ?, avatar_color_key = ?, updated_at = ?, last_active_at = ? WHERE id = ?")
         .run(input.displayName.trim(), safeAvatar, avatarSelection.avatarIconKey, avatarSelection.avatarColorKey, nowIso(), nowIso(), existingUser.id);
@@ -950,6 +962,7 @@ export class Repository {
         createdAt
       );
 
+    if (input.synthetic) this.db.prepare("UPDATE users SET is_synthetic = 1 WHERE id = ?").run(id);
     return this.getUser(id)!;
   }
 
@@ -1395,6 +1408,7 @@ export class Repository {
 
     for (const teamInput of teams) {
       const team = this.ensureTeam(ownerUserId, teamInput.name, { demo: teamInput.demo });
+      this.db.prepare("UPDATE teams SET is_synthetic = 1 WHERE id = ?").run(team.id);
       teamIds.push(team.id);
       for (const userId of teamInput.memberUserIds) {
         simulatorUserIds.add(userId);
@@ -2448,6 +2462,7 @@ export class Repository {
 
       const voteSnapshot = JSON.stringify(rawVotes);
       const participantCount = rawVotes.length;
+      const statisticsIssueId = round.revoteHistoryEntryId ?? nanoid();
 
       if (round.revoteHistoryEntryId) {
         this.db
@@ -2481,7 +2496,7 @@ export class Repository {
           `
           )
           .run(
-            nanoid(),
+            statisticsIssueId,
             round.teamId,
             round.title,
             round.deckKey,
@@ -2496,6 +2511,7 @@ export class Repository {
             voteSnapshot
           );
       }
+      recordCompletedRound(this.db, roundId, round.teamId, statisticsIssueId, rawVotes.map(v => v.userId), [...(eligibleParticipantIds ?? new Set(this.getTeamMembers(round.teamId).map(u => u.id)))]);
       if (round.pendingIssueId) {
         this.db.prepare("DELETE FROM team_pending_issues WHERE id = ?").run(round.pendingIssueId);
       }

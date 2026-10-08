@@ -44,8 +44,8 @@ The system is a structured full-stack repository with:
 15. Any client that refreshes, reconnects, lacks current board state, or detects a `fromVoteVersion` / `roundVersion` gap does not guess; it immediately repairs through `GET /api/teams/:teamId/state` and resumes websocket-first live sync from the authoritative snapshot.
 16. Revealed rounds are written to `history_entries`, stay visible on reload, and are returned through paginated history/search routes.
 17. Team history can be exported/imported as JSON packages, with imported comments preserved as immutable historical records.
-18. Super-admins can export/import whole SQLite snapshots from the in-app `Platform settings` surface.
-19. Super-admins can edit deployment, branding, SMTP, demo-mode, and Jira Cloud connection settings from the in-app `Platform settings` surface backed by the deployment TOML file; the People list supports paged search plus recent/oldest and A-Z/Z-A sorting.
+18. Super-admins can export/import whole SQLite snapshots from the in-app `Platform` surface.
+19. Super-admins can edit deployment, branding, SMTP, demo-mode, and Jira Cloud connection settings from the in-app `Platform` surface backed by the deployment TOML file; the People list supports paged search plus recent/oldest and A-Z/Z-A sorting.
 20. Team-admins and super-admins can save a team Jira source (`Project key + optional JQL`) from the team `Import/export` tab, import Jira issues into a team-scoped pending queue, and load a pending Jira issue into a round using both the issue key and title.
 21. Minimum participation is evaluated against the current live board participants at reveal/re-evaluation time rather than all team members, so offline members do not block active-room decisions.
 22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
@@ -100,7 +100,7 @@ A chooser-open member directory uses an authenticated `scope=directory` WebSocke
 
 ## Demo Mode Runtime Flow
 
-1. The super-admin can enable demo mode from the in-app `Platform settings` surface.
+1. The super-admin can enable demo mode from the in-app `Platform` surface.
 2. Enabling demo mode synchronizes seeded `Demo Team` rooms and `Demo ###` synthetic participants through the existing simulator-sidecar model rather than heavyweight browser workers.
 3. Demo rooms are visible only to the super-admin and remain hidden from regular users.
 4. While enabled, the sidecar provides synthetic occupancy and voting activity inside those demo rooms using the normal team/round/vote pipeline.
@@ -156,7 +156,7 @@ Behavior choices:
 - `[history_popup].timezone_keys` in that config is parsed as the global default timezone list for newly created teams.
 - Super-admin-managed branding uploads live in [`config/managed-branding`](../../config/managed-branding).
 - The shipped fallback branding assets still live under [`apps/web/public/branding`](../../apps/web/public/branding).
-- The in-app `Platform settings` surface edits admin, SMTP, branding, palette, footer, and demo-mode settings against that deployment config.
+- The in-app `Platform` surface edits admin, SMTP, branding, palette, footer, and demo-mode settings against that deployment config.
 - The same deployment config now also stores Jira Cloud OAuth client credentials plus the currently connected site/token metadata for the single global Jira Cloud binding.
 - SVG is preferred for crisp scaling; PNG is supported for raster replacements.
 - Production email uses generic SMTP settings from the deployment config when present, and otherwise falls back to development logging.
@@ -246,3 +246,13 @@ The public notice reflects configured backup values and `[privacy]` contact/prov
 details. No-sale/no-advertising and restricted-access promises do not mean “no
 providers process data”. Manual privacy requests and actual operator practices
 remain necessary; no blanket GDPR/California/US compliance claim is made.
+
+## Scoped Usage Statistics
+
+`statistics_metadata` records coverage start; `statistics_activity` stores the latest qualifying timestamp per user/team/UTC day; `statistics_rounds` stores immutable reveal aggregates keyed by round ID and linked to the history issue ID; `statistics_voters` supports unique voters. Re-votes retain the history ID but create another round. No issue text, email or vote values are duplicated. New explicit `is_synthetic` markers are set by demo/simulator seed paths. No name-prefix classifier or activity backfill is used.
+
+Board entry posts a membership-checked activity event; successful team mutations record activity without counting session refreshes, sockets or heartbeats as usage. Collection is fixed at 31 days, pruned on startup and every minute. Foreign-key cascades handle team/workspace deletion; a user-deactivation trigger deletes activity/voter identifiers while retained round aggregates expire normally. Indexed time/team reads and one-pass aggregation bound the working set to 30 days.
+
+Authenticated GET `/api/admin/statistics` is super-admin-only; GET `/api/teams/:teamId/statistics` requires that team's admin permission (archived teams allowed). `days` accepts 1, 7 or 30; platform `workspaceId` narrows the scope. Responses are no-store. Reads use a bounded serial worker queue, coalesce matching requests and cache a snapshot for at most one second from request start. SQLite aggregation runs in a separate read-only worker transaction so large reports do not block realtime voting; permission is checked again after the queued read. The UI exports the same snapshot locally as JSON.
+
+Authenticated `scope=statistics` WebSockets are read-only, authorized at connection and before notifications. Changes invalidate views at about one-second cadence; minute maintenance also refreshes rolling windows. Board/chooser sockets provide deduplicated live presence; observer sockets never count as board participants. A ping/pong heartbeat expires unresponsive connections within approximately 60 seconds. Aggregate API data contains no individual-user drill-down; team and workspace names remain potentially identifying. Statistics add no third-party trackers. Current policies and About text disclose collection; operator notices remain deployment-specific.

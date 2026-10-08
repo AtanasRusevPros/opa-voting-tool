@@ -13,6 +13,9 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added Platform → Stats and Team Admin → Stats with scoped rolling activity, voting/issue counts, participation, live presence, UTC trends, workspace filtering and aggregate JSON export. Renamed the Platform settings navigation to Platform.
+- Added 31-day first-party statistics retention, coverage labels, explicit synthetic metadata, deletion/purge handling and disclosed privacy behavior. Heavy report reads run outside the voting event loop; observer sockets do not alter quorum.
+
 - Kept long account-deletion confirmations scrollable within short viewports so the confirmation button remains reachable.
 
 - Fixed stale Onboard/Not online status in a People panel left open in the team chooser, using a read-only live subscription that does not affect board participation. Added two-browser and authorization regressions. Owner-verified on 2026-10-08.

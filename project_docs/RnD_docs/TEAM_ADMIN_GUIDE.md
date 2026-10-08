@@ -303,3 +303,9 @@ The public notice reflects configured backup values and `[privacy]` contact/prov
 details. No-sale/no-advertising and restricted-access promises do not mean “no
 providers process data”. Manual privacy requests and actual operator practices
 remain necessary; no blanket GDPR/California/US compliance claim is made.
+
+## Team Statistics
+
+Open **Team Admin → Stats**, between People and Import/export, for your team's activity, completed rounds, distinct issues, participation and live counts. Choose a rolling 24-hour/7-day/30-day period or export the displayed JSON snapshot. Archived teams retain read-only statistics. Regular members cannot access this tab or its API; team admin rights never grant another team's statistics.
+
+Counts start with statistics collection, exclude synthetic/demo and super-admin activity, and are retained for 31 days. See [definitions, coverage and deletion behavior](USAGE.md#usage-statistics). Workspace-wide and platform-wide reports belong to the super-admin's **Platform → Stats** view.
