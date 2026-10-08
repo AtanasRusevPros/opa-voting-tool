@@ -107,6 +107,35 @@ afterEach(() => {
 });
 
 describe("Phase 12 room engine", () => {
+  it.each([["Zoe Admin", "Alice Member"], ["zoe", "Alice"], ["Élodie", "André"], ["Same name", "Same name"]])("encodes vote indexes for %s and %s using the transmitted membership order", (ownerName, memberName) => {
+    const repo = new Repository(createTestConfig());
+    const owner = createUser(repo, "z-owner@example-company.com", ownerName);
+    const member = createUser(repo, "a-member@example-company.com", memberName);
+    const team = repo.createTeam(owner.id, "Wire ordering"); repo.joinTeam(member.id, team.id);
+    const round = repo.createRound(team.id, "ORDER-101");
+    let reverseRoster = false;
+    const {wrapped} = createCountingRoomEngineRepository(repo);
+    const getMembers = wrapped.getTeamMembers;
+    wrapped.getTeamMembers = id => reverseRoster ? getMembers(id).reverse() : getMembers(id);
+    const rooms = createRoomEngineManager(wrapped);
+    const members = rooms.getSnapshot(team.id).teamMembers;
+    expect(members.map(user => user.id)).toEqual([owner.id, member.id]);
+    repo.submitVote(round.id, owner.id, "3"); rooms.noteVoteChange(team.id, round.id, owner.id, "3");
+    expect(rooms.peekPendingVoteDelta(team.id)!.changedMemberIndexes.map(index => members[index].id)).toEqual([owner.id]);
+    expect(rooms.peekPendingVoteDeltaRef(team.id)!.changedMemberIndexes.map(index => members[index].id)).toEqual([owner.id]);
+    rooms.clearPendingVoteDelta(team.id);
+    repo.submitVote(round.id, member.id, "5"); rooms.noteVoteChange(team.id, round.id, member.id, "5");
+    expect(rooms.peekPendingVoteDelta(team.id)!.changedMemberIndexes.map(index => members[index].id)).toEqual([member.id]);
+    // A rehydrated membership list must rebuild the wire mapping, too.
+    reverseRoster = true;
+    rooms.markDirty(team.id); const refreshed = rooms.getSnapshot(team.id);
+    expect(refreshed.teamMembers.map(user => user.id)).toEqual([member.id, owner.id]);
+    repo.submitVote(round.id, owner.id, "8"); rooms.noteVoteChange(team.id, round.id, owner.id, "8");
+    expect(rooms.peekPendingVoteDeltaRef(team.id)!.changedMemberIndexes.map(index => refreshed.teamMembers[index].id)).toEqual([owner.id]);
+    expect(rooms.getSnapshot(team.id).activeRound?.votes).toHaveLength(2);
+
+  });
+
   it("updates the live room vote snapshot incrementally without waiting for a full repository rebuild", () => {
     const repo = new Repository(createTestConfig());
     const owner = createUser(repo, "phase12-owner@example-company.com", "Owner");
@@ -132,7 +161,7 @@ describe("Phase 12 room engine", () => {
 
     const delta = rooms.peekPendingVoteDelta(team.id);
     expect(delta).not.toBeNull();
-    expect(delta?.changedMemberIndexes).toEqual([1, 0]);
+    expect(delta?.changedMemberIndexes).toEqual([0, 1]);
     expect(delta?.votedCount).toBe(2);
     expect(delta?.notVotedCount).toBe(0);
 

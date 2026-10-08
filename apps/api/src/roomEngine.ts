@@ -38,6 +38,7 @@ type RoomState = {
   dirtyVoteChanges: Map<string, number>;
   checkpoint: RoomCheckpoint;
   memberDisplayOrderByUserId: Map<string, number>;
+  memberWireIndexByUserId: Map<string, number>;
   memberSummaryByUserId: Map<string, TeamMemberSummary>;
 };
 
@@ -98,6 +99,9 @@ function refreshCheckpoint(state: RoomState) {
 
 function buildMemberIndexes(teamMembers: TeamMemberSummary[]) {
   const memberDisplayOrderByUserId = new Map<string, number>();
+  // Delta indexes address snapshot.teamMembers exactly (admins-first repository order),
+  // not the independently sorted vote-display list.
+  const memberWireIndexByUserId = new Map(teamMembers.map((member, index) => [member.id, index]));
   const memberSummaryByUserId = new Map<string, TeamMemberSummary>();
 
   [...teamMembers]
@@ -109,6 +113,7 @@ function buildMemberIndexes(teamMembers: TeamMemberSummary[]) {
 
   return {
     memberDisplayOrderByUserId,
+    memberWireIndexByUserId,
     memberSummaryByUserId
   };
 }
@@ -169,7 +174,7 @@ export function createRoomEngineManager(repository: RoomEngineRepositoryLike) {
     return perfTracker.measure("roomEngine.hydrate", () => {
       const previous = rooms.get(teamId);
       const snapshot = buildSnapshot(teamId, previous);
-      const { memberDisplayOrderByUserId, memberSummaryByUserId } = buildMemberIndexes(snapshot.teamMembers);
+      const { memberDisplayOrderByUserId, memberWireIndexByUserId, memberSummaryByUserId } = buildMemberIndexes(snapshot.teamMembers);
       const next: RoomState = {
         snapshot,
         dirty: false,
@@ -177,6 +182,7 @@ export function createRoomEngineManager(repository: RoomEngineRepositoryLike) {
         dirtyVoteChanges: new Map(),
         checkpoint: buildCheckpoint(snapshot),
         memberDisplayOrderByUserId,
+        memberWireIndexByUserId,
         memberSummaryByUserId
       };
       rooms.set(teamId, next);
@@ -356,7 +362,7 @@ export function createRoomEngineManager(repository: RoomEngineRepositoryLike) {
       roundId: state.snapshot.activeRound.id,
       changedMemberIndexes: [...state.dirtyVoteChanges.entries()]
         .sort((left, right) => left[1] - right[1] || left[0].localeCompare(right[0]))
-        .map(([userId]) => state.memberDisplayOrderByUserId.get(userId))
+        .map(([userId]) => state.memberWireIndexByUserId.get(userId))
         .filter((index): index is number => typeof index === "number"),
       fromVoteVersion: state.pendingVoteDeltaFromVersion,
       votedCount: state.snapshot.activeRound.votedCount,
@@ -384,7 +390,7 @@ export function createRoomEngineManager(repository: RoomEngineRepositoryLike) {
       roundId: state.snapshot.activeRound.id,
       changedMemberIndexes: [...state.dirtyVoteChanges.entries()]
         .sort((left, right) => left[1] - right[1] || left[0].localeCompare(right[0]))
-        .map(([userId]) => state.memberDisplayOrderByUserId.get(userId))
+        .map(([userId]) => state.memberWireIndexByUserId.get(userId))
         .filter((index): index is number => typeof index === "number"),
       fromVoteVersion: state.pendingVoteDeltaFromVersion,
       votedCount: state.snapshot.activeRound.votedCount,

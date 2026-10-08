@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Fixed another participant incorrectly appearing as Voted when only one person voted. Live vote indexes now follow the transmitted membership order rather than a separate name-sorted list; added reversed-order two-browser and unit regressions.
+
 - Added admin-only inline title corrections on the board and in saved history/search, with Enter/click-away save, Escape cancel, matching pencil styling, contained editors and conflict/error handling. Title changes preserve votes, timers and completed-round totals.
 
 - Added Platform → Stats and Team Admin → Stats with scoped rolling activity, voting/issue counts, participation, live presence, UTC trends, workspace filtering and aggregate JSON export. Renamed the Platform settings navigation to Platform.

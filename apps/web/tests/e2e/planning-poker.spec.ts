@@ -2841,3 +2841,86 @@ test('older history titles remain editable in search and update another open sea
     cleanPage(); cleanOther();
   } finally { await context.close(); }
 });
+
+test('one person voting never marks the other participant as voted when admin and name order differ', async ({browser}) => {
+  const a = await browser.newContext(), b = await browser.newContext();
+  const owner = await a.newPage(), member = await b.newPage();
+  const cleanOwner = attachBrowserIssueCapture(owner), cleanMember = attachBrowserIssueCapture(member);
+  try {
+    const email = uniqueEmail('vote-order-member');
+    await loginWithDebugCode(owner, uniqueEmail('vote-order-owner'), 'Zoe Admin'); await createTeam(owner, `Vote attribution ${Date.now()}`);
+    const teamId = new URL(owner.url()).searchParams.get('teamId')!;
+    await loginWithDebugCode(member, email, 'Alice Member');
+    await owner.request.post(`/api/teams/${teamId}/members`, {data: {email}});
+    await member.goto(`/?teamId=${teamId}`);
+    const card = (page: Page, name: string) => page.locator('.member-tile').filter({has: page.locator('.member-identity', {hasText: name})}).locator('.vote-card');
+    for (const voter of [owner, member]) {
+      const {round} = await (await owner.request.post(`/api/teams/${teamId}/rounds`, {data: {title: 'Vote attribution check'}})).json();
+      for (const page of [owner, member]) {
+        await expect(card(page, 'Zoe Admin')).toHaveText('No vote');
+        await expect(card(page, 'Alice Member')).toHaveText('No vote');
+      }
+      await voter.getByRole('button', {name: '5', exact: true}).click();
+      const voterName = voter === owner ? 'Zoe Admin' : 'Alice Member';
+      const otherName = voter === owner ? 'Alice Member' : 'Zoe Admin';
+      for (const page of [owner, member]) {
+        await expect(card(page, voterName)).toHaveText(page === voter ? '5' : 'Voted');
+        await expect(card(page, otherName)).toHaveText('No vote');
+        const state = await (await page.request.get(`/api/teams/${teamId}/state`)).json();
+        expect(state.activeRound.votes).toHaveLength(1);
+        expect(state.activeRound.votes[0].displayName).toBe(voterName);
+      }
+      await voter.getByRole('button', {name: '8', exact: true}).click();
+      for (const page of [owner, member]) {
+        await expect(card(page, voterName)).toHaveText(page === voter ? '8' : 'Voted');
+        await expect(card(page, otherName)).toHaveText('No vote');
+      }
+      await owner.request.post(`/api/teams/${teamId}/rounds/${round.id}/reveal`);
+      for (const page of [owner, member]) {
+        await expect(card(page, voterName)).toHaveText('8');
+        await expect(card(page, otherName)).toHaveText('No vote');
+      }
+    }
+    await member.reload(); await expect(card(member, 'Zoe Admin')).toHaveText('No vote'); await expect(card(member, 'Alice Member')).toHaveText('8');
+    cleanOwner(); cleanMember();
+  } finally { await a.close(); await b.close(); }
+});
+
+test('ten live participants attribute each vote only to its sender on every board', async ({browser}) => {
+  test.setTimeout(120000);
+  const contexts = await Promise.all(Array.from({length: 10}, () => browser.newContext()));
+  const pages = await Promise.all(contexts.map(context => context.newPage()));
+  const names = ['Zoe Admin', 'Alice', 'Bob', 'Carol', 'David', 'Elena', 'Frank', 'Grace', 'Hannah', 'Ivan'];
+  const checks = pages.map(attachBrowserIssueCapture);
+  try {
+    const emails = names.map((_, i) => uniqueEmail(`ten-voters-${i}`));
+    await loginWithDebugCode(pages[0], emails[0], names[0]); await createTeam(pages[0], `Ten live voters ${Date.now()}`);
+    const teamId = new URL(pages[0].url()).searchParams.get('teamId')!;
+    for (let i = 1; i < 10; i++) {
+      await loginWithDebugCode(pages[i], emails[i], names[i]);
+      expect((await pages[0].request.post(`/api/teams/${teamId}/members`, {data: {email: emails[i]}})).ok()).toBe(true);
+      await pages[i].goto(`/?teamId=${teamId}`);
+    }
+    const card = (page: Page, name: string) => page.locator('.member-tile').filter({has: page.locator('.member-identity', {hasText: name})}).locator('.vote-card');
+    for (const page of pages) await expect(page.locator('.member-tile:not(.measure-probe)')).toHaveCount(10);
+    const {round} = await (await pages[0].request.post(`/api/teams/${teamId}/rounds`, {data: {title: 'Ten-person attribution'}})).json();
+    for (const page of pages) for (const name of names) await expect(card(page, name)).toHaveText('No vote');
+    const voted = new Set<number>();
+    // Mix admin/member and reverse-name positions instead of voting in roster order.
+    for (const voter of [0, 9, 1, 8, 2, 7, 3, 6, 4, 5]) {
+      await pages[voter].getByRole('button', {name: '5', exact: true}).click(); voted.add(voter);
+      for (let viewer = 0; viewer < 10; viewer++) {
+        await expect(card(pages[viewer], names[voter])).toHaveText(viewer === voter ? '5' : 'Voted');
+        for (let person = 0; person < 10; person++) {
+          await expect(card(pages[viewer], names[person])).toHaveText(!voted.has(person) ? 'No vote' : viewer === person ? '5' : 'Voted');
+        }
+      }
+    }
+    const state = await (await pages[0].request.get(`/api/teams/${teamId}/state`)).json();
+    expect(new Set(state.activeRound.votes.map((vote: {userId: string}) => vote.userId)).size).toBe(10);
+    await pages[0].request.post(`/api/teams/${teamId}/rounds/${round.id}/reveal`);
+    for (const page of pages) for (const name of names) await expect(card(page, name)).toHaveText('5');
+    await pages[9].reload(); for (const name of names) await expect(card(pages[9], name)).toHaveText('5');
+    checks.forEach(check => check());
+  } finally { await Promise.all(contexts.map(context => context.close())); }
+});

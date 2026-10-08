@@ -3,7 +3,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import App, { applyTeamRoundVoteUpdateToState } from "./App";
+import App, { applyTeamRoundVoteUpdateToState, applyOptimisticVoteToTeamState } from "./App";
 import { BRANDING_MANIFEST, DEFAULT_HISTORY_TIME_ZONE_KEYS, type TeamStateResponse, type UserSummary } from "@planning-poker/shared";
 
 function buildMembers(count: number): UserSummary[] {
@@ -156,6 +156,22 @@ describe("Phase 11 delta correctness", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it.each([0, 1])("maps wire index %s to the exact roster person despite reversed names and optimistic votes", (voterIndex) => {
+    const state = buildBoardState();
+    state.teamMembers[0].displayName = "Zoe Admin";
+    state.teamMembers[1].displayName = "Alice Member";
+    const voter = state.teamMembers[voterIndex];
+    const current = voterIndex === 0 ? applyOptimisticVoteToTeamState(state, state.team.id, state.activeRound!.id, {...state.currentUser, displayName: "Zoe Admin"}, "5") : state;
+    const next = applyTeamRoundVoteUpdateToState(current, {
+      teamId: state.team.id, roundId: state.activeRound!.id, changedMemberIndexes: [voterIndex],
+      fromVoteVersion: 0, votedCount: 1, notVotedCount: 2, viewerVoteValue: voterIndex === 0 ? "5" : null,
+      liveSync: {...state.liveSync, voteVersion: 1}
+    });
+    expect(next.activeRound!.votes.map(vote => vote.userId)).toEqual([voter.id]);
+    expect(next.activeRound!.votes[0].value).toBe(voterIndex === 0 ? "5" : "hidden");
+    expect(next.activeRound!.votes.some(vote => vote.userId === state.teamMembers[1 - voterIndex].id)).toBe(false);
   });
 
   it("applies an exact vote delta and advances live sync without replacing history", () => {

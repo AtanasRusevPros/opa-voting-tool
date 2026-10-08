@@ -578,6 +578,7 @@ export interface TeamRoundUpdatePayload {
 export interface TeamRoundVoteUpdatePayload {
   teamId: string;
   roundId: string;
+  /** Indexes into the exact teamMembers snapshot sent to clients, never a display-sorted copy. */
   changedMemberIndexes: number[];
   fromVoteVersion: number;
   votedCount: number;
