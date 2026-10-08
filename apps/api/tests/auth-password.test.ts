@@ -605,6 +605,43 @@ describe("Password and invite HTTP flows", () => {
     expect((await client.patch(`/api/teams/${team.id}/rounds/${revote.body.round.id}/title`).set("Cookie", memberCookie).send({title: "Left member", expectedTitle: history.title})).status).toBe(403);
   });
 
+  it("isolates owner workspace statistics in HTTP, exports and observer sockets", async () => {
+    const {app, server, repository} = await loadTestServer({publicTrial: true}); const client = request(app);
+    const signup = async (email: string) => {
+      const code = await client.post('/api/auth/public-trial/request-code').send({email});
+      const result = await client.post('/api/auth/public-trial/signup').send({email, code: code.body.debugCode, displayName: email,
+        password: 'Password123!', acceptedTerms: true, acceptedTermsVersion: code.body.termsVersion});
+      expect(result.status).toBe(201); return result;
+    };
+    const a = await signup('workspace-stats-a@example.com'), b = await signup('workspace-stats-b@example.com');
+    const cookieA = a.headers['set-cookie'], cookieB = b.headers['set-cookie'];
+    const id = a.body.workspace.id, team = repository.getTeamsForUser(a.body.user.id).memberships[0];
+    const path = `/api/workspaces/${id}/statistics`;
+    expect((await client.get(path)).status).toBe(401);
+    expect((await client.get(path).set('Cookie', cookieB)).status).toBe(403);
+    repository.joinTeam(b.body.user.id, team.id);
+    expect((await client.get(path).set('Cookie', cookieB)).status).toBe(403);
+    expect((await client.get(path+'?days=365').set('Cookie', cookieA)).status).toBe(400);
+    const result = await client.get(path+`?workspaceId=${b.body.workspace.id}`).set('Cookie', cookieA);
+    expect(result.status).toBe(200); expect(result.body.teams.map((t: {id: string}) => t.id)).toEqual([team.id]);
+    expect(result.body.lifetimeTotals).toBeNull(); expect(result.body.newRegistrations).toBeNull();
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as {port: number}).port;
+    const connect = (cookie: string | string[], suffix = '') => new WebSocket(`ws://127.0.0.1:${port}/ws?scope=statistics&workspaceId=${id}${suffix}`, {headers: {Cookie: (Array.isArray(cookie) ? cookie : [cookie]).map(c => c.split(';')[0]).join('; ')}});
+    const denied = connect(cookieB); expect((await once(denied, 'close'))[0]).toBe(1008);
+    const mixed = connect(cookieA, `&teamId=${team.id}`); expect((await once(mixed, 'close'))[0]).toBe(1008);
+    const ws = connect(cookieA); await once(ws, 'message');
+    const revoked = once(ws, 'close');
+    const preview = repository.getOwnAccountDeletionPreview(a.body.user.id);
+    repository.deleteOwnAccount(a.body.user.id, 'Password123!', preview.confirmationPhrase, preview.impactToken);
+    expect(repository.canReadWorkspaceStatistics(a.body.user.id, id)).toBe(false);
+    const otherTeam = repository.getTeamsForUser(b.body.user.id).memberships[0];
+    await client.post(`/api/teams/${otherTeam.id}/statistics/activity`).set('Cookie', cookieB);
+    expect((await revoked)[0]).toBe(1008);
+    expect((await client.get(path).set('Cookie', cookieA)).status).toBe(401);
+    ws.terminate(); await new Promise<void>(resolve => server.close(() => resolve()));
+  });
+
   it("restricts statistics endpoints and sockets to platform or scoped team administrators", async () => {
     const {app, server, repository} = await loadTestServer(); const client = request(app);
     const ownerCookie = await createRegularUser(client, "stats-owner@example-company.com", "Owner");

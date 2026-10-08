@@ -794,10 +794,11 @@ const teamClients = new Map<string, Set<import("ws").WebSocket>>();
 const chooserClients = new Set<import("ws").WebSocket>();
 // Read-only directory observers never join board presence or affect voting quorum.
 const directoryClients = new Map<string, Set<import("ws").WebSocket>>();
-const statisticsClients = new Map<WebSocket, {userId: string; teamId?: string}>();
+const statisticsClients = new Map<WebSocket, {userId: string; teamId?: string; workspaceId?: string}>();
 let statisticsTimer: ReturnType<typeof setTimeout> | undefined;
-function canReadStatistics(userId: string, teamId?: string) {
+function canReadStatistics(userId: string, teamId?: string, workspaceId?: string) {
   const user = repository.getCurrentUser(userId);
+  if (workspaceId) return !teamId && repository.canReadWorkspaceStatistics(userId, workspaceId);
   return !!user && (repository.isSuperAdmin(userId) || (!!teamId && repository.getTeamUserRole(userId, teamId) === "team_admin"));
 }
 function notifyStatistics() {
@@ -805,7 +806,7 @@ function notifyStatistics() {
   statisticsTimer = setTimeout(() => {
     statisticsTimer = undefined;
     for (const [socket, scope] of statisticsClients) {
-      if (!canReadStatistics(scope.userId, scope.teamId)) { socket.close(1008, "Statistics access revoked"); continue; }
+      if (!canReadStatistics(scope.userId, scope.teamId, scope.workspaceId)) { socket.close(1008, "Statistics access revoked"); continue; }
       if (socket.readyState === 1) socket.send(JSON.stringify({type: "statistics:update"}));
     }
   }, 1000);
@@ -913,6 +914,7 @@ wsServer.on("connection", (socket, request) => {
   const token = url.searchParams.get("token") ?? cookies.session_token ?? undefined;
   const teamId = url.searchParams.get("teamId");
   const scope = url.searchParams.get("scope");
+  const workspaceId = url.searchParams.get("workspaceId") ?? undefined;
   attachSocketErrorHandler(socket, () => ({
     path: request.url ?? null,
     teamId,
@@ -940,8 +942,8 @@ wsServer.on("connection", (socket, request) => {
   });
 
   if (scope === "statistics") {
-    if (!canReadStatistics(user.id, teamId ?? undefined)) { socket.close(1008, "Statistics permission required"); return; }
-    statisticsClients.set(socket, {userId: user.id, teamId: teamId ?? undefined});
+    if (!canReadStatistics(user.id, teamId ?? undefined, workspaceId)) { socket.close(1008, "Statistics permission required"); return; }
+    statisticsClients.set(socket, {userId: user.id, teamId: teamId ?? undefined, workspaceId});
     updateSocketMetrics();
     socket.send(JSON.stringify({type: "statistics:update"}));
     socket.on("close", () => { statisticsClients.delete(socket); updateSocketMetrics(); });

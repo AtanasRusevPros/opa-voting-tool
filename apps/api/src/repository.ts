@@ -1146,6 +1146,12 @@ export class Repository {
     return PUBLIC_TRIAL_TERMS_VERSION;
   }
 
+  canReadWorkspaceStatistics(userId: string, workspaceId: string): boolean {
+    return !!this.db.prepare(`SELECT 1 FROM workspaces w JOIN workspace_memberships m ON m.workspace_id = w.id
+      JOIN users u ON u.id = m.user_id WHERE w.id = ? AND m.user_id = ? AND u.deleted_at IS NULL
+      AND w.kind = 'public_trial' AND (w.created_by = m.user_id OR m.role = 'owner')`).get(workspaceId, userId);
+  }
+
   getPublicTrialWorkspaces(userId: string) {
     const rows = this.db.prepare(`SELECT w.id, w.name, w.created_by, wm.role
       FROM workspaces w JOIN workspace_memberships wm ON wm.workspace_id = w.id

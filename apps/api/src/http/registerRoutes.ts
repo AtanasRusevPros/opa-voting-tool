@@ -963,18 +963,29 @@ export function registerRoutes({
     });
   });
 
-  const statisticsResponse = async (req: express.Request, res: express.Response, teamId?: string) => {
+  const statisticsResponse = async (req: express.Request, res: express.Response, teamId?: string, ownedWorkspaceId?: string) => {
     const days = Number(req.query.days ?? 30);
     if (![1, 7, 30].includes(days)) { res.status(400).json({error: "Choose 1, 7 or 30 days."}); return; }
-    const workspaceId = !teamId && typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
+    const workspaceId = ownedWorkspaceId ?? (!teamId && typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined);
     res.setHeader("Cache-Control", "no-store");
     try {
       const statistics = await repository.getStatisticsAsync(getLiveStatistics(), teamId, days as 1 | 7 | 30, workspaceId);
       // Recheck permission after a queued read; permissions may change while it runs.
-      if (teamId ? !requireTeamAdmin(req, res, {allowArchived: true}) : !requireSuperAdmin(req, res)) return;
+      if (ownedWorkspaceId) {
+        if (!repository.canReadWorkspaceStatistics((req as AuthedRequest).user.id, ownedWorkspaceId)) {
+          res.status(403).json({error: "Only the workspace owner can view its statistics."}); return;
+        }
+      } else if (teamId ? !requireTeamAdmin(req, res, {allowArchived: true}) : !requireSuperAdmin(req, res)) return;
       res.json(statistics);
     } catch { res.status(503).json({error: "Statistics are temporarily unavailable. Please retry."}); }
   };
+  app.get("/api/workspaces/:workspaceId/statistics", requireUser, (req, res) => {
+    const id = String(req.params.workspaceId);
+    if (!repository.canReadWorkspaceStatistics((req as AuthedRequest).user.id, id)) {
+      res.status(403).json({error: "Only the workspace owner can view its statistics."}); return;
+    }
+    statisticsResponse(req, res, undefined, id);
+  });
   app.get("/api/admin/statistics", requireUser, (req, res) => {
     if (!requireSuperAdmin(req, res)) return;
     statisticsResponse(req, res);

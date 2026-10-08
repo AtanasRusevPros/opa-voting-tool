@@ -492,6 +492,8 @@ trial mode; changing that flag does not migrate existing trial workspace records
 
 Use **Platform → Stats** for installation-wide usage, workspace filtering and team breakdowns. The menu is renamed from Platform settings; existing configuration tabs remain. Stats is read-only and Save settings is disabled on that tab. JSON export uses the displayed aggregate snapshot and selected scope. No public endpoint exposes usage totals.
 
+See [Platform statistics and every count](STATISTICS_GUIDE.md#platform-admin), including the difference between rolling reports and permanent totals.
+
 Statistics are enabled for both deployment modes with no automatic statistics expiry in either mode. Unfiltered Platform reports also show permanent round/vote counters, including deleted workspaces, without identifying details; team/workspace-filtered reports never expose these global totals. No additional service or statistics TOML key is needed. Reporting periods only filter the view; explicit deletion still applies. Review [definitions and operating boundaries](USAGE.md#usage-statistics) and [privacy disclosure](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Collection starts on installation of this version; old usage is not reconstructed. This is adoption/usage reporting, not employee performance ranking. The separate operator usage CLI remains a legacy report with different calendar-month definitions, not a matching Stats export.
 
 

@@ -833,3 +833,5 @@ Statistics is built in for self-hosted and hosted-trial instances; no TOML edit 
 Local regression/query-scale tests do not replace deployment health checks or representative concurrent-load testing on the operator's hardware.
 
 For the statistics retention upgrade, no TOML change is required. Schema migration adds permanent platform counters and nullable round proposers; make the normal pre-update backup. Check the revised trial privacy notice, Platform totals/export and proposer title editing. Deleted/expired historical statistics are not reconstructed. Existing consent records remain unchanged; operators should communicate the updated retention notice to existing users.
+
+Workspace statistics acceptance: as a hosted-trial owner, open Account → Workspaces → Workspace stats, change Period and export JSON. Check that other workspace owners/collaborators cannot access that report and that global retained totals are absent. No additional TOML setting is required. [Count glossary](STATISTICS_GUIDE.md#count-definitions).

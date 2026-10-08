@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useState } from "react";
+import { StatsPanel } from "./StatsPanel";
 import type { TrialWorkspaceView } from "./HostedTrialNotice";
 
 export type TrialWorkspaceSettingsProps = {
@@ -11,6 +12,7 @@ export type TrialWorkspaceSettingsProps = {
 };
 export function TrialWorkspaceSettings(props: TrialWorkspaceSettingsProps) {
   const [trialWorkspaces, setTrialWorkspaces] = useState<TrialWorkspaceView[]>([]);
+  const [statsWorkspace, setStatsWorkspace] = useState<string | null>(null);
   const [editingWorkspace, setEditingWorkspace] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [savingWorkspace, setSavingWorkspace] = useState(false);
@@ -49,6 +51,10 @@ export function TrialWorkspaceSettings(props: TrialWorkspaceSettingsProps) {
               <button className="secondary-button" type="button" disabled={savingWorkspace} onClick={() => { setEditingWorkspace(null); setWorkspaceError(""); }}>Cancel</button></div>
             </form> : <button className="secondary-button" type="button" onClick={() => { setEditingWorkspace(workspace.id); setWorkspaceName(workspace.name); setWorkspaceError(""); setWorkspaceNotice(""); }}>Rename workspace</button> : null}
 
+            {workspace.isOwner ? <>
+              <button className="secondary-button" type="button" aria-expanded={statsWorkspace === workspace.id} onClick={() => setStatsWorkspace(statsWorkspace === workspace.id ? null : workspace.id)}>Workspace stats: {workspace.name}</button>
+              {statsWorkspace === workspace.id ? <section aria-label={`Statistics for ${workspace.name}`}><StatsPanel workspaceId={workspace.id} /></section> : null}
+            </> : null}
             <p>Teams: {workspace.teams.map((team) => team.name).join(", ") || "No joined teams"}</p>
             <p>{workspace.revealedRounds} of {workspace.monthlyLimit} revealed rounds used this month. Resets {workspace.resetsAt.slice(0, 10)} (UTC).</p>
             {workspace.isOwner ? <p>For deletion details, use Delete account below.</p> :

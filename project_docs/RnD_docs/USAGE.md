@@ -563,6 +563,8 @@ manual rights handling. Public copies of private planning evidence are not requi
 
 ## Usage Statistics
 
+See the [statistics guide](STATISTICS_GUIDE.md) for separate team-admin, workspace-owner and platform instructions and a complete count glossary. Hosted-workspace owners open **Account → Workspaces → Workspace stats**; collaborators do not have this access.
+
 - **Team Admin → People / Stats / Import/export:** Stats is available to that team's admins, including for archived teams. Ordinary members do not gain analytics access.
 - **Platform → Stats:** super-admins see installation totals and team/workspace breakdowns; select a workspace to narrow the totals. The former “Platform settings” menu is now **Platform**; configuration tabs remain available.
 - Select **Last 24 hours**, **Last 7 days** or **Last 30 days**. These are rolling windows, not the hosted trial's UTC calendar-month quota. Active-person cards always show all three windows. Tables, other cards, trend and JSON export use the selected period.

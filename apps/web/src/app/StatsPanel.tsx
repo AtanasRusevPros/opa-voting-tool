@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { StatisticsResponse } from '@planning-poker/shared';
 import { closeSocket } from './closeSocket';
 
-export function StatsPanel({teamId}: {teamId?: string}) {
+export function StatsPanel({teamId, workspaceId}: {teamId?: string; workspaceId?: string}) {
   const [days, setDays] = useState<1 | 7 | 30>(30);
   const [workspace, setWorkspace] = useState('');
   const [workspaces, setWorkspaces] = useState<Array<{id: string; name: string}>>([]);
@@ -25,9 +25,9 @@ export function StatsPanel({teamId}: {teamId?: string}) {
       if (loading) { dirty = true; return; }
       loading = true;
       try {
-        const path = teamId ? `/api/teams/${encodeURIComponent(teamId)}/statistics` : '/api/admin/statistics';
+        const path = teamId ? `/api/teams/${encodeURIComponent(teamId)}/statistics` : workspaceId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/statistics` : '/api/admin/statistics';
         const query = new URLSearchParams({days: String(days)});
-        if (!teamId && workspace) query.set('workspaceId', workspace);
+        if (!teamId && !workspaceId && workspace) query.set('workspaceId', workspace);
         const response = await fetch(`${path}?${query}`, {headers, credentials: 'include', signal: controller.signal});
         if (!response.ok) throw new Error('Statistics could not be loaded. Check your access and retry.');
         const result: StatisticsResponse = await response.json();
@@ -43,6 +43,7 @@ export function StatsPanel({teamId}: {teamId?: string}) {
       const url = new URL('/ws', location.href); url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       url.searchParams.set('scope', 'statistics');
       if (teamId) url.searchParams.set('teamId', teamId);
+      if (workspaceId) url.searchParams.set('workspaceId', workspaceId);
       if (token) url.searchParams.set('token', token);
       socket = new WebSocket(url);
       socket.onopen = () => { if (!disposed) setConnected(true); };
@@ -56,7 +57,7 @@ export function StatsPanel({teamId}: {teamId?: string}) {
     };
     void load(); connect();
     return () => { disposed = true; controller.abort(); clearTimeout(reconnect); if (socket) closeSocket(socket); };
-  }, [teamId, days, workspace, refresh]);
+  }, [teamId, workspaceId, days, workspace, refresh]);
   const download = () => {
     if (!data) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}));
@@ -64,13 +65,13 @@ export function StatsPanel({teamId}: {teamId?: string}) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return <section className="statistics-panel" aria-label="Usage statistics">
-    <h3>Stats</h3>
+    <h3>{workspaceId ? 'Workspace stats' : 'Stats'}</h3>
     <p>Human activity and voting usage. Demo/simulator data and super-admin activity are excluded.</p>
     <div className="statistics-controls">
       <label>Period<select value={days} onChange={e => setDays(Number(e.target.value) as 1 | 7 | 30)}>
         <option value={1}>Last 24 hours</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option>
       </select></label>
-      {!teamId ? <label>Workspace<select value={workspace} onChange={e => setWorkspace(e.target.value)}><option value="">All workspaces</option>{workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label> : null}
+      {!teamId && !workspaceId ? <label>Workspace<select value={workspace} onChange={e => setWorkspace(e.target.value)}><option value="">All workspaces</option>{workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label> : null}
       <button type="button" className="secondary-button" onClick={() => setRefresh(v => v + 1)}>Refresh stats</button>
       <button type="button" className="secondary-button" disabled={!data} onClick={download}>Export stats JSON</button>
     </div>
@@ -81,7 +82,7 @@ export function StatsPanel({teamId}: {teamId?: string}) {
       <dl className="statistics-cards">
         {([
           ['Active people · 24 hours', data.windows.day.activePeople], ['Active people · 7 days', data.windows.week.activePeople], ['Active people · 30 days', data.windows.month.activePeople],
-          [teamId || workspace ? 'Members online now' : 'People online now', data.onlinePeople], ['On boards now', data.onBoards], ['Completed rounds', data.selected.completedRounds],
+          [teamId || workspaceId || workspace ? 'Members online now' : 'People online now', data.onlinePeople], ['On boards now', data.onBoards], ['Completed rounds', data.selected.completedRounds],
           ['Distinct issue records', data.selected.distinctIssues], ['Votes in completed rounds', data.selected.votes], ['Unique voters', data.selected.uniqueVoters],
           ['Participation', data.selected.participationPercent === null ? 'No eligible participants' : `${data.selected.participationPercent}%`],
           ['Active rounds started in period', data.selected.activeRounds], ['Abandoned rounds started in period', data.selected.abandonedRounds],

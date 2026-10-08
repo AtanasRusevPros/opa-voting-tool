@@ -84,3 +84,25 @@ test("statistics retention disclosure matches the deployment in Platform and pri
   expect(Object.keys(JSON.parse(json).lifetimeTotals).sort()).toEqual(["completedRounds", "votes"]);
   await expect(page.getByTestId("stats-lifetime")).toContainText("Includes deleted workspaces; no identifying details");
 });
+
+test('workspace owner has scoped live statistics in Account and exports only that workspace', async ({page}) => {
+  test.skip(process.env.PLAYWRIGHT_TRIAL !== '1', 'Requires hosted trial signup.');
+  const email = `workspace-owner-${Date.now()}@example.com`;
+  const code = await (await page.request.post('/api/auth/public-trial/request-code', {data: {email}})).json();
+  const response = await page.request.post('/api/auth/public-trial/signup', {data: {email, code: code.debugCode, displayName: 'Workspace Stats Owner', password: 'Password123!', acceptedTerms: true, acceptedTermsVersion: code.termsVersion}});
+  expect(response.ok()).toBe(true); const signup = await response.json();
+  await page.goto('/');
+  await expect.poll(async () => await page.getByRole('button', {name: 'Account', exact: true}).isVisible() || await page.getByRole('button', {name: 'Open main menu'}).isVisible()).toBe(true);
+  if (await page.getByRole('button', {name: 'Open main menu'}).isVisible()) await page.getByRole('button', {name: 'Open main menu'}).click();
+  await page.getByRole('button', {name: 'Account', exact: true}).click();
+  await page.getByRole('button', {name: /Workspace stats:/}).click();
+  await expect(page.getByRole('heading', {name: 'Workspace stats', exact: true})).toBeVisible();
+  await expect(page.getByTestId('stats-lifetime')).toHaveCount(0);
+  await expect(page.getByTestId('stats-New registrations')).toHaveCount(0);
+  const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', {name: 'Export stats JSON'}).click();
+  const stream = await (await downloadPromise).createReadStream(); let json = ''; for await (const chunk of stream!) json += chunk.toString();
+  const stats = JSON.parse(json); expect(stats.lifetimeTotals).toBeNull();
+  expect(stats.teams.every((team: {workspaceId: string}) => team.workspaceId === signup.workspace.id)).toBe(true);
+  await page.getByRole('combobox', {name: 'Period', exact: true}).selectOption('7');
+  await expect(page.getByText(/Live updates connected/)).toBeVisible();
+});

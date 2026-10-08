@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Added owner-only hosted workspace statistics under Account, with scoped live updates and JSON export. Added a complete count glossary and separate team/workspace/platform guide sections.
+
 - Let the member who proposed the current round edit its board title, with server authorization, persisted ownership and the same inline editor. Saved History/Search editing remains admin-only; archived teams and former members cannot edit.
 - Extend non-expiring statistics retention to hosted trial. Add permanent platform-wide round/vote counters without attached identifiers, preserved after workspace deletion; detailed statistics still follow account/workspace deletion. Update trial notices and signup policy version.
 
