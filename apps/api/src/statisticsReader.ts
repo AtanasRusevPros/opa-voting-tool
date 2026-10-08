@@ -10,9 +10,9 @@ export class StatisticsReader {
   private cache = new Map<string, {until: number; data: StatisticsResponse}>();
   private tail: Promise<unknown> = Promise.resolve();
   constructor(private databasePath: string) {}
-  read(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) {
+  read(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string, retentionDays: number | null = null) {
     const requestedAt = Date.now();
-    const key = JSON.stringify([teamId, days, workspaceId]);
+    const key = JSON.stringify([teamId, days, workspaceId, retentionDays]);
     for (const [key, value] of this.cache) if (value.until <= Date.now()) this.cache.delete(key);
     const cached = this.cache.get(key);
     if (cached) return Promise.resolve(cached.data);
@@ -30,12 +30,12 @@ export class StatisticsReader {
           const db = new DatabaseSync(workerData.path, {readOnly: true});
           try {
             db.exec('PRAGMA busy_timeout = 5000; BEGIN');
-            const result = readStatistics(db, workerData.live, workerData.teamId, workerData.days, Date.now(), workerData.workspaceId, false);
+            const result = readStatistics(db, workerData.live, workerData.teamId, workerData.days, Date.now(), workerData.workspaceId, workerData.retentionDays);
             db.exec('COMMIT');
             parentPort.postMessage(result);
           } finally { db.close(); }
         })().catch(error => { throw error; });
-      `, {eval: true, execArgv: ['--experimental-strip-types'], workerData: {moduleUrl, path: this.databasePath, live, teamId, days, workspaceId}});
+      `, {eval: true, execArgv: ['--experimental-strip-types'], workerData: {moduleUrl, path: this.databasePath, live, teamId, days, workspaceId, retentionDays}});
       const timeout = setTimeout(() => { void worker.terminate(); reject(new Error('Statistics request timed out. Please retry.')); }, 10000);
       worker.once('message', data => { clearTimeout(timeout); resolve(data); });
       worker.once('error', error => { clearTimeout(timeout); reject(error); });

@@ -222,6 +222,7 @@ export class Repository {
     this.db.exec("PRAGMA foreign_keys = ON");
     this.migrate();
     initializeStatistics(this.db);
+    this.pruneStatistics();
     this.statisticsReader = new StatisticsReader(this.config.databasePath);
     this.db.exec("CREATE TABLE IF NOT EXISTS workspace_name_migrations (id TEXT PRIMARY KEY)");
     if (!this.db.prepare("SELECT id FROM workspace_name_migrations WHERE id = ?").get("owner-name-v1")) {
@@ -236,10 +237,11 @@ export class Repository {
     }
   }
 
-  getStatisticsAsync(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return this.statisticsReader.read(live, teamId, days, workspaceId); }
+  getStatisticsAsync(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return this.statisticsReader.read(live, teamId, days, workspaceId, this.statisticsRetentionDays); }
   recordStatisticsActivity(userId: string, teamId: string) { recordActivity(this.db, userId, teamId); }
-  pruneStatistics() { pruneStatistics(this.db); }
-  getStatistics(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return readStatistics(this.db, live, teamId, days, Date.now(), workspaceId); }
+  private get statisticsRetentionDays(): number | null { return this.config.publicTrial.enabled ? 31 : null; }
+  pruneStatistics() { pruneStatistics(this.db, Date.now(), this.statisticsRetentionDays); }
+  getStatistics(live: LiveStatistics, teamId?: string, days: 1 | 7 | 30 = 30, workspaceId?: string) { return readStatistics(this.db, live, teamId, days, Date.now(), workspaceId, this.statisticsRetentionDays); }
 
   private closeDatabase(): void {
     this.db.close();

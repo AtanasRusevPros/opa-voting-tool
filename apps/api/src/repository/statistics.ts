@@ -37,11 +37,11 @@ export function initializeStatistics(db: DatabaseSync) {
       END;
   `);
   db.prepare('INSERT OR IGNORE INTO statistics_metadata VALUES (1, ?)').run(new Date().toISOString());
-  pruneStatistics(db);
 }
 
-export function pruneStatistics(db: DatabaseSync, now = Date.now()) {
-  const cutoff = new Date(now - 31 * DAY).toISOString();
+export function pruneStatistics(db: DatabaseSync, now = Date.now(), retentionDays: number | null = null) {
+  if (retentionDays === null) return;
+  const cutoff = new Date(now - retentionDays * DAY).toISOString();
   db.prepare('DELETE FROM statistics_activity WHERE last_at < ?').run(cutoff);
   db.prepare('DELETE FROM statistics_rounds WHERE completed_at < ?').run(cutoff);
 }
@@ -68,8 +68,7 @@ export function recordCompletedRound(db: DatabaseSync, roundId: string, teamId: 
 
 type Activity = {user_id: string; team_id: string; day: string; last_at: string};
 type Completed = {round_id: string; team_id: string; issue_id: string; completed_at: string; votes: number; eligible: number; participating: number};
-export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam?: string, days: 1 | 7 | 30 = 30, now = Date.now(), workspaceId?: string, prune = true): StatisticsResponse {
-  if (prune) pruneStatistics(db, now);
+export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam?: string, days: 1 | 7 | 30 = 30, now = Date.now(), workspaceId?: string, retentionDays: number | null = null): StatisticsResponse {
   const generatedAt = new Date(now).toISOString();
   const startedAt = (db.prepare('SELECT started_at FROM statistics_metadata WHERE id = 1').get() as {started_at: string}).started_at;
   const from30 = new Date(now - 30 * DAY).toISOString();
@@ -123,7 +122,7 @@ export function readStatistics(db: DatabaseSync, live: LiveStatistics, scopeTeam
   const teamRows = teams.map(t => ({ id: t.id, name: t.name, workspaceId: t.workspace_id, workspaceName: t.workspace_name, archived: !!t.archived,
     members: memberships.filter(m => m.team_id === t.id).length, onBoard: boardIds(t.id).size, ...metrics(perTeam.get(t.id)!) }));
   const trend = [...daily].map(([date, value]) => ({date, activePeople: value.people.size, completedRounds: value.rounds}));
-  return { generatedAt, startedAt, days, periodStart: selectedFrom, partialCoverage: startedAt > selectedFrom,
+  return { generatedAt, startedAt, retentionDays, days, periodStart: selectedFrom, partialCoverage: startedAt > selectedFrom,
     windows: {day: metrics(windows.get(1)!), week: metrics(windows.get(7)!), month: metrics(windows.get(30)!)}, selected: metrics(windows.get(days)!), teams: teamRows, trend,
     onlinePeople: scopeTeam || workspaceId ? new Set(memberships.filter(m => online.has(m.user_id)).map(m => m.user_id)).size : online.size,
     onBoards: new Set(teams.flatMap(t => [...boardIds(t.id)])).size,

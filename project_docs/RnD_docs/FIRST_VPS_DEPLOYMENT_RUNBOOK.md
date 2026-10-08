@@ -825,6 +825,6 @@ Statistics is built in for self-hosted and hosted-trial instances; no TOML edit 
 - As team admin, open **Team Admin → Stats**. With two disposable accounts, vote and reveal, then vote again on the same issue. Rounds should increase twice; distinct issues should increase once.
 - Check live board counts when the second person joins/leaves. Two tabs for one person should still count once. Ordinary members should have no Stats tab.
 - Keep Stats open while voting; confirm normal board/history behavior and responsive controls on desktop and phone.
-- Review `/public-trial/privacy` on hosted-trial deployments and the [statistics retention and privacy guidance](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Records have a fixed 31-day retention window; backups and exported files require their own retention handling.
+- Review `/public-trial/privacy` on hosted-trial deployments and the [statistics retention and privacy guidance](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Hosted-trial statistics have a 31-day retention window; self-hosted statistics have no automatic expiry. Live voting history is not expired by statistics or backup cleanup; backups and exported files require their own retention handling.
 
 Local regression/query-scale tests do not replace deployment health checks or representative concurrent-load testing on the operator's hardware.

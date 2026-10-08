@@ -13,12 +13,14 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Corrected statistics retention: self-hosted records no longer expire automatically; hosted-trial records retain the 31-day policy. Reports, exports, About and privacy text show the applicable policy. Backup rotation only deletes backup copies, preserving the live database and voting history.
+
 - Fixed another participant incorrectly appearing as Voted when only one person voted. Live vote indexes now follow the transmitted membership order rather than a separate name-sorted list; added reversed-order two-browser and unit regressions.
 
 - Added admin-only inline title corrections on the board and in saved history/search, with Enter/click-away save, Escape cancel, matching pencil styling, contained editors and conflict/error handling. Title changes preserve votes, timers and completed-round totals.
 
 - Added Platform → Stats and Team Admin → Stats with scoped rolling activity, voting/issue counts, participation, live presence, UTC trends, workspace filtering and aggregate JSON export. Renamed the Platform settings navigation to Platform.
-- Added 31-day first-party statistics retention, coverage labels, explicit synthetic metadata, deletion/purge handling and disclosed privacy behavior. Heavy report reads run outside the voting event loop; observer sockets do not alter quorum.
+- Added deployment-aware first-party statistics retention, coverage labels, explicit synthetic metadata, deletion/purge handling and disclosed privacy behavior. Heavy report reads run outside the voting event loop; observer sockets do not alter quorum.
 
 - Kept long account-deletion confirmations scrollable within short viewports so the confirmation button remains reachable.
 

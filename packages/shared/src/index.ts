@@ -1019,6 +1019,8 @@ export type StatisticsMetrics = {
   abandonedRounds: number;
 };
 export type StatisticsResponse = {
+  /** null means no automatic age-based expiry (self-hosted); hosted trial uses 31. */
+  retentionDays: number | null;
   generatedAt: string; startedAt: string; days: 1 | 7 | 30; periodStart: string; partialCoverage: boolean;
   windows: {day: StatisticsMetrics; week: StatisticsMetrics; month: StatisticsMetrics};
   selected: StatisticsMetrics;

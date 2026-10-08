@@ -2608,6 +2608,7 @@ test("team stats stay live, deduplicate tabs, separate re-votes and export match
     const dialog = owner.getByRole('dialog', {name: `${name} people`});
     await expect(dialog.getByRole('tab')).toHaveText(['People', 'Stats', 'Import/export']);
     await dialog.getByRole('tab', {name: 'Stats', exact: true}).click();
+    await expect(owner.getByText(/Self-hosted statistics have no automatic expiry/)).toBeVisible();
     await expect(owner.getByTestId('stats-Active people · 24 hours')).toHaveText('2');
     await expect(owner.getByTestId('stats-On boards now')).toHaveText('2');
     const duplicate = await ownerContext.newPage(); await duplicate.goto(`/?teamId=${teamId}`); await expect(duplicate.locator('.board-shell')).toBeVisible();
@@ -2632,7 +2633,7 @@ test("team stats stay live, deduplicate tabs, separate re-votes and export match
     const downloadPromise = owner.waitForEvent('download'); await owner.getByRole('button', {name: 'Export stats JSON'}).click();
     const download = await downloadPromise; const stream = await download.createReadStream(); let content = '';
     for await (const chunk of stream!) content += chunk.toString();
-    const exported = JSON.parse(content); expect(exported.selected.completedRounds).toBe(3); expect(exported.teams).toHaveLength(1);
+    const exported = JSON.parse(content); expect(exported.retentionDays).toBeNull(); expect(exported.selected.completedRounds).toBe(3); expect(exported.teams).toHaveLength(1);
     expect(content).not.toContain(email); expect(exported.teams[0].id).toBe(teamId);
     await dialog.getByRole('button', {name: 'Close', exact: true}).click();
     await owner.getByRole('button', {name: 'Open main menu'}).click(); await owner.getByRole('button', {name: 'Team admin', exact: true}).click();

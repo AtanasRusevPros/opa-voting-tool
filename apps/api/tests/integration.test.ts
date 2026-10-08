@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { BackupManager } from "../src/backups.js";
 import { recordActivity, readStatistics, pruneStatistics } from "../src/repository/statistics.js";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -60,6 +61,64 @@ afterEach(() => {
 });
 
 describe("Repository integration", () => {
+  it.each([false, true])("retains the live database while applying mode-specific statistics expiry (hosted=%s)", async (hosted) => {
+    const config = createTestConfig(); config.publicTrial.enabled = hosted;
+    config.backups = {enabled: true, intervalHours: 168, maxAgeDays: 21};
+    let repo = new Repository(config);
+    const user = repo.ensureUser({email: "retention@example-company.com", displayName: "Retention Owner", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const team = repo.createTeam(user.id, "Retention team");
+    const round = repo.createRound(team.id, "Keep old history"); repo.castVote(round.id, user.id, "5"); repo.revealRound(round.id);
+    repo.recordStatisticsActivity(user.id, team.id);
+    const db = new DatabaseSync(config.databasePath); db.exec("PRAGMA foreign_keys=ON");
+    const old = new Date(Date.now() - 365 * 86400000).toISOString();
+    db.prepare("UPDATE statistics_activity SET last_at = ?, day = ?").run(old, old.slice(0, 10));
+    db.prepare("UPDATE statistics_rounds SET completed_at = ?").run(old);
+    db.prepare("UPDATE history_entries SET completed_at = ?").run(old);
+    db.prepare("UPDATE rounds SET created_at = ?, revealed_at = ?").run(old, old);
+    // Snapshot rotation must only remove backup copies, never live records.
+    const backups = new BackupManager(config);
+    for (let week = 0; week < 5; week++) await backups.tick(Date.now() + week * 7 * 86400000);
+    expect(fs.readdirSync(backups.directory).filter(name => name.endsWith('.db'))).toHaveLength(3);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(1);
+    // Reading old data must not prune it, and the 30-day dashboard is only a filter.
+    const response = await repo.getStatisticsAsync({online: [], boards: {}}, team.id);
+    expect(response.retentionDays).toBe(hosted ? 31 : null); expect(response.selected.completedRounds).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(1);
+    repo.pruneStatistics(); // Same entry point used by minute maintenance.
+    for (const table of ['statistics_activity', 'statistics_rounds', 'statistics_voters']) {
+      expect((db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as {n: number}).n).toBe(hosted ? 0 : 1);
+    }
+    // Recreate expired records to independently verify startup cleanup.
+    db.prepare("INSERT OR IGNORE INTO statistics_activity VALUES (?, ?, ?, ?)").run(user.id, team.id, old.slice(0, 10), old);
+    db.prepare("INSERT OR IGNORE INTO statistics_rounds VALUES (?, ?, ?, ?, 1, 1, 1)").run(round.id, team.id, round.id, old);
+    db.prepare("INSERT OR IGNORE INTO statistics_voters VALUES (?, ?)").run(round.id, user.id);
+    repo = new Repository(config); // Startup obeys the same policy.
+    expect(repo.getStatistics({online: [], boards: {}}, team.id).retentionDays).toBe(hosted ? 31 : null);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_rounds").get() as {n: number}).n).toBe(hosted ? 0 : 1);
+    expect(repo.getHistory(team.id)[0].title).toBe("Keep old history");
+    expect(repo.getRoundState(round.id)!.votes).toHaveLength(1);
+    expect(repo.getUser(user.id)).not.toBeNull(); expect(repo.getTeam(team.id)).not.toBeNull();
+    expect(db.prepare('PRAGMA integrity_check').get()).toEqual({integrity_check: 'ok'});
+    db.close();
+  });
+
+  it("prunes only hosted statistics strictly older than 31 days and leaves the exact boundary", () => {
+    const config = createTestConfig();
+    const repo = new Repository(config);
+    const user = repo.ensureUser({email: "boundary@example-company.com", displayName: "Boundary", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const team = repo.createTeam(user.id, "Boundary retention");
+    const db = new DatabaseSync(config.databasePath);
+    const now = Date.now(), edge = now - 31 * 86400000;
+    recordActivity(db, user.id, team.id, edge);
+    pruneStatistics(db, now); // Safe self-hosted default: no expiry.
+    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(1);
+    pruneStatistics(db, now, 31);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(1);
+    pruneStatistics(db, now + 1, 31);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM statistics_activity').get() as {n: number}).n).toBe(0);
+    db.close();
+  });
+
   it("renames live and saved issues without changing votes, timers, result timestamps or statistics", () => {
     const config = createTestConfig(); const repo = new Repository(config);
     const user = repo.ensureUser({email: "title@example-company.com", displayName: "Title admin", avatarIconKey: "bear", avatarColorKey: "azure"});
@@ -111,7 +170,7 @@ describe("Repository integration", () => {
     expect([stats.windows.day.activePeople, stats.windows.week.activePeople, stats.windows.month.activePeople]).toEqual([0, 1, 2]);
     expect(stats.selected.participationPercent).toBeNull();
     expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(3);
-    pruneStatistics(db, now + 40 * day);
+    pruneStatistics(db, now + 40 * day, 31);
     expect((db.prepare("SELECT COUNT(*) AS n FROM statistics_activity").get() as {n: number}).n).toBe(0);
     db.close();
   });

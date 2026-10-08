@@ -569,4 +569,4 @@ manual rights handling. Public copies of private planning evidence are not requi
 
 Team admins use **Team Admin → Stats**; super-admins use **Platform → Stats**, with workspace filtering. See active people over rolling 24-hour/7-day/30-day periods, completed rounds versus distinct issue records, participation, live app/board presence and daily trends. Demo/simulator data and super-admin activity are excluded. Statistics begin when this version is installed; older activity is not fabricated or backfilled. Both self-hosted and hosted-trial installations support this feature.
 
-The first-party statistics records expire after 31 days. No external analytics service is used. See [statistics definitions and privacy](project_docs/RnD_docs/USAGE.md#usage-statistics) before operating an instance.
+Self-hosted statistics have no automatic expiry; hosted-trial statistics expire after 31 days. Reporting periods filter the view without deleting older records. No external analytics service is used. See [statistics definitions and privacy](project_docs/RnD_docs/USAGE.md#usage-statistics) before operating an instance.
