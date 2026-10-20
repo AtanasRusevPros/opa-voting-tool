@@ -35,6 +35,7 @@ for(const [width,height] of phoneViewports) test(`keyboard, collapse and half-sc
   for(const expand of [true,false]) {
    const box=(await grip.boundingBox())!,x=box.x+box.width/2,y=box.y+box.height/2;
    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+   await page.waitForTimeout(300); // Deliberate hold before resizing.
    for(let step=1;step<=12;step++) {
     const delta=(expand?-1:1)*step*(width>height?width:height)/30;
     await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:width>height?x+delta:x,y:width>height?y:y+delta}]});

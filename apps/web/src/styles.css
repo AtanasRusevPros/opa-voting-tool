@@ -3418,7 +3418,7 @@ textarea {
 .is-mobile-board .screen-header { position: relative; padding: 4px 8px; contain: style; backdrop-filter: none; }
 .is-mobile-board .screen-header > .brand-footer { display: none; }
 .is-mobile-board .screen-header-bar { display: none; }
-.is-mobile-board.mobile-controls-open .screen-header-bar { display: flex; flex-direction: column; align-items: stretch; position: fixed; z-index: 42; inset: calc(var(--app-viewport-top, 0px) + 60px) 8px 8px; overflow: auto; padding: 12px; border-radius: 18px; background: #fdfefe; }
+.is-mobile-board.mobile-controls-open .screen-header-bar { display: flex; flex-direction: column; align-items: stretch; position: fixed; z-index: 42; inset: calc(var(--app-viewport-top, 0px) + 60px) 8px auto auto; width: min(480px, calc(100% - 16px)); max-height: calc(var(--app-viewport-height, 100dvh) - 68px); overflow: auto; padding: 12px; border-radius: 18px; border-color: rgba(66, 111, 173, .55); background: #fdfefe; }
 .is-mobile-board .screen-header-bar > .ghost-button { align-self: flex-end; min-height: 44px; }
 .is-mobile-board .team-branding, .is-mobile-board .header-toolbar { flex: 0 0 auto; width: 100%; }
 .is-mobile-board .board-main { min-height: 0; padding: 6px 8px; --board-main-inline-padding: 8px; --board-main-bottom-padding: 6px; }
@@ -3447,7 +3447,7 @@ textarea {
 
 /* Visual viewport height accounts for the software keyboard without changing board orientation. */
 .modal-backdrop, .admin-settings-backdrop { bottom: auto; height: var(--app-viewport-height, 100dvh); }
-.is-mobile-board.mobile-controls-open .screen-header-bar { bottom: auto; height: calc(var(--app-viewport-height, 100dvh) - 68px); }
+
 .is-mobile-board .notification-panel { z-index: 45; }
 .is-mobile-board .switch-team-menu { position: fixed; z-index: 44; top: 64px; left: 12px; right: auto; width: calc(100vw - 24px); max-height: calc(var(--app-viewport-height, 100dvh) - 84px); overflow: auto; }
 /* Use the available landscape width for the form instead of stacking every action. */
@@ -3460,3 +3460,44 @@ textarea {
 .mobile-history-grip { width: 24px; height: 24px; flex: 0 0 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .mobile-history-grip.portrait { transform: rotate(90deg); }
 .is-mobile-board .history-stack-resize-symbol { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Actionable chrome uses a quiet blue outline; status chips keep their neutral outline.
+   Icon-only title editors intentionally stay borderless, and destructive actions stay red. */
+:root { --action-outline: rgba(43, 112, 205, .58); }
+:is(.header-chip, select, .primary-button, .secondary-button, .ghost-button, .settings-option,
+    .switch-team-option, .admin-settings-tab, .history-tab, .directory-candidate-button):not(:disabled):not([aria-disabled="true"]) {
+  border: 1px solid var(--action-outline);
+}
+
+/* Explicit desktop toggles share the divider grid area without nesting buttons. */
+.history-toggle { grid-area: divider; align-self: start; justify-self: end; margin-top: 16px; z-index: 20;
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 3px;
+  border: 1px solid var(--action-outline); border-radius: 50%; background: #fff; color: #315c94;
+  box-shadow: 0 2px 8px #213e6126; cursor: pointer; }
+.history-toggle svg { width: 20px; height: 20px; }
+.history-toggle.stacked { grid-area: history; align-self: start; margin: 3px 16px 0 0; }
+.desktop-history-collapsed .history-rail { display: none; }
+.desktop-history-collapsed .stacked-history-panel { min-height: 0; }
+.desktop-history-collapsed .history-stack-resize-handle { flex-basis: 36px; }
+.history-toggle:focus-visible { outline: 2px solid #2677d8; outline-offset: 3px; }
+
+.board-controls-backdrop, .board-submenu-backdrop { position: fixed; inset: 0;
+  background: rgba(30, 48, 72, .14); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.board-controls-backdrop { z-index: 34; }
+.board-submenu-backdrop { display: none; z-index: 43; }
+.is-mobile-board .screen-header-bar:has(.timer-settings-popup, .team-settings-popup, .switch-team-menu, .notification-panel) > .board-submenu-backdrop { display: block; }
+.is-mobile-board .board-controls-close { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; }
+.is-mobile-board .screen-header-bar > .team-branding { padding-right: 48px; min-height: 44px; }
+.is-mobile-board .screen-header-bar .team-name-row { flex-wrap: wrap; }
+.is-mobile-board .screen-header-bar .team-name-row h1 { flex-basis: 100%; font-size: 1.1rem; }
+.is-mobile-board .screen-header-bar .header-toolbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.is-mobile-board .header-toolbar > button:not(.icon-only),
+.is-mobile-board .header-toolbar > .switch-team-wrap { grid-column: span 3; }
+.is-mobile-board .header-toolbar .header-chip { width: 100%; min-width: 0; max-width: 100%; }
+.is-mobile-board :is(.timer-settings-popup, .team-settings-popup, .team-settings-secondary, .notification-panel, .switch-team-menu) { border: 1px solid rgba(66, 111, 173, .6); }
+@media (max-width: 959px) {
+  .modal-backdrop, .admin-settings-backdrop { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+  :is(.modal-panel, .admin-settings-modal) { border: 1px solid rgba(66, 111, 173, .6); }
+}
+
+.is-mobile-board .team-settings-popup:has(.team-settings-secondary) > :not(.team-settings-secondary) { filter: blur(2px); pointer-events: none; }

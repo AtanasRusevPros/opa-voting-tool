@@ -60,6 +60,7 @@ test('touch history resize keeps tracking a continuous drag', async ({browser},i
   const session=await context.newCDPSession(page);
   await page.evaluate(() => { (window as any).resizeCancelled=0; addEventListener('pointerdown',e=>{(window as any).resizeTarget=(e.target as Element).closest('button')?.getAttribute('aria-label');},{once:true}); addEventListener('pointercancel',()=>{(window as any).resizeCancelled++;}); });
   await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height/2}]});
+  await page.waitForTimeout(300); // Deliberate hold before resizing.
   for(let step=1;step<=12;step++) {
     await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height/2-step*10}]});
     await page.waitForTimeout(25);

@@ -3162,6 +3162,10 @@ export const TeamBoard = memo(function TeamBoard(props: {
   const mobileHistoryExtent = isMobileLandscape ? viewportWidth : viewportSize.visibleHeight;
   const mobileHistoryLength = mobileHistorySize(mobileHistory[mobileHistoryAxis], mobileHistoryExtent);
   const mobileHistoryCollapsed = isMobileBoard && mobileHistoryLength <= MOBILE_HISTORY_GRIP;
+  const [desktopHistoryHidden, setDesktopHistoryHidden] = useState({side: false, stacked: false});
+  const desktopHistoryAxis = isStackedHistoryLayout ? "stacked" : "side";
+  const desktopHistoryCollapsed = !isMobileBoard && desktopHistoryHidden[desktopHistoryAxis];
+  const showDesktopHistory = () => setDesktopHistoryHidden(current => ({...current, [desktopHistoryAxis]: false}));
   const resizeDragged = useRef(false);
   const setMobileHistoryLength = useCallback((value: number) => {
     setMobileHistory(current => ({...current, [mobileHistoryAxis]: mobileHistorySize(value, mobileHistoryExtent)}));
@@ -3174,13 +3178,17 @@ export const TeamBoard = memo(function TeamBoard(props: {
   useEffect(() => {
     if (!isMobileBoard || !mobileControlsOpen) return;
     const panel = boardHeaderRef.current?.querySelector<HTMLElement>(".screen-header-bar");
-    const focusable = () => Array.from(panel?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]") ?? []).filter(el => el.getClientRects().length > 0);
+    const focusable = () => {
+      const activePanel = panel?.querySelector<HTMLElement>(".team-settings-secondary, .notification-panel")
+        ?? panel?.querySelector<HTMLElement>(".timer-settings-popup, .team-settings-popup, .switch-team-menu") ?? panel;
+      return Array.from(activePanel?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]") ?? []).filter(el => el.getClientRects().length > 0);
+    };
     focusable()[0]?.focus();
     const trap = (event: KeyboardEvent) => {
       if (event.key !== "Tab") return;
       const controls = focusable(), first = controls[0], last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      if (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement as HTMLElement))) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement as HTMLElement))) { event.preventDefault(); first?.focus(); }
     };
     panel?.addEventListener("keydown", trap);
     return () => { panel?.removeEventListener("keydown", trap); boardHeaderRef.current?.querySelector<HTMLElement>(".mobile-board-bar button")?.focus(); };
@@ -3648,6 +3656,8 @@ export const TeamBoard = memo(function TeamBoard(props: {
     resizeDragged.current = false;
     const initialWidth = isMobileBoard ? mobileHistoryLength : historyRailWidth;
     const startX = event.clientX;
+    const startedAt = performance.now();
+    let prematureDrag = false;
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const delta = startX - moveEvent.clientX;
@@ -3655,6 +3665,9 @@ export const TeamBoard = memo(function TeamBoard(props: {
       // is established, otherwise the subsequent click toggles the new state back.
       if (isMobileBoard && !resizeDragged.current && Math.abs(delta) <= 8) return;
       if (Math.abs(delta) > 4) resizeDragged.current = true;
+      if (isMobileBoard && performance.now() - startedAt < 250) prematureDrag = true;
+      if (isMobileBoard && prematureDrag) return;
+      if (!isMobileBoard) setDesktopHistoryHidden(current => current[isStackedHistoryLayout ? "stacked" : "side"] ? {...current, [isStackedHistoryLayout ? "stacked" : "side"]: false} : current);
       if (isMobileBoard) { setMobileHistoryLength(initialWidth + delta); return; }
       const nextWidth = clampHistoryRailWidth(initialWidth + delta);
       const maxReasonableWidth = Math.min(HISTORY_RAIL_MAX_WIDTH, Math.max(HISTORY_RAIL_MIN_WIDTH, Math.floor(shellRect.width * 0.6)));
@@ -3672,8 +3685,10 @@ export const TeamBoard = memo(function TeamBoard(props: {
     resizeCleanup.current?.();
     event.preventDefault();
     resizeDragged.current = false;
-    const initialHeight = isMobileBoard ? mobileHistoryLength : stackedHistoryHeight;
+    const initialHeight = isMobileBoard ? mobileHistoryLength : desktopHistoryCollapsed ? 36 : stackedHistoryHeight;
     const startY = event.clientY;
+    const startedAt = performance.now();
+    let prematureDrag = false;
 
     setStackedHistoryResizing(true);
 
@@ -3683,13 +3698,16 @@ export const TeamBoard = memo(function TeamBoard(props: {
       // is established, otherwise the subsequent click toggles the new state back.
       if (isMobileBoard && !resizeDragged.current && Math.abs(delta) <= 8) return;
       if (Math.abs(delta) > 4) resizeDragged.current = true;
+      if (isMobileBoard && performance.now() - startedAt < 250) prematureDrag = true;
+      if (isMobileBoard && prematureDrag) return;
+      if (!isMobileBoard) setDesktopHistoryHidden(current => current[isStackedHistoryLayout ? "stacked" : "side"] ? {...current, [isStackedHistoryLayout ? "stacked" : "side"]: false} : current);
       if (isMobileBoard) { setMobileHistoryLength(initialHeight + delta); return; }
       const nextHeight = initialHeight + delta;
       setStackedHistoryHeight(clampStackedHistoryHeight(nextHeight, viewportHeight, getStackedHistoryMaxHeight()));
     };
 
     resizeCleanup.current = pointerDrag(event, handlePointerMove, () => setStackedHistoryResizing(false));
-  }, [getStackedHistoryMaxHeight, isStackedHistoryLayout, stackedHistoryHeight, viewportHeight, isMobileBoard, mobileHistoryLength, setMobileHistoryLength]);
+  }, [desktopHistoryCollapsed, getStackedHistoryMaxHeight, isStackedHistoryLayout, stackedHistoryHeight, viewportHeight, isMobileBoard, mobileHistoryLength, setMobileHistoryLength]);
 
   const toggleHistoryTimeZoneDraft = useCallback((key: HistoryTimeZoneKey) => {
     setHistoryTimeZoneKeysDraft((current) =>
@@ -3773,14 +3791,15 @@ export const TeamBoard = memo(function TeamBoard(props: {
   return (
     <div
       ref={boardShellRef}
-      className={`board-shell${historyRailResizing ? " is-resizing-history" : ""}${stackedHistoryResizing ? " is-resizing-stacked-history" : ""}${isStackedHistoryLayout ? " is-stacked-history" : ""}${isMobileBoard ? " is-mobile-board" : ""}${isMobileLandscape ? " is-mobile-landscape" : ""}${mobileControlsOpen ? " mobile-controls-open" : ""}${mobileHistoryCollapsed ? " mobile-history-collapsed" : ""}`}
+      className={`board-shell${historyRailResizing ? " is-resizing-history" : ""}${stackedHistoryResizing ? " is-resizing-stacked-history" : ""}${isStackedHistoryLayout ? " is-stacked-history" : ""}${isMobileBoard ? " is-mobile-board" : ""}${isMobileLandscape ? " is-mobile-landscape" : ""}${mobileControlsOpen ? " mobile-controls-open" : ""}${mobileHistoryCollapsed ? " mobile-history-collapsed" : ""}${desktopHistoryCollapsed ? " desktop-history-collapsed" : ""}`}
       style={
         {
-          ["--history-rail-width" as string]: `${isMobileLandscape ? mobileHistoryLength - MOBILE_HISTORY_GRIP : historyRailWidth}px`,
-          ["--stacked-history-height" as string]: `${isMobileBoard ? mobileHistoryLength : stackedHistoryHeight}px`
+          ["--history-rail-width" as string]: `${isMobileLandscape ? mobileHistoryLength - MOBILE_HISTORY_GRIP : desktopHistoryCollapsed ? 0 : historyRailWidth}px`,
+          ["--stacked-history-height" as string]: `${isMobileBoard ? mobileHistoryLength : desktopHistoryCollapsed ? 36 : stackedHistoryHeight}px`
         } as CSSProperties
       }
     >
+      {isMobileBoard && mobileControlsOpen ? <div className="board-controls-backdrop" onClick={() => setMobileControlsOpen(false)} aria-hidden="true" /> : null}
       <header ref={boardHeaderRef} className="screen-header" onPointerDown={startHeaderRefresh} data-pull-ready={pullReady || undefined}>
         {pullReady ? <span className="pull-refresh-hint" role="status">Release to refresh</span> : null}
         {isMobileBoard ? <div className="mobile-board-bar">
@@ -3788,7 +3807,10 @@ export const TeamBoard = memo(function TeamBoard(props: {
           <button type="button" className="header-chip icon-only" aria-label="Open board controls" aria-expanded={mobileControlsOpen} onClick={() => setMobileControlsOpen(open => !open)}><MenuIcon /></button>
         </div> : null}
         <div className="screen-header-bar" role={isMobileBoard && mobileControlsOpen ? "dialog" : undefined} aria-label={isMobileBoard ? "Board controls" : undefined}>
-          {isMobileBoard ? <button className="ghost-button" type="button" onClick={() => setMobileControlsOpen(false)}>Close board controls</button> : null}
+          {isMobileBoard ? <>
+            <div className="board-submenu-backdrop" aria-hidden="true" onClick={() => { setTimerMenuOpen(false); setTeamSettingsOpen(false); setSwitchTeamOpen(false); }} />
+            <button className="header-chip icon-only board-controls-close" type="button" aria-label="Close board controls" title="Close board controls" onClick={() => setMobileControlsOpen(false)}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+          </> : null}
           <div className="team-branding">
             <img className="team-icon" src={branding.teamLogo} alt="" />
             <div className="team-name-row">
@@ -4256,6 +4278,10 @@ export const TeamBoard = memo(function TeamBoard(props: {
 
       <ShortcutsHelpModal open={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
 
+      {!isMobileBoard ? <button type="button" className={`history-toggle ${isStackedHistoryLayout ? "stacked" : "side"}`} aria-label={desktopHistoryCollapsed ? "Show history" : "Hide history"} aria-expanded={!desktopHistoryCollapsed} title={desktopHistoryCollapsed ? "Show history" : "Hide history"} onClick={() => setDesktopHistoryHidden(current => ({...current, [desktopHistoryAxis]: !current[desktopHistoryAxis]}))}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{transform: `rotate(${isStackedHistoryLayout ? desktopHistoryCollapsed ? -90 : 90 : desktopHistoryCollapsed ? 180 : 0}deg)`}}><path d="m9 5 7 7-7 7" /></svg>
+      </button> : null}
+
       {isStackedHistoryLayout ? (
         <div className="stacked-history-panel">
           <button
@@ -4265,12 +4291,14 @@ export const TeamBoard = memo(function TeamBoard(props: {
             aria-expanded={isMobileBoard ? !mobileHistoryCollapsed : undefined}
             onClick={toggleMobileHistory}
             onPointerDown={startStackedHistoryResize}
-            title={isMobileBoard ? "Tap to show or hide history; drag or use Up/Down to resize" : "Drag to resize, or use Up and Down arrow keys"}
+            onContextMenu={isMobileBoard ? event => event.preventDefault() : undefined}
+            title={isMobileBoard ? "Tap to show or hide history; hold then drag, or use Up/Down to resize" : "Drag to resize, or use Up and Down arrow keys"}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") resizeDragged.current = false;
               if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
               event.preventDefault();
               if (isMobileBoard) { setMobileHistoryLength(mobileHistoryLength + (event.key === "ArrowUp" ? 24 : -24)); return; }
+              showDesktopHistory();
               setStackedHistoryHeight(current => clampStackedHistoryHeight(current + (event.key === "ArrowUp" ? 24 : -24), viewportHeight, getStackedHistoryMaxHeight()));
             }}
           >
@@ -4316,12 +4344,14 @@ export const TeamBoard = memo(function TeamBoard(props: {
           aria-expanded={isMobileBoard ? !mobileHistoryCollapsed : undefined}
           onClick={toggleMobileHistory}
           onPointerDown={startHistoryRailResize}
-          title={isMobileBoard ? "Tap to show or hide history; drag or use Left/Right to resize" : "Drag to resize, or use Left and Right arrow keys"}
+          onContextMenu={isMobileBoard ? event => event.preventDefault() : undefined}
+          title={isMobileBoard ? "Tap to show or hide history; hold then drag, or use Left/Right to resize" : "Drag to resize, or use Left and Right arrow keys"}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") resizeDragged.current = false;
             if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
             event.preventDefault();
             if (isMobileBoard) { setMobileHistoryLength(mobileHistoryLength + (event.key === "ArrowLeft" ? 24 : -24)); return; }
+            showDesktopHistory();
             setHistoryRailWidth(current => clampHistoryRailWidth(current + (event.key === "ArrowLeft" ? 24 : -24)));
           }}
         >

@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Add explicit desktop/tablet history arrow toggles, phone tap versus hold-and-drag resizing, compact mobile board controls with an accessible X, layered blurred backdrops, and gentle blue outlines for enabled actions. Preserve neutral status chips and independent history size preferences.
+
 - Keep the phone board header visible during browser/keyboard viewport panning. Make history taps tolerate small finger movements and show explicit SVG resize grips in portrait and landscape.
 
 - Seed Demo mode atomically to avoid per-write disk delays. Preserve sessions and unsaved UI state through temporary connection/server failures, retry automatically, and continue to sign out explicitly rejected sessions.

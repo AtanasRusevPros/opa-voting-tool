@@ -590,3 +590,9 @@ Saving changes only the local issue title: votes, timer, result timestamp, compl
 ## Responsive UI checks
 
 Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite covers phone/tablet/desktop layouts and touch gestures using disposable databases. See the [viewport matrix and verification guide](RESPONSIVE_TESTING.md). It is not part of routine backend-only verification.
+
+### Board history controls
+
+- Phone: tap the history grip to show/hide; hold briefly, then drag to resize up to half the screen. Arrow keys also resize.
+- Desktop/tablet: click the circular arrow on the history edge to collapse/restore, or drag the divider to resize.
+- Phone board controls fit their contents and close with the top-right X. Blue outlines indicate enabled actions; ordinary status chips retain neutral borders.
