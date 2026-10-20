@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {test, expect} from '@playwright/test';
+import {phoneViewports} from './mobileMatrix';
 import {audit, diagnostics} from './helpers';
-for (const [width,height] of [[360,800],[390,844],[412,915],[800,360],[768,1024],[1440,900]]) {
+for (const [width,height] of [...phoneViewports,[768,1024],[1440,900]]) {
   test(`platform sections ${width}x${height}`,async ({page},info)=>{
     await page.setViewportSize({width,height}); const clean=diagnostics(page);
     const result=await page.request.post('/api/auth/signin-admin',{data:{username:process.env.PLAYWRIGHT_ADMIN_USERNAME || 'local-test-admin',password:process.env.PLAYWRIGHT_ADMIN_PASSWORD || 'LocalOnlyTest123!'}});

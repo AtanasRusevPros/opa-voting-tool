@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Rework phone boards in both orientations: compact hamburger controls, right-side landscape history, fully collapsible history with a half-screen maximum, and keyboard-aware available height. Extend the opt-in responsive suite with typed input/rotation/menu checks and 20/40-member voting journeys.
+
 - Improve phone voting with a compact header and controls-first participant layout; keep settings menus and Platform within short viewports. Fix interrupted touch history resizing, add keyboard resizing and guarded header pull-to-refresh. Add an opt-in disposable-server responsive browser suite and viewport guide.
 
 - Added owner-only hosted workspace statistics under Account, with scoped live updates and JSON export. Added a complete count glossary and separate team/workspace/platform guide sections.

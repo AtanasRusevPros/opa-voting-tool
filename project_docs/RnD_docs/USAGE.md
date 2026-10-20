@@ -351,7 +351,7 @@ Operational notes:
 - Avatar selection is stored in the database by avatar key, so users keep their chosen icon across reloads and sessions.
 - The bell panel keeps live pending actions separate from paginated action history. Super-admins see platform-wide admin/workflow history there; team-admins see team-scoped action history only.
 - The bottom status bar stays mounted during state changes so action feedback remains visible instead of blinking out between updates.
-- The current UI has packaged e2e coverage for a compact `640x480` viewport; it is usable on small screens, but phone-specific layout polish is still a follow-up hardening area rather than a fully completed responsive milestone.
+- Phone boards use a compact top-right controls menu. History sits below in portrait and on the right in landscape; tap or drag its grip to show up to half the screen, or hide it completely. Voting controls and participant lists scroll independently of the header. See [phone operation](TEAM_ADMIN_GUIDE.md#phone-and-touch-use) and the [mobile test matrix](RESPONSIVE_TESTING.md); real-device acceptance remains separate from local emulation.
 
 ## Import And Export Notes
 

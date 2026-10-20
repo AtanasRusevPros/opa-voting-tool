@@ -27,6 +27,7 @@ The current application includes:
 - configurable numbering systems per team
 - Scrum planning poker / agile estimation flow with issue titles, voting cards, reveal, average, and voter history
 - realtime collaborative voting for distributed teams, remote teams, and facilitated workshops
+- phone boards with compact menu controls and collapsible portrait/landscape history; see [phone use](project_docs/RnD_docs/TEAM_ADMIN_GUIDE.md#phone-and-touch-use) and the [responsive test matrix](project_docs/RnD_docs/RESPONSIVE_TESTING.md)
 - persistent issue history with grouped timestamps, paginated loading, and a dedicated history search tab
 - inline editing of current titles by their proposer or a team admin, and saved titles by admins: click to edit, Enter/click-away to save, Escape to cancel
 - scoped team/platform statistics: active people over 24 hours / 7 days / 30 days, live board counts, voting activity and JSON export

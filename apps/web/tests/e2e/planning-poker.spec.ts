@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { expect, test, type Page } from "@playwright/test";
+import {openControls, showHistory} from "../responsive/helpers";
 
 const SELECTED_TEAM_KEY = "planning-poker:selected-team";
 
@@ -173,6 +174,7 @@ async function enableRevealDebug(page: Page) {
 async function createTeam(page: Page, teamName: string) {
   const createTeamButton = page.getByRole("button", { name: "Create a team" });
   if ((await createTeamButton.count()) === 0) {
+    if (await page.locator(".board-shell").isVisible()) await openControls(page);
     const openChooserButton = page.getByRole("button", { name: "Open main menu" });
     if ((await openChooserButton.count()) > 0) {
       await openChooserButton.click();
@@ -566,6 +568,7 @@ async function requestAccessToVisibleTeam(page: Page, teamName: string) {
 }
 
 async function admitJoinRequestFromMembersModal(page: Page, requesterName: string) {
+  await openControls(page);
   await page.getByRole("button", { name: "Team admin", exact: true }).click();
   const peopleDialog = page.getByRole("dialog", { name: /people$/ });
   await expect(peopleDialog).toBeVisible();
@@ -575,6 +578,8 @@ async function admitJoinRequestFromMembersModal(page: Page, requesterName: strin
   await expect(peopleDialog.getByText("No pending requests.")).toBeVisible();
   await peopleDialog.getByRole("button", { name: "Close" }).click();
   await expect(peopleDialog).toHaveCount(0);
+  const closeControls = page.getByRole("button", {name: "Close board controls", exact: true});
+  if (await closeControls.isVisible()) await closeControls.click();
 }
 
 async function joinVisibleTeam(page: Page, adminPage: Page, teamName: string, requesterName: string) {
@@ -793,6 +798,7 @@ test("a normal user can delete their account and register fresh with the same em
 });
 
 test("demo mode is super-admin-only and shows seeded demo teams when enabled", async ({ page }) => {
+  test.slow(); // Packaged SQLite demo seeding may exceed the default assertion budget.
   const assertNoBrowserIssues = attachBrowserIssueCapture(page);
   const settingsDialog = page.getByRole("dialog", { name: "Platform" });
 
@@ -802,11 +808,14 @@ test("demo mode is super-admin-only and shows seeded demo teams when enabled", a
   await settingsDialog.getByRole("tab", { name: "App settings" }).click();
   await page.getByLabel("Enable super-admin demo mode").check();
   await settingsDialog.getByRole("button", { name: "Save settings" }).first().click();
+  await expect(settingsDialog.getByText(/^Saved/)).toBeVisible({ timeout: 60000 });
+  await expect(settingsDialog.getByRole("button", { name: "Save settings" }).first()).toBeEnabled();
   await settingsDialog.getByRole("button", { name: "Close" }).first().click();
 
   const demoTeamRow = await getChooserTeamRow(page, "Demo Team 10", 15000);
   await expect(demoTeamRow.getByText("Demo", { exact: true })).toBeVisible();
-  await openTeamFromChooserOrWaitForAutoOpen(page, "Demo Team 10", 15000);
+  await demoTeamRow.getByRole("button", { name: "Open", exact: true }).click();
+  await waitForTeamBoard(page, "Demo Team 10", 15000);
   await expect(page.locator(".member-tile:not(.measure-probe)")).toHaveCount(10);
   await expect(page.locator(".member-identity strong", { hasText: "Demo 001" })).toBeVisible();
 
@@ -821,6 +830,8 @@ test("demo mode is super-admin-only and shows seeded demo teams when enabled", a
   await settingsDialog.getByRole("tab", { name: "App settings" }).click();
   await page.getByLabel("Enable super-admin demo mode").uncheck();
   await settingsDialog.getByRole("button", { name: "Save settings" }).first().click();
+  await expect(settingsDialog.getByText(/^Saved/)).toBeVisible({ timeout: 60000 });
+  await expect(settingsDialog.getByRole("button", { name: "Save settings" }).first()).toBeEnabled();
   await page.getByRole("dialog", { name: "Platform" }).getByRole("button", { name: "Close" }).first().click();
   await expect(page.getByText("Demo Team 10")).toHaveCount(0);
 
@@ -1113,6 +1124,7 @@ test("board and stacked issues list do not clip horizontally at mobile baseline 
     await expectInsideBox(page, ".board-shell", ".board-main");
     await expectInsideBox(page, ".board-shell", ".stacked-history-panel");
 
+    await showHistory(page);
     await page.getByRole("tab", { name: "Search" }).click();
     await expect(page.getByRole("checkbox", { name: /exact title match/i })).toBeVisible();
     await expectInsideBox(page, ".history-search-form", ".history-search-grid");
@@ -1168,9 +1180,11 @@ test("phase 16 header stays readable and the bell popup stays inside the viewpor
     { width: 375, height: 812 }
   ]) {
     await page.setViewportSize(viewport);
+    await openControls(page);
     await expect(page.locator(".screen-header-bar")).toBeVisible();
     await expectNoHorizontalDocumentOverflow(page);
-    await expectInsideBox(page, ".screen-header", ".screen-header-bar");
+    if (viewport.width <= 640) await expectInsideViewport(page, ".screen-header-bar");
+    else await expectInsideBox(page, ".screen-header", ".screen-header-bar");
     await expectSelectorsNotOverlapping(page, ".team-branding", ".header-toolbar");
     await expectNoOverlappingMatches(page, ".header-toolbar > *");
     await expectNoOverlappingMatches(page, ".team-name-row > *");
@@ -1611,7 +1625,9 @@ test("board stays usable on a compact viewport and keeps the bottom status visib
     await page.getByLabel("Issue title").fill("VGA-101");
     await page.getByLabel("Issue title").press("Enter");
     await expect(page.getByRole("button", { name: "5", exact: true })).toBeVisible();
+    await openControls(page);
     await expect(page.getByRole("button", { name: /^Switch team$/ })).toBeVisible();
+    await page.getByRole("button", { name: "Close board controls", exact: true }).click();
     await expect(page.getByRole("button", { name: "Reveal score" })).toBeVisible();
     await expect(page.locator(".participant-ring .member-tile:not(.measure-probe)").first()).toBeVisible();
 
@@ -1900,6 +1916,7 @@ test("sole team admins see archive guidance instead of an enabled Leave action",
     await expect(page.getByRole("button", { name: "Only team admin — archive instead" })).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+  await openControls(page);
   await page.getByRole("button", { name: "Team admin", exact: true }).click();
   await expect(page.getByRole("button", { name: "Rename team", exact: true })).toHaveClass(/header-chip/);
   await expect(page.getByRole("button", { name: "Archive team", exact: true })).toBeEnabled();
@@ -2069,6 +2086,8 @@ for (const surface of ["board", "chooser"] as const) {
       await loginWithDebugCode(owner, uniqueEmail("live-panel-owner"), "Panel Owner");
       await createTeam(owner, name);
       await loginWithDebugCode(member, email, "Panel Member");
+      // Observe an explicitly idle chooser before the member chooses to enter.
+      await member.goto("/?view=teams");
       if (surface === "chooser") await owner.getByRole("button", { name: "Open main menu" }).click();
       await owner.getByRole("button", { name: "Team admin", exact: true }).click();
       await owner.getByLabel("Add or invite by email").fill(email);
@@ -2282,6 +2301,7 @@ test("history pagination and search work end to end for large team histories", a
     { width: 760, height: 900 }
   ]) {
     await page.setViewportSize(viewport);
+    await showHistory(page);
     await page.getByRole("tab", { name: "Search" }).click();
     await expect(page.getByLabel("Date from")).toBeVisible();
     await expect(page.getByLabel("Date to")).toBeVisible();

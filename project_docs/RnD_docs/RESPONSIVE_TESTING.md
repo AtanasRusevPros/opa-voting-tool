@@ -20,7 +20,7 @@ All sizes are **CSS pixels**, not hardware pixels or exact phone models.
 | --- | --- |
 | Narrow and Android portrait | 320×568, 360×800, 384×832, 412×915 |
 | iPhone-sized portrait | 375×667, 375×812, 390×844, 393×852, 414×896, 430×932 |
-| Phone landscape / reduced available height | 800×360, 915×412 |
+| Phone landscape | 568×320, 800×360, 667×375, 812×375, 832×384, 844×390, 852×393, 915×412, 896×414, 932×430 |
 | Tablet | 768×1024, 1024×768 |
 | Laptop / desktop | 1280×800, 1440×900, 1920×1080 |
 
@@ -30,12 +30,27 @@ Assertions check page/dialog bounds, board/history and phone control ordering, h
 
 ## Layout rules
 
-- CSS chooses presentation; the existing board viewport state and ResizeObserver measure the geometry that actually needs JavaScript. There is no application-wide resize context or new layout dependency.
-- At 960px and above, history stays beside the board. Below it, history stacks beneath the board with a resizable grip.
-- At 640px and below, the compact header keeps all actions; voting controls precede a scrollable participant grid. Large-team cards cannot push controls indefinitely down the page.
-- At short landscape heights (500px or less), document scrolling keeps the board reachable. Dialog/menu contents scroll within the available dynamic viewport.
+- `apps/web/src/app/boardViewport.ts` centralizes board layout decisions: phone layout at widths up to 640px, or up to 959px when height is at most 640px. Wider-than-tall phones use side history; portrait phones use bottom history. Tablets below 960px retain stacked history; desktop retains the participant ring and side history.
+- A 56px phone header shows the team name and a **board-controls hamburger**. It opens a scrollable overlay containing the existing actions. Voting controls precede a bounded, scrollable participant grid in both phone orientations.
+- Phone history starts collapsed to its 44px grip. Tap to toggle half-screen/collapsed, drag to an intermediate size, or use arrow keys. Portrait and landscape sizes are remembered separately. Hidden history is removed from the accessibility tree; desktop preferences are independent.
+- A single visual-viewport listener publishes available height as a CSS variable for board/dialog sizing. Board orientation remains stable through height-only keyboard/browser-bar changes; changing width permits rotation. Drafts are retained across rotation. No application-wide React resize context or layout library is added.
 - Resize grips own their pointer gesture, use `touch-action: none`, and support arrow keys. Ordinary scrolling remains available elsewhere. A deliberate downward touch on unused board header space offers release-to-refresh; controls and resize handles do not trigger it.
+
+## Mobile functional and performance coverage
+
+`mobileMatrix.ts` is the shared 10-portrait/10-landscape test matrix. Tests exercise typed issue titles, blank-title validation, Deal, vote/reveal, retained drafts after rotation, simulated keyboard-height reduction, history tap/continuous touch drag, timer settings and actionable menu forms. Team Admin People/Stats/Import-export tabs are exercised with 20 and 40 live members. Login/chooser, Account, trial registration/workspace reports and Platform tabs use the same phone matrix, with additional tablet/desktop cases.
+
+The dense-board cases use one rendered touch browser and 19/39 authenticated API/WebSocket clients. All vote in each round; assertions check every member's status and the result. This measures a populated board, not 40 simultaneous rendered browsers or real-device capacity. The 40-member case adds 4× Chromium CPU throttling. Warm local board navigation timing, action latency and long-task samples are attached, with regression limits of 10 seconds per board load or complete round interaction and 1 second per main-thread long task. These generous failure limits detect stalls; they are not a phone-speed guarantee.
+
+The keyboard test reduces the viewport while editing; headless Chromium does not provide a real Android/iOS software keyboard. Console/page errors, menu geometry and screenshots complement functional checks. Desktop/tablet cases remain in the same opt-in suite to catch regressions.
 
 ## Device acceptance
 
 Emulation is not a physical phone. On the Galaxy S23 Ultra, check portrait/landscape, browser bars expanded/collapsed, keyboard open, enlarged text, menu scrolling, continuous history dragging and header refresh. On iOS, repeat with the actual browser. Record device findings separately from local test passes. See [Playwright emulation](https://playwright.dev/docs/emulation) and [pointer gesture handling](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action).
+
+
+## Additional regression checkpoint — 2026-10-20
+
+The full non-browser suite passed (56 API unit, 117 API integration, 94 web, five simulator unit tests and shell/deployment contracts). Separate packaged simulator runs passed seven performance checks, 17 distribution/smoke checks and all 198 strict 21-person viewport cases; these suites ran serially. Root typecheck also passed.
+
+The regular packaged Chromium run passed 55 tests but failed the super-admin Demo activation scenario. Slow container-backed demo seeding reaches the client request timeout and a failed session refresh clears UI state. The test now waits explicitly for save completion and uses a normal Open click; it still fails, so this checkpoint is **not an all-green release verdict**. Physical-device and WebKit acceptance remain separate. Earlier responsive and hosted-trial results were not rerun in this additional pass.

@@ -274,3 +274,5 @@ Workspace owners can read GET `/api/workspaces/:workspaceId/statistics` and obse
 ## Responsive UI checks
 
 Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite covers phone/tablet/desktop layouts and touch gestures using disposable databases. See the [viewport matrix and verification guide](RESPONSIVE_TESTING.md). It is not part of routine backend-only verification.
+
+Phone board layout decisions are centralized in `apps/web/src/app/boardViewport.ts`. A compact hamburger opens the existing controls as an overlay; collapsible history uses independent portrait/landscape preferences. `useViewportHeight` publishes available visual-viewport height as a CSS variable without broadcasting React rerenders. Height-only mobile changes preserve board orientation so keyboard appearance does not move the editing form between layouts.

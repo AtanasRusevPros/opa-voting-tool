@@ -76,11 +76,12 @@ export function NotificationBell(props: {
       const preferredLeft = triggerRect.right - panelWidth;
       const maxLeft = Math.max(horizontalInset, window.innerWidth - panelWidth - horizontalInset);
       const clampedLeft = Math.min(Math.max(horizontalInset, preferredLeft), maxLeft);
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const top = Math.min(
         Math.max(horizontalInset, triggerRect.bottom + 12),
-        Math.max(horizontalInset, window.innerHeight - horizontalInset * 2 - 220)
+        Math.max(horizontalInset, viewportHeight - horizontalInset * 2 - 220)
       );
-      const maxHeight = Math.min(640, Math.max(220, Math.floor(window.innerHeight * 0.7)));
+      const maxHeight = Math.min(640, Math.max(80, viewportHeight - top - horizontalInset));
 
       setPanelStyle({
         left: `${clampedLeft}px`,
@@ -92,8 +93,10 @@ export function NotificationBell(props: {
 
     updatePanelStyle();
     window.addEventListener("resize", updatePanelStyle);
+    window.visualViewport?.addEventListener("resize", updatePanelStyle);
     return () => {
       window.removeEventListener("resize", updatePanelStyle);
+      window.visualViewport?.removeEventListener("resize", updatePanelStyle);
     };
   }, [open]);
 

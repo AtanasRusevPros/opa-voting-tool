@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {test, expect} from '@playwright/test';
-import {audit, closeDialog, diagnostics, team, user} from './helpers';
-const matrix = [[320,568],[360,800],[375,667],[375,812],[414,896],[384,832],[390,844],[393,852],[412,915],[430,932],[800,360],[915,412],[768,1024],[1024,768],[1280,800],[1440,900],[1920,1080]];
+import {audit, closeDialog, diagnostics, team, user, openControls, showHistory} from './helpers';
+import {phoneViewports} from './mobileMatrix';
+const matrix = [...phoneViewports,[768,1024],[1024,768],[1280,800],[1440,900],[1920,1080]];
 for (const [width,height] of matrix) test(`views and ordering ${width}x${height}`, async ({browser}, info) => {
-  const context = await browser.newContext({viewport:{width,height},isMobile:width<960,hasTouch:width<960,deviceScaleFactor:width<960?3:1});
+  const context = await browser.newContext({viewport:{width,height},isMobile:width<960,hasTouch:width<960,deviceScaleFactor:width===390 && height===844?3:1});
   const page=await context.newPage(); const clean=diagnostics(page);
   try {
     await page.goto('/'); await audit(page,info,'login');
@@ -14,9 +15,9 @@ for (const [width,height] of matrix) test(`views and ordering ${width}x${height}
     await page.getByRole('button',{name:'Review account deletion',exact:true}).click(); await audit(page,info,'delete');
     await page.getByRole('button',{name:'Cancel',exact:true}).click(); await closeDialog(page);
     const id=await team(page);
-    if(width<=640) expect.soft((await page.locator('.screen-header').boundingBox())!.height).toBeLessThan(250);
+    if(width<=640 || (width<960 && height<=640)) expect.soft((await page.locator('.screen-header').boundingBox())!.height).toBe(56);
     await audit(page,info,'board-idle');
-    if(width<=640) {
+    if(width<=640 || (width<960 && height<=640)) {
       const controls=(await page.locator('.center-panel').boundingBox())!;
       const people=(await page.locator('.participant-ring').boundingBox())!;
       expect.soft(controls.y+controls.height).toBeLessThanOrEqual(people.y);
@@ -27,10 +28,13 @@ for (const [width,height] of matrix) test(`views and ordering ${width}x${height}
     await page.getByRole('button',{name:'Reveal score',exact:true}).click(); await audit(page,info,'board-revealed');
     await page.getByRole('button',{name:'Edit current issue title'}).click(); await audit(page,info,'title-editor');
     await page.getByRole('textbox',{name:'Edit current issue title'}).press('Escape');
+    await showHistory(page);
+    const stacked=await page.locator('.board-shell').evaluate(el=>el.classList.contains('is-stacked-history'));
     const board=await page.locator('.board-main').boundingBox();
-    const history=await page.locator(width<960?'.stacked-history-panel':'.history-rail.desktop').boundingBox();
-    if(width<960) expect.soft(board!.y+board!.height).toBeLessThanOrEqual(history!.y+1);
+    const history=await page.locator(stacked?'.stacked-history-panel':'.history-rail.desktop').boundingBox();
+    if(stacked) expect.soft(board!.y+board!.height).toBeLessThanOrEqual(history!.y+1);
     else expect.soft(board!.x+board!.width).toBeLessThanOrEqual(history!.x+1);
+    await openControls(page);
     await page.getByRole('button',{name:'Team admin',exact:true}).click();
     for(const tab of ['People','Stats','Import/export']) {
       await page.getByRole('tab',{name:tab,exact:true}).click();
@@ -38,6 +42,7 @@ for (const [width,height] of matrix) test(`views and ordering ${width}x${height}
       await audit(page,info,`team-${tab.replace('/','-')}`);
     }
     await closeDialog(page);
+    await openControls(page);
     await page.getByRole('button',{name:'Open main menu'}).click();
     await page.getByRole('button',{name:'Account',exact:true}).click(); await audit(page,info,'account-after-vote'); await closeDialog(page);
     expect((await page.request.get(`/api/teams/${id}/state`)).ok()).toBe(true); clean();

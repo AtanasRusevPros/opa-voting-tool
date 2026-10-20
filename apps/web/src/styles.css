@@ -512,7 +512,7 @@ textarea {
 
 .admin-settings-modal {
   width: min(1080px, 100%);
-  height: min(calc(100dvh - 48px), 960px);
+  height: min(calc(var(--app-viewport-height, 100dvh) - 48px), 960px);
   overflow: hidden;
   overscroll-behavior: contain;
   padding: 24px;
@@ -1750,7 +1750,7 @@ textarea {
 
 .account-deletion-card {
   max-width: min(620px, calc(100vw - 32px));
-  max-height: calc(100dvh - 48px);
+  max-height: calc(var(--app-viewport-height, 100dvh) - 48px);
   overflow-y: auto;
 }
 
@@ -2364,7 +2364,7 @@ textarea {
 
 .shortcuts-modal {
   width: min(560px, 100%);
-  max-height: min(78vh, 720px);
+  max-height: min(calc(var(--app-viewport-height, 100dvh) - 48px), 720px);
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
@@ -2460,7 +2460,7 @@ textarea {
 
 .modal-panel {
   width: min(620px, 100%);
-  max-height: min(92vh, 820px);
+  max-height: min(calc(var(--app-viewport-height, 100dvh) - 48px), 820px);
   overflow: hidden;
   overscroll-behavior: contain;
   border-radius: 28px;
@@ -3268,7 +3268,7 @@ textarea {
 .team-title-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .team-title-actions h2 { overflow-wrap: anywhere; min-width: 0; }
 .team-title-actions button { flex-shrink: 0; }
-.about-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; box-sizing: border-box; border: 1px solid #d5dfed; border-radius: 20px; color: #24344c; overflow: auto; }
+.about-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(var(--app-viewport-height, 100dvh) - 32px); padding: 20px; box-sizing: border-box; border: 1px solid #d5dfed; border-radius: 20px; color: #24344c; overflow: auto; }
 .about-dialog::backdrop { background: rgba(20, 32, 50, 0.5); }
 .about-body { line-height: 1.6; overflow-wrap: anywhere; }
 .about-dialog .modal-header { position: sticky; top: -20px; padding: 12px 0; background: white; z-index: 1; }
@@ -3329,7 +3329,7 @@ textarea {
 
 @media (max-width: 720px) {
   .admin-settings-backdrop { padding: 12px; }
-  .admin-settings-modal { height: calc(100dvh - 24px); padding: 16px; }
+  .admin-settings-modal { height: calc(var(--app-viewport-height, 100dvh) - 24px); padding: 16px; }
   .admin-settings-tabs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; }
   .admin-settings-top-actions { order: -1; max-width: 100%; }
   .admin-settings-tab-row { min-width: 0; gap: 6px; }
@@ -3359,7 +3359,7 @@ textarea {
 
 /* Phone layouts share the existing 959px board/history transition. */
 @media (max-width: 959px) {
-  .board-shell { height: 100dvh; min-height: 100dvh; contain: style; }
+  .board-shell { height: var(--app-viewport-height, 100dvh); min-height: var(--app-viewport-height, 100dvh); contain: style; }
   .screen-header { contain: style; backdrop-filter: none; }
   .history-stack-resize-handle { flex-basis: 44px; }
   .history-stack-resize-line { top: 21px; }
@@ -3372,11 +3372,11 @@ textarea {
     left: 12px;
     right: auto;
     width: min(390px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px);
+    max-height: calc(var(--app-viewport-height, 100dvh) - 24px);
     overflow: auto;
     overscroll-behavior: contain;
   }
-  .team-settings-secondary { top: 20px; left: 20px; width: min(390px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); }
+  .team-settings-secondary { top: 20px; left: 20px; width: min(390px, calc(100vw - 40px)); max-height: calc(var(--app-viewport-height, 100dvh) - 40px); }
 }
 @media (max-width: 640px) {
   .screen-header { padding: 8px 8px 0; }
@@ -3397,12 +3397,6 @@ textarea {
   .board-scroll-area { padding-top: 0; }
   .status-line { max-height: 3.5em; overflow: auto; }
 }
-/* Short landscape/keyboard viewports use document scrolling instead of a zero-height board. */
-@media (max-width: 959px) and (max-height: 500px) {
-  .board-shell { height: auto; overflow: visible; grid-template-rows: auto minmax(360px, auto) var(--stacked-history-height); }
-  .screen-header { position: relative; }
-}
-
 .mobile-menu-close { display: none; }
 .pull-refresh-hint { position: absolute; inset: 0 0 auto; text-align: center; z-index: 80; background: #eaf3ff; padding: 8px; color: #244b80; pointer-events: none; }
 @media (max-width: 959px) {
@@ -3410,21 +3404,54 @@ textarea {
 }
 
 .board-stage, .stage-layout { min-height: var(--board-stage-height, clamp(560px, 70vh, 980px)); }
-@media (max-width: 640px) {
-  .team-name-row h1 { overflow: hidden; text-overflow: ellipsis; }
-  .board-stage, .stage-layout { min-height: 0; }
-  .board-stage { margin-top: 0; border-radius: 20px; }
-  .stage-layout { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
-  .board-timer { position: static; align-self: flex-end; order: 0; }
-  .center-panel { position: static; transform: none; order: 1; width: 100%; max-height: none; }
-  .center-control-card { padding: 10px; border-radius: 18px; clip-path: inset(0 round 18px); }
-  .participant-ring { position: relative; inset: auto; order: 2; display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 10px; max-height: 180px; overflow: auto; padding: 4px; pointer-events: auto; }
-  .participant-ring > .member-tile { position: relative; left: auto; top: auto; transform: none; width: 100%; }
-  .board-scroll-area { overflow-y: auto; }
-}
-
 @media (max-height: 500px) {
   .admin-settings-modal { display: block; overflow: auto; }
   .admin-settings-tabs { position: static; }
   .admin-settings-grid { overflow: visible; }
 }
+
+/* Board-specific classes come from boardViewport.ts, including phone landscape. */
+.mobile-board-bar { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.mobile-board-bar h1 { flex: 1; min-width: 0; margin: 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-board-bar button { min-width: 44px; min-height: 44px; }
+.is-mobile-board { height: var(--app-viewport-height, 100dvh); min-height: 0; overflow: hidden; contain: style; grid-template-rows: auto minmax(0, 1fr) var(--stacked-history-height); }
+.is-mobile-board .screen-header { position: relative; padding: 4px 8px; contain: style; backdrop-filter: none; }
+.is-mobile-board .screen-header > .brand-footer { display: none; }
+.is-mobile-board .screen-header-bar { display: none; }
+.is-mobile-board.mobile-controls-open .screen-header-bar { display: flex; flex-direction: column; align-items: stretch; position: fixed; z-index: 42; inset: 60px 8px 8px; overflow: auto; padding: 12px; border-radius: 18px; background: #fdfefe; }
+.is-mobile-board .screen-header-bar > .ghost-button { align-self: flex-end; min-height: 44px; }
+.is-mobile-board .team-branding, .is-mobile-board .header-toolbar { flex: 0 0 auto; width: 100%; }
+.is-mobile-board .board-main { min-height: 0; padding: 6px 8px; --board-main-inline-padding: 8px; --board-main-bottom-padding: 6px; }
+.is-mobile-board .board-scroll-area { overflow-y: auto; padding: 0 0 8px; }
+.is-mobile-board .board-stage, .is-mobile-board .stage-layout { min-height: 0; }
+.is-mobile-board .board-stage { margin-top: 0; border-radius: 18px; }
+.is-mobile-board .stage-layout { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.is-mobile-board .team-name-row h1 { overflow: hidden; text-overflow: ellipsis; }
+.is-mobile-board .center-control-card { padding: 10px; border-radius: 18px; clip-path: inset(0 round 18px); }
+.is-mobile-board .board-timer { position: static; align-self: flex-end; order: 0; }
+.is-mobile-board .center-panel { position: static; transform: none; order: 1; width: 100%; max-height: none; }
+.is-mobile-board .participant-ring { position: relative; inset: auto; order: 2; display: grid; grid-template-columns: repeat(auto-fit,minmax(64px,1fr)); gap: 8px; max-height: 160px; overflow: auto; padding: 4px; pointer-events: auto; }
+.is-mobile-board .participant-ring > .member-tile { position: relative; left: auto; top: auto; transform: none; width: 100%; }
+.is-mobile-board .history-stack-resize-symbol { width: auto; padding: 0 12px; font-size: 0.8rem; }
+.is-mobile-board.mobile-history-collapsed .history-rail { display: none; }
+.is-mobile-board .status-line { max-height: 2.5em; overflow: auto; }
+.is-mobile-board.is-mobile-landscape { grid-template-columns: minmax(0,1fr) 44px var(--history-rail-width); grid-template-rows: auto minmax(0,1fr); grid-template-areas: "header header header" "main divider history"; }
+.is-mobile-landscape .history-rail.desktop { display: block; min-width: 0; padding: 8px; }
+.is-mobile-landscape .history-resize-handle { display: flex; min-width: 44px; touch-action: none; }
+.is-mobile-landscape.mobile-history-collapsed .history-rail.desktop { display: none; }
+.mobile-history-side-label { writing-mode: vertical-rl; font-size: 0.8rem; }
+.is-mobile-board .screen-header-bar .timer-settings-popup,
+.is-mobile-board .screen-header-bar .team-settings-popup,
+.is-mobile-board .screen-header-bar .team-settings-secondary { z-index: 44; }
+.is-mobile-board .screen-header-bar .header-toolbar { justify-content: flex-start; }
+
+/* Visual viewport height accounts for the software keyboard without changing board orientation. */
+.modal-backdrop, .admin-settings-backdrop { bottom: auto; height: var(--app-viewport-height, 100dvh); }
+.is-mobile-board.mobile-controls-open .screen-header-bar { bottom: auto; height: calc(var(--app-viewport-height, 100dvh) - 68px); }
+.is-mobile-board .notification-panel { z-index: 45; }
+.is-mobile-board .switch-team-menu { position: fixed; z-index: 44; top: 64px; left: 12px; right: auto; width: calc(100vw - 24px); max-height: calc(var(--app-viewport-height, 100dvh) - 84px); overflow: auto; }
+/* Use the available landscape width for the form instead of stacking every action. */
+.is-mobile-landscape .revealed-actions, .is-mobile-landscape .start-round-form { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.is-mobile-landscape .revealed-score, .is-mobile-landscape .start-round-form > h2 { flex-basis: 100%; }
+.is-mobile-landscape .new-round-box { flex: 1 1 180px; max-width: 100%; }
+.is-mobile-board .center-control-card input { min-width: 0; }
