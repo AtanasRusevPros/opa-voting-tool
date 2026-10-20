@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Keep simulator heartbeats running during large-scenario startup so loaded test rooms do not temporarily disappear while remaining bots connect.
+
 - Add explicit desktop/tablet history arrow toggles, phone tap versus hold-and-drag resizing, compact mobile board controls with an accessible X, layered blurred backdrops, and gentle blue outlines for enabled actions. Preserve neutral status chips and independent history size preferences.
 
 - Keep the phone board header visible during browser/keyboard viewport panning. Make history taps tolerate small finger movements and show explicit SVG resize grips in portrait and landscape.

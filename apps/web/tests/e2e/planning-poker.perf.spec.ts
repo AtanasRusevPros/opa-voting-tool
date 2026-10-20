@@ -117,7 +117,9 @@ async function readTeamState(page: Page, token: string, teamId: string, includeH
       authorization: `Bearer ${token}`
     }
   });
-  expect(stateResponse.ok()).toBe(true);
+  if (!stateResponse.ok()) {
+    throw new Error(`Team state read failed: HTTP ${stateResponse.status()}: ${await stateResponse.text()}`);
+  }
   return (await stateResponse.json()) as {
     activeRound: {
       id: string;

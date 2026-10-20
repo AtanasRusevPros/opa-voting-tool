@@ -201,12 +201,20 @@ async function main() {
     return;
   }
 
-  const bots = await runSimulator();
+  // Keep simulator rooms visible while a large scenario is still connecting.
+  // Waiting for every bot first can exceed the API's heartbeat lease under load.
   const heartbeatTimer = setInterval(() => {
     void sendHeartbeat().catch((error) => {
       console.error("[simulator] heartbeat failed:", error);
     });
   }, 5_000);
+  let bots: SimulatorBot[];
+  try {
+    bots = await runSimulator();
+  } catch (error) {
+    clearInterval(heartbeatTimer);
+    throw error;
+  }
   const keepAliveTimer = setInterval(() => {
     // Keep the simulator process alive as a long-running sidecar.
   }, 60_000);

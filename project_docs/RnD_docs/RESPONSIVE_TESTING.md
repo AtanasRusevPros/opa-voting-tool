@@ -72,3 +72,13 @@ Verification: all 109 responsive Chromium cases passed in a single full run, plu
 `history-controls.spec.ts` checks desktop/tablet circular arrow toggles and restored sizes, phone tap versus hold-and-drag, compact control-panel geometry, accessible icon-only close, nested blurred layers, and actionable versus informational borders for member/admin/super-admin rendering. Desktop dragging remains immediate; its separate arrow button does not occupy the middle of the drag grip. Phone dragging requires a 250ms hold and more than eight pixels of movement. Intentional touch-drag tests include the hold; jitter tests deliberately do not.
 
 The phone controls panel fits its contents, bounded by the visible viewport. Its X shares the title area. Main controls and submenus have distinct borders with a lightly blurred backdrop; keyboard traversal stays inside the active controls/submenu. Status chips and disabled controls keep neutral styling; enabled controls use a thin blue outline, while destructive actions and borderless inline title pencils retain their established treatment.
+
+### Verification checkpoint — 2026-10-20 history/menu follow-up
+
+- Complete opt-in responsive run: **120 passed**, including 20/40-person phone journeys and the throttled 40-person performance budget.
+- Full packaged browser run: **60 passed**, with one old notification test still trying to click the covered mobile trigger. Updated that case to tap the mobile backdrop; its complete ten-width journey passed against the disposable native server. Desktop still tests trigger toggling.
+- Hosted-trial browser checks: **5 passed**. Simulator layout: **17 passed**; strict viewport matrix: **198 passed**.
+- Full non-browser verification, root typecheck, production build and **9 frontend performance tests** passed.
+- Simulator performance: **7 passed** after correcting startup heartbeat timing. Periodic heartbeats must run while the 950-bot scenario is connecting, not only after startup completes; otherwise the simulator visibility lease can expire during a 400-person voting burst. State-read failures now include HTTP status/body and still fail immediately without retries.
+
+The earlier failing runs are retained in the work history; the notification correction was a targeted rerun, not a second complete packaged run. Physical Galaxy S23 Ultra and iOS acceptance remains separate from local Chromium verification.
