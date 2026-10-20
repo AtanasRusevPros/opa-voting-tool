@@ -3414,11 +3414,11 @@ textarea {
 .mobile-board-bar { display: flex; align-items: center; gap: 8px; min-height: 48px; }
 .mobile-board-bar h1 { flex: 1; min-width: 0; margin: 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-board-bar button { min-width: 44px; min-height: 44px; }
-.is-mobile-board { height: var(--app-viewport-height, 100dvh); min-height: 0; overflow: hidden; contain: style; grid-template-rows: auto minmax(0, 1fr) var(--stacked-history-height); }
+.is-mobile-board { position: fixed; top: var(--app-viewport-top, 0px); left: 0; right: 0; width: 100%; height: var(--app-viewport-height, 100dvh); min-height: 0; overflow: hidden; contain: style; grid-template-rows: auto minmax(0, 1fr) var(--stacked-history-height); }
 .is-mobile-board .screen-header { position: relative; padding: 4px 8px; contain: style; backdrop-filter: none; }
 .is-mobile-board .screen-header > .brand-footer { display: none; }
 .is-mobile-board .screen-header-bar { display: none; }
-.is-mobile-board.mobile-controls-open .screen-header-bar { display: flex; flex-direction: column; align-items: stretch; position: fixed; z-index: 42; inset: 60px 8px 8px; overflow: auto; padding: 12px; border-radius: 18px; background: #fdfefe; }
+.is-mobile-board.mobile-controls-open .screen-header-bar { display: flex; flex-direction: column; align-items: stretch; position: fixed; z-index: 42; inset: calc(var(--app-viewport-top, 0px) + 60px) 8px 8px; overflow: auto; padding: 12px; border-radius: 18px; background: #fdfefe; }
 .is-mobile-board .screen-header-bar > .ghost-button { align-self: flex-end; min-height: 44px; }
 .is-mobile-board .team-branding, .is-mobile-board .header-toolbar { flex: 0 0 auto; width: 100%; }
 .is-mobile-board .board-main { min-height: 0; padding: 6px 8px; --board-main-inline-padding: 8px; --board-main-bottom-padding: 6px; }
@@ -3437,7 +3437,7 @@ textarea {
 .is-mobile-board .status-line { max-height: 2.5em; overflow: auto; }
 .is-mobile-board.is-mobile-landscape { grid-template-columns: minmax(0,1fr) 44px var(--history-rail-width); grid-template-rows: auto minmax(0,1fr); grid-template-areas: "header header header" "main divider history"; }
 .is-mobile-landscape .history-rail.desktop { display: block; min-width: 0; padding: 8px; }
-.is-mobile-landscape .history-resize-handle { display: flex; min-width: 44px; touch-action: none; }
+.is-mobile-landscape .history-resize-handle { display: flex; flex-direction: column; gap: 8px; min-width: 44px; touch-action: none; }
 .is-mobile-landscape.mobile-history-collapsed .history-rail.desktop { display: none; }
 .mobile-history-side-label { writing-mode: vertical-rl; font-size: 0.8rem; }
 .is-mobile-board .screen-header-bar .timer-settings-popup,
@@ -3455,3 +3455,8 @@ textarea {
 .is-mobile-landscape .revealed-score, .is-mobile-landscape .start-round-form > h2 { flex-basis: 100%; }
 .is-mobile-landscape .new-round-box { flex: 1 1 180px; max-width: 100%; }
 .is-mobile-board .center-control-card input { min-width: 0; }
+
+/* SVG grips remain legible on Android regardless of installed arrow fonts. */
+.mobile-history-grip { width: 24px; height: 24px; flex: 0 0 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mobile-history-grip.portrait { transform: rotate(90deg); }
+.is-mobile-board .history-stack-resize-symbol { display: inline-flex; align-items: center; gap: 6px; }

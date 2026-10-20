@@ -321,6 +321,6 @@ Saving changes only the local issue title: votes, timer, result timestamp, compl
 
 On phones, use the **top-right board-controls button** for team settings, Team Admin, profile, notifications and switching teams. These controls open over the board and can scroll; close the panel to resume voting. Voting controls stay ahead of the scrollable participant list.
 
-History is below the board in portrait and on the right in landscape. It starts hidden except for its grip: tap to show half the screen or hide it, or drag to choose an intermediate size. Keyboard users can use Up/Down in portrait and Left/Right in landscape. Each orientation remembers its size. Rotating keeps your issue draft; enter a title of at least five characters to enable Start voting or Deal.
+History is below the board in portrait and on the right in landscape. It starts hidden except for its labelled grip: tap “Show history” to show half the screen, tap again to hide it, or drag the grip to choose an intermediate size. Keyboard users can use Up/Down in portrait and Left/Right in landscape. Each orientation remembers its size. Rotating keeps your issue draft; enter a title of at least five characters to enable Start voting or Deal.
 
 Pull downward on unused board-header space and release after “Release to refresh” to reload the current team. This does not submit a vote.

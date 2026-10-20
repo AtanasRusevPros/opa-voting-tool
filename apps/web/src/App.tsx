@@ -3651,6 +3651,9 @@ export const TeamBoard = memo(function TeamBoard(props: {
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const delta = startX - moveEvent.clientX;
+      // Touch taps naturally move a few CSS pixels. Do not resize until a drag
+      // is established, otherwise the subsequent click toggles the new state back.
+      if (isMobileBoard && !resizeDragged.current && Math.abs(delta) <= 8) return;
       if (Math.abs(delta) > 4) resizeDragged.current = true;
       if (isMobileBoard) { setMobileHistoryLength(initialWidth + delta); return; }
       const nextWidth = clampHistoryRailWidth(initialWidth + delta);
@@ -3676,6 +3679,9 @@ export const TeamBoard = memo(function TeamBoard(props: {
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const delta = startY - moveEvent.clientY;
+      // Touch taps naturally move a few CSS pixels. Do not resize until a drag
+      // is established, otherwise the subsequent click toggles the new state back.
+      if (isMobileBoard && !resizeDragged.current && Math.abs(delta) <= 8) return;
       if (Math.abs(delta) > 4) resizeDragged.current = true;
       if (isMobileBoard) { setMobileHistoryLength(initialHeight + delta); return; }
       const nextHeight = initialHeight + delta;
@@ -4270,7 +4276,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
           >
             <span className="history-stack-resize-line" />
             <span className="history-stack-resize-symbol" aria-hidden="true">
-              {isMobileBoard ? (mobileHistoryCollapsed ? "Show history ↕" : "Hide history ↕") : "↕"}
+              {isMobileBoard ? <><svg className="mobile-history-grip portrait" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg>{mobileHistoryCollapsed ? "Show history" : "Hide history"}</> : "↕"}
             </span>
           </button>
           <HistoryRail
@@ -4319,7 +4325,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
             setHistoryRailWidth(current => clampHistoryRailWidth(current + (event.key === "ArrowLeft" ? 24 : -24)));
           }}
         >
-          {isMobileBoard ? <span className="mobile-history-side-label">{mobileHistoryCollapsed ? "Show history ↔" : "Hide history ↔"}</span> : <span className="history-resize-grip" />}
+          {isMobileBoard ? <><svg className="mobile-history-grip" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg><span className="mobile-history-side-label">{mobileHistoryCollapsed ? "Show history" : "Hide history"}</span></> : <span className="history-resize-grip" />}
         </button>
       ) : null}
 

@@ -33,8 +33,8 @@ Assertions check page/dialog bounds, board/history and phone control ordering, h
 - `apps/web/src/app/boardViewport.ts` centralizes board layout decisions: phone layout at widths up to 640px, or up to 959px when height is at most 640px. Wider-than-tall phones use side history; portrait phones use bottom history. Tablets below 960px retain stacked history; desktop retains the participant ring and side history.
 - A 56px phone header shows the team name and a **board-controls hamburger**. It opens a scrollable overlay containing the existing actions. Voting controls precede a bounded, scrollable participant grid in both phone orientations.
 - Phone history starts collapsed to its 44px grip. Tap to toggle half-screen/collapsed, drag to an intermediate size, or use arrow keys. Portrait and landscape sizes are remembered separately. Hidden history is removed from the accessibility tree; desktop preferences are independent.
-- A single visual-viewport listener publishes available height as a CSS variable for board/dialog sizing. Board orientation remains stable through height-only keyboard/browser-bar changes; changing width permits rotation. Drafts are retained across rotation. No application-wide React resize context or layout library is added.
-- Resize grips own their pointer gesture, use `touch-action: none`, and support arrow keys. Ordinary scrolling remains available elsewhere. A deliberate downward touch on unused board header space offers release-to-refresh; controls and resize handles do not trigger it.
+- A single visual-viewport listener publishes available height and vertical offset as CSS variables. The phone board is viewport-anchored, and its controls overlay follows browser/keyboard panning. Board orientation remains stable through height-only keyboard/browser-bar changes; changing width permits rotation. Drafts are retained across rotation. No application-wide React resize context or layout library is added.
+- Resize grips own their pointer gesture, use `touch-action: none`, and support arrow keys. Mobile taps tolerate up to eight CSS pixels of initial movement; SVG grips avoid dependence on arrow-font rendering. Ordinary scrolling remains available elsewhere. A deliberate downward touch on unused board header space offers release-to-refresh; controls and resize handles do not trigger it.
 
 ## Mobile functional and performance coverage
 
@@ -59,3 +59,10 @@ The regular packaged Chromium run passed 55 tests but failed the super-admin Dem
 ### Demo/session follow-up — 2026-10-20
 
 The packaged Demo activation failure above is now **locally fixed**. Atomic SQLite seeding removes per-write durable commit overhead. Temporary session-refresh failures preserve UI/drafts and retry; explicit HTTP 401 still clears authentication. The complete packaged self-hosted suite now passes **61 tests**, including the formerly failing demo case and five new network/server/timeout/rejection/initial-restoration scenarios. Its 226 mode-specific skips are not passes. A separate hosted-trial server passes all five trial checks. API integration (118), API unit (56), frontend (94), frontend performance (9), production build and root typecheck also pass. The earlier responsive and heavy simulator matrices were not rerun for this focused fix; physical-device acceptance remains outstanding.
+
+
+### Samsung-sized browser-chrome and tap regressions
+
+`mobile-chrome.spec.ts` adds portrait/landscape checks at 412×915, 384×832 and 360×800, using touch and DPR 3. It models a document taller than the visible viewport and pans the document before checking header/menu reachability. CDP touch taps include a two-pixel movement and must toggle history exactly once; visible SVG grips are checked too. A separate mocked VisualViewport scroll/offset test checks browser/keyboard pan and recovery. These are targeted browser-behavior reproductions, not a claim to have operated a physical Galaxy S23 Ultra.
+
+Verification: all 109 responsive Chromium cases passed in a single full run, plus 94 frontend tests, nine frontend-performance tests, production build and typecheck. The header-pan and two-pixel touch regressions failed before the fix and passed afterward in both 412×915 and 915×412. Physical S23 Ultra/browser acceptance remains separate.
