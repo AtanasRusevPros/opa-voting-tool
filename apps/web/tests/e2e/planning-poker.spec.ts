@@ -1197,7 +1197,13 @@ test("phase 16 header stays readable and the bell popup stays inside the viewpor
     await expect(page.getByRole("dialog", { name: "Notifications" })).toBeVisible();
     await expectInsideViewport(page, ".notification-panel");
     await expectNoHorizontalDocumentOverflow(page);
-    await page.getByRole("button", { name: "Open notifications" }).click();
+    if (viewport.width <= 640) {
+      // Mobile submenus now deliberately cover the underlying trigger.
+      // Touch the backdrop to dismiss; desktop retains its toggle behavior.
+      await page.locator(".board-submenu-backdrop").click({position: {x: viewport.width - 4, y: viewport.height - 4}});
+    } else {
+      await page.getByRole("button", { name: "Open notifications" }).click();
+    }
     await expect(page.locator(".notification-panel")).toHaveCount(0);
   }
 });
