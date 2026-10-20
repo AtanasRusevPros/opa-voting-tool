@@ -101,10 +101,12 @@ A chooser-open member directory uses an authenticated `scope=directory` WebSocke
 ## Demo Mode Runtime Flow
 
 1. The super-admin can enable demo mode from the in-app `Platform` surface.
-2. Enabling demo mode synchronizes seeded `Demo Team` rooms and `Demo ###` synthetic participants through the existing simulator-sidecar model rather than heavyweight browser workers.
+2. Enabling demo mode synchronizes seeded `Demo Team` rooms and `Demo ###` synthetic participants in one SQLite transaction. This retains full durability while avoiding thousands of per-write disk commits; any seed failure rolls back all seed changes. Bot state and notifications are published only after commit.
 3. Demo rooms are visible only to the super-admin and remain hidden from regular users.
-4. While enabled, the sidecar provides synthetic occupancy and voting activity inside those demo rooms using the normal team/round/vote pipeline.
+4. While enabled, the in-process `DemoModeManager` provides synthetic occupancy and voting activity using the normal team/round/vote pipeline, without requiring the development simulator sidecar.
 5. When disabled, demo mode becomes dormant: demo rooms disappear from the normal UI and the simulation workload stops instead of idling in the background.
+
+Session refresh distinguishes HTTP `401` from temporary transport/server errors. Only an explicit unauthorized response clears authentication and open UI state. Transient failures retain drafts and session state, show a connection notice, and schedule an 11-second retry (also during initial session restoration); normal chooser/focus refresh remains available. Successful refresh clears the notice, and retry timers stop after recovery, rejection or unmount. The ordinary request timeout remains 10 seconds.
 
 Operator workflow and command usage for the simulator live in [USAGE.md](../../project_docs/RnD_docs/USAGE.md) and [README.md](../../README.md).
 

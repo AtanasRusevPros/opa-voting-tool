@@ -308,3 +308,28 @@ describe("Demo mode integration", () => {
     expect(hiddenSession.body.availableTeams.some((team: { name: string }) => team.name === "Demo Team 10")).toBe(false);
   });
 });
+
+
+describe("atomic demo seeding", () => {
+  it("rolls back users and teams after a mid-seed failure, then permits a clean retry", () => {
+    const repository = new Repository(createTestConfig());
+    const owner = repository.getSuperAdminUser()!;
+    const realUser = repository.ensureUser({ email: "real@example-company.com", displayName: "Real", avatarIconKey: "bear", avatarColorKey: "azure" });
+    const users = [{ email: "atomic-demo@example-company.com", displayName: "Demo", avatarIconKey: "bear", avatarColorKey: "azure" }];
+    const teams = [{ name: "Atomic Demo", memberEmails: [users[0].email] }];
+    const original = repository.syncDemoTeams.bind(repository);
+    const failure = vi.spyOn(repository, "syncDemoTeams").mockImplementation((...args) => {
+      original(...args);
+      throw new Error("Injected seed failure");
+    });
+    expect(() => repository.seedDemoScenario(owner.id, users, teams)).toThrow("Injected seed failure");
+    expect(repository.getUserByEmail(users[0].email)).toBeNull();
+    expect(repository.getTeamsForUser(owner.id).memberships.some(team => team.name === "Atomic Demo")).toBe(false);
+    expect(repository.getUserByEmail(realUser.email)?.id).toBe(realUser.id);
+    failure.mockRestore();
+    const first = repository.seedDemoScenario(owner.id, users, teams);
+    const second = repository.seedDemoScenario(owner.id, users, teams);
+    expect(second.syncedTeams[0].id).toBe(first.syncedTeams[0].id);
+    expect(repository.getTeamMembers(first.syncedTeams[0].id)).toHaveLength(1);
+  });
+});

@@ -754,6 +754,14 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+class ApiResponseError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+const SESSION_RETRY_MESSAGE = "Connection interrupted. Your session is preserved; retrying automatically.";
+
 async function authorizedFetch(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -783,7 +791,7 @@ async function authorizedFetch(url: string, init?: RequestInit): Promise<Respons
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error ?? "Request failed");
+    throw new ApiResponseError(error.error ?? "Request failed", response.status);
   }
 
   return response;
@@ -4559,11 +4567,14 @@ export default function App() {
     void api(`/api/teams/${selectedTeamId}/statistics/activity`, {method: "POST"}).catch(() => {});
   }, [session?.user.id, selectedTeamId, chooserVisible]);
 
+  const [sessionRetrying, setSessionRetrying] = useState(false);
   const loginDestinationResolvedRef = useRef<string | null>(null);
   const loadSession = useCallback(async () => {
     try {
       const response = await api<SessionResponse>("/api/auth/session");
       storeSessionToken(response.token ?? null);
+      setSessionRetrying(false);
+      setStatus((current) => current.text === SESSION_RETRY_MESSAGE ? { tone: "neutral", text: "Ready." } : current);
       startTransition(() => {
         setSession((current) => (sameSessionResponse(current, response) ? current : response));
       });
@@ -4608,7 +4619,15 @@ export default function App() {
 
       setPendingTargetTeamId(null);
       setSelectedTeamId(response.memberships[0].id);
-    } catch {
+    } catch (error) {
+      // Network failures and server errors are not evidence of an invalid login.
+      // Retry without discarding drafts/UI, including initial session restoration.
+      if (!(error instanceof ApiResponseError) || error.status !== 401) {
+        setSessionRetrying(true);
+        setStatus({ tone: "error", text: SESSION_RETRY_MESSAGE });
+        return;
+      }
+      setSessionRetrying(false);
       storeSessionToken(null);
       loginDestinationResolvedRef.current = null;
       setSession(null);
@@ -4626,6 +4645,12 @@ export default function App() {
       setTrialTermsVersion(null);
     }
   }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (!sessionRetrying) return;
+    const timer = window.setInterval(() => { void loadSession(); }, API_TIMEOUT_MS + 1000);
+    return () => window.clearInterval(timer);
+  }, [sessionRetrying, loadSession]);
 
   // Observe a chooser-open directory without joining that team's live board.
   const directoryTeamId = memberDirectory?.team.id;
@@ -7243,7 +7268,7 @@ export default function App() {
         onVerify={handleVerify}
         debugCode={debugCode}
         error={error}
-        info={info}
+        info={sessionRetrying ? SESSION_RETRY_MESSAGE : info}
       />
     );
   }
@@ -7267,6 +7292,7 @@ export default function App() {
   if (!selectedTeamId || !teamState || showTeamChooser) {
     return (
       <>
+        {sessionRetrying && <p role="status">{SESSION_RETRY_MESSAGE}</p>}
         <TeamChooser
           branding={branding}
           loadTrialWorkspaces={loadTrialWorkspaces}

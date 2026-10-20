@@ -2989,3 +2989,62 @@ test('a non-admin proposer edits their current title while other members remain 
     clean.forEach(check => check());
   } finally { await Promise.all(contexts.map(c => c.close())); }
 });
+
+
+for (const failure of ["network", "server", "timeout"] as const) {
+  test(`session refresh preserves open settings and drafts after ${failure} failure`, async ({ page }) => {
+    await signInAsSuperAdmin(page);
+    await page.getByRole("button", { name: "Platform", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Platform" });
+    await dialog.getByRole("tab", { name: "App settings" }).click();
+    const baseUrl = dialog.getByLabel("Base URL", { exact: true });
+    await baseUrl.fill("https://unsaved.example.test");
+    const token = await page.evaluate(() => localStorage.getItem("planning-poker:session-token"));
+    let recovering = false;
+    let recoveredRequests = 0;
+    await page.route("**/api/auth/session", async route => {
+      if (recovering) { recoveredRequests++; await route.continue(); return; }
+      if (failure === "network") { await route.abort("connectionfailed"); return; }
+      if (failure === "timeout") {
+        await new Promise(resolve => setTimeout(resolve, 11000));
+        await route.fulfill({ status: 503, json: { error: "Temporary test outage" } }).catch(() => {});
+        return;
+      }
+      await route.fulfill({ status: 503, json: { error: "Temporary test outage" } });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.getByRole("status").filter({ hasText: "Connection interrupted" })).toBeVisible({ timeout: 15000 });
+    await expect(dialog).toBeVisible();
+    await expect(baseUrl).toHaveValue("https://unsaved.example.test");
+    expect(await page.evaluate(() => localStorage.getItem("planning-poker:session-token"))).toBe(token);
+    recovering = true;
+    await expect.poll(() => recoveredRequests, { timeout: 20000 }).toBeGreaterThan(0);
+    await expect(page.getByRole("status").filter({ hasText: "Connection interrupted" })).toHaveCount(0, { timeout: 20000 });
+    await expect(baseUrl).toHaveValue("https://unsaved.example.test");
+  });
+}
+
+test("an explicitly rejected session clears authentication and closes settings", async ({ page }) => {
+  await signInAsSuperAdmin(page);
+  await page.getByRole("button", { name: "Platform", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Platform" })).toBeVisible();
+  await page.route("**/api/auth/session", route => route.fulfill({ status: 401, json: { error: "Unauthorized" } }));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("dialog", { name: "Platform" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("planning-poker:session-token"))).toBeNull();
+});
+
+test("initial session restoration retries a temporary outage without another login", async ({ page }) => {
+  await signInAsSuperAdmin(page);
+  let attempts = 0;
+  await page.route("**/api/auth/session", async route => {
+    attempts++;
+    if (attempts === 1) await route.fulfill({ status: 503, json: { error: "Temporary outage" } });
+    else await route.continue();
+  });
+  await page.reload();
+  await expect(page.getByText("Connection interrupted. Your session is preserved; retrying automatically.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Platform", exact: true })).toBeVisible({ timeout: 20000 });
+  expect(attempts).toBeGreaterThan(1);
+});

@@ -335,7 +335,8 @@ Operational note:
 
 - Demo mode is super-admin-only.
 - When disabled, demo teams remain hidden and the synthetic activity remains dormant.
-- When enabled, demo teams appear only for the super-admin.
+- When enabled, demo teams appear only for the super-admin. Wait for the settings save to finish before opening a demo team; initial seeding is committed atomically.
+- A temporary connection failure preserves your session and unsaved settings while the app retries. A rejected/expired session still requires signing in again.
 - Demo mode is separate from the dev-only `SIMULATOR_MODE_ENABLED` API paths; keeping the simulator API disabled in production does not remove this in-app demo capability.
 - This mode is intended for demos, validation, and pre-deployment confidence checks, not for normal user operation.
 

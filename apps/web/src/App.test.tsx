@@ -251,9 +251,10 @@ function countOverlapsForGeometry(
   return count;
 }
 
-function buildJsonResponse(body: unknown, ok = true) {
+function buildJsonResponse(body: unknown, ok = true, status = ok ? 200 : 400) {
   return Promise.resolve({
     ok,
+    status,
     json: async () => body
   } as Response);
 }
@@ -3519,6 +3520,7 @@ describe("App", () => {
   it("shows manual-admin guidance when forgot password is used without SMTP or debug code delivery", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "/api/auth/session") return buildJsonResponse({ error: "Unauthorized" }, false, 401);
       if (url === "/api/bootstrap") {
         return buildJsonResponse({ debugToolsEnabled: false, smtpConfigured: false, branding: BRANDING_MANIFEST });
       }
@@ -3541,7 +3543,8 @@ describe("App", () => {
   });
 
   it("hides disabled access requests and requires a valid-looking email for recovery and trial", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => buildJsonResponse({
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session"
+      ? buildJsonResponse({ error: "Unauthorized" }, false, 401) : buildJsonResponse({
       accessRequestsEnabled: false, smtpConfigured: false,
       publicTrial: { enabled: true, mode: "open_signup", maxRevealedRoundsPerWorkspacePerMonth: 80 }, branding: BRANDING_MANIFEST
     })));
@@ -3562,6 +3565,7 @@ describe("App", () => {
   it("shows request access instead of email code when SMTP and debug-code delivery are unavailable", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "/api/auth/session") return buildJsonResponse({ error: "Unauthorized" }, false, 401);
       if (url === "/api/bootstrap") {
         return buildJsonResponse({ debugToolsEnabled: false, smtpConfigured: false, branding: BRANDING_MANIFEST });
       }

@@ -128,25 +128,7 @@ export class DemoModeManager {
     }
 
     const scenario = buildDemoScenario();
-    const usersByEmail = new Map<string, { id: string }>();
-    for (const user of scenario.users) {
-      const ensured = this.repository.ensureUser({ ...user, synthetic: true });
-      usersByEmail.set(user.email, { id: ensured.id });
-    }
-
-    const syncedTeams = this.repository.syncDemoTeams(
-      superAdmin.id,
-      scenario.teams.map((team) => ({
-        name: team.name,
-        memberUserIds: team.memberEmails.map((email) => {
-          const ensured = usersByEmail.get(email);
-          if (!ensured) {
-            throw new Error(`Missing demo user for ${email}`);
-          }
-          return ensured.id;
-        })
-      }))
-    );
+    const { usersByEmail, syncedTeams } = this.repository.seedDemoScenario(superAdmin.id, scenario.users, scenario.teams);
 
     this.botsByTeamId.clear();
     this.activeUserIdsByTeamId.clear();

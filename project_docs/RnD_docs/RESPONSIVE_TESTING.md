@@ -54,3 +54,8 @@ Emulation is not a physical phone. On the Galaxy S23 Ultra, check portrait/lands
 The full non-browser suite passed (56 API unit, 117 API integration, 94 web, five simulator unit tests and shell/deployment contracts). Separate packaged simulator runs passed seven performance checks, 17 distribution/smoke checks and all 198 strict 21-person viewport cases; these suites ran serially. Root typecheck also passed.
 
 The regular packaged Chromium run passed 55 tests but failed the super-admin Demo activation scenario. Slow container-backed demo seeding reaches the client request timeout and a failed session refresh clears UI state. The test now waits explicitly for save completion and uses a normal Open click; it still fails, so this checkpoint is **not an all-green release verdict**. Physical-device and WebKit acceptance remain separate. Earlier responsive and hosted-trial results were not rerun in this additional pass.
+
+
+### Demo/session follow-up — 2026-10-20
+
+The packaged Demo activation failure above is now **locally fixed**. Atomic SQLite seeding removes per-write durable commit overhead. Temporary session-refresh failures preserve UI/drafts and retry; explicit HTTP 401 still clears authentication. The complete packaged self-hosted suite now passes **61 tests**, including the formerly failing demo case and five new network/server/timeout/rejection/initial-restoration scenarios. Its 226 mode-specific skips are not passes. A separate hosted-trial server passes all five trial checks. API integration (118), API unit (56), frontend (94), frontend performance (9), production build and root typecheck also pass. The earlier responsive and heavy simulator matrices were not rerun for this focused fix; physical-device acceptance remains outstanding.

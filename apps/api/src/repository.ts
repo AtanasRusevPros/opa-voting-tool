@@ -1402,6 +1402,28 @@ export class Repository {
     return this.syncSeededTeams(ownerUserId, seededTeams);
   }
 
+  seedDemoScenario(ownerUserId: string, users: EnsureUserInput[], teams: Array<{ name: string; memberEmails: string[] }>) {
+    // One durable commit instead of thousands of FULL-synchronous autocommits.
+    // Publish bot state and notifications only after this transaction succeeds.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const usersByEmail = new Map(users.map((user) => [user.email, this.ensureUser({ ...user, synthetic: true })]));
+      const syncedTeams = this.syncDemoTeams(ownerUserId, teams.map((team) => ({
+        name: team.name,
+        memberUserIds: team.memberEmails.map((email) => {
+          const user = usersByEmail.get(email);
+          if (!user) throw new Error(`Missing demo user for ${email}`);
+          return user.id;
+        })
+      })));
+      this.db.exec("COMMIT");
+      return { usersByEmail, syncedTeams };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   syncDemoTeams(ownerUserId: string, teams: EnsureSimulatorTeamInput[]): Array<TeamSummary & { memberCount: number }> {
     const seededTeams: EnsureSeededTeamInput[] = teams.map((team) => ({ ...team, demo: true, joinOwnerAsAdmin: false }));
     return this.syncSeededTeams(ownerUserId, seededTeams);
