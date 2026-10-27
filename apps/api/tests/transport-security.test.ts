@@ -18,12 +18,30 @@ describe("HTTPS transport policy", () => {
   it.each(["http://vote.example.com", "http://192.168.1.2", "http://localhost.attacker.test", "ftp://localhost", "https://user:pass@vote.example.com", "https://vote.example.com/path", "https://vote.example.com?x=1", "not a URL"]) ("rejects unsafe origin %s", value => expect(() => validateBaseUrl(value)).toThrow());
   it("requires explicit literal proxy addresses", () => {
     expect(parseTrustedProxyIps("127.0.0.1, ::1, ::ffff:10.89.0.1")).toEqual(["127.0.0.1", "::1", "10.89.0.1"]);
-    for (const invalid of ["*", "10.0.0.0/8", "proxy.local"]) expect(() => parseTrustedProxyIps(invalid)).toThrow();
+    for (const invalid of ["*", "10.0.0.0/8", "proxy.local", "127.0.0.1,::1,VERIFIED_PROXY_IP"]) expect(() => parseTrustedProxyIps(invalid)).toThrow();
   });
   it("accepts HTTPS only from the immediate trusted peer", () => {
     for (const peer of ["127.0.0.1", "::1", "::ffff:127.0.0.1", "10.89.0.1"]) expect(transportAllowed(incoming("vote.example.com", peer, "https"), deployed)).toBe(true);
     for (const proto of [undefined, "http", "https,http", "http,https", "HTTPS"]) expect(transportAllowed(incoming("vote.example.com", "127.0.0.1", proto), deployed)).toBe(false);
     expect(transportAllowed(incoming("vote.example.com", "192.0.2.10", "https"), deployed)).toBe(false);
+  });
+  it("opts into the exact current container address, surviving recreation without trusting neighboring peers", () => {
+    const config = { ...deployed, trustedProxyIps: [], trustLocalContainerProxy: true };
+    for (const ip of ["10.89.0.47", "10.89.0.48", "fd00::48"]) {
+      const req = incoming("vote.example.com", ip, "https");
+      Object.assign(req.socket, { localAddress: ip });
+      expect(transportAllowed(req, config)).toBe(true);
+      expect(transportAllowed(req, { ...config, trustLocalContainerProxy: false })).toBe(false);
+      req.headers["x-forwarded-proto"] = "http";
+      expect(transportAllowed(req, config)).toBe(false);
+      req.headers["x-forwarded-proto"] = "https";
+      Object.assign(req.socket, { remoteAddress: "10.89.0.49" });
+      expect(transportAllowed(req, config)).toBe(false);
+    }
+    expect(transportAllowed(incoming("vote.example.com", "10.89.0.48", "https"), config)).toBe(false);
+    const mapped = incoming("vote.example.com", "::ffff:10.89.0.48", "https");
+    Object.assign(mapped.socket, { localAddress: "10.89.0.48" });
+    expect(transportAllowed(mapped, config)).toBe(true);
   });
   it("does not allow a spoofed localhost Host to bypass deployed HTTPS", () => {
     expect(transportAllowed(incoming("localhost:3001"), deployed)).toBe(false);
@@ -39,6 +57,7 @@ describe("HTTPS transport policy", () => {
   it("limits the plaintext health exception to GET /health with a local host and no forwarding", () => {
     const req = incoming("127.0.0.1:3001"); req.url = "/health";
     expect(transportAllowed(req, deployed)).toBe(true);
+    req.url = "/health/web"; expect(transportAllowed(req, deployed)).toBe(true);
     req.method = "POST"; expect(transportAllowed(req, deployed)).toBe(false);
     req.method = "GET"; req.url = "/health?token=x"; expect(transportAllowed(req, deployed)).toBe(false);
     req.url = "/health"; req.headers["x-forwarded-proto"] = "http"; expect(transportAllowed(req, deployed)).toBe(false);

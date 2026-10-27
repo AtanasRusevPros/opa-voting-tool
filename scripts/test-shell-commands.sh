@@ -261,10 +261,13 @@ select_result() {
   printf '%s' "$value"
 }
 
-if [[ "$url" == *"127.0.0.1:3001/health"* ]]; then
+printf '%s\n' "$url" >>"$state_dir/curl.log"
+if [[ "$url" == "http://127.0.0.1:3001/health/web" ]]; then
+  result="$(select_result '200|{"ok":true,"checks":{"frontend":"ok"}}|0' "FAKE_LOCAL_WEB_RESULT")"
+elif [[ "$url" == *"127.0.0.1:3001/health"* ]]; then
   result="$(select_result '200|{"ok":true,"checks":{"database":"ok"}}|0' "FAKE_LOCAL_HEALTH_RESULT")"
 elif [[ "$url" == "http://127.0.0.1:3001/"* ]]; then
-  result="${FAKE_LOCAL_WEB_RESULT:-200|<html>ok</html>|0}"
+  result='426|{"error":"HTTPS is required"}|0'
 else
   result="$(select_result '200|{"ok":true}|0' "FAKE_PUBLIC_HEALTH_RESULT")"
 fi
@@ -595,8 +598,17 @@ deploy_health_output="$(
   ./deploy.sh health
 )"
 assert_contains "$deploy_health_output" "Local API: true" "deploy.sh health local api"
+assert_contains "$deploy_health_output" "Local web: true" "deploy.sh HTTPS frontend readiness"
+assert_contains "$(cat "$fake_state_dir/curl.log")" "http://127.0.0.1:3001/health/web" "deploy.sh frontend readiness endpoint"
 assert_contains "$deploy_health_output" "Public health: true" "deploy.sh health public"
 assert_contains "$deploy_health_output" "Watchdog enabled: true" "deploy.sh health watchdog"
+
+if failed_web_output="$(PATH="$fake_bin_dir:$PATH" HOME="$fake_host_dir/home" XDG_CONFIG_HOME="$fake_host_dir/xdg" FAKE_STATE_DIR="$fake_state_dir" APP_URL="https://vote.example.com" FAKE_LOCAL_WEB_RESULT='200|{"ok":false}|0' ./deploy.sh health)"; then
+  echo "deploy.sh health accepted failed frontend readiness." >&2
+  exit 1
+fi
+assert_contains "$failed_web_output" "Local web: false" "deploy.sh frontend readiness failure"
+
 
 rm -f "$fake_state_dir/restarted"
 

@@ -43,6 +43,7 @@ export interface AppConfig {
   jiraAccessTokenExpiresAt?: string;
   appBaseUrl: string;
   trustedProxyIps?: string[];
+  trustLocalContainerProxy?: boolean;
   simulatorModeEnabled: boolean;
   simulatorSharedSecret: string;
   demoModeEnabled: boolean;

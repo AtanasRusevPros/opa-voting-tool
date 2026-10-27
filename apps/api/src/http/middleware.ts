@@ -17,6 +17,7 @@ type MiddlewareDeps = {
     sessionTtlDays: number;
     appBaseUrl: string;
     trustedProxyIps?: string[];
+    trustLocalContainerProxy?: boolean;
   };
   repository: Repository;
 };

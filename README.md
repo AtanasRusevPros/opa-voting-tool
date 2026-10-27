@@ -132,3 +132,5 @@ Like OpaVoting? **[Give the project a GitHub star](https://github.com/AtanasRuse
 ## License
 
 Licensed under **AGPL-3.0-or-later**; see [LICENSE](LICENSE). Project name, logo and official visual identity are covered by [BRANDING.md](BRANDING.md).
+
+Local health supervision uses `/health` for API/database readiness and `/health/web` for frontend-build readiness, preserving HTTPS-only browser access. See [proxy configuration recovery](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md#recover-from-invalid-proxy-configuration) if startup fails after editing trusted proxy IPs.

@@ -22,6 +22,7 @@ type RawDeploymentConfig = {
   app: {
     baseUrl: string;
     trustedProxyIps: string[];
+    trustLocalContainerProxy: boolean;
     allowedDomainsPath: string;
   };
   admin: {
@@ -264,6 +265,7 @@ function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: st
     app: {
       baseUrl: appBaseUrl,
       trustedProxyIps: ["127.0.0.1", "::1"],
+      trustLocalContainerProxy: false,
       allowedDomainsPath
     },
     admin: {
@@ -334,6 +336,7 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
     "[app]",
     `base_url = ${quoteToml(config.app.baseUrl)}`,
     `trusted_proxy_ips = ${quoteToml(config.app.trustedProxyIps.join(","))}`,
+    `trust_local_container_proxy = ${config.app.trustLocalContainerProxy}`,
     `allowed_domains_path = ${quoteToml(path.relative(repoRoot, normalizePathValue(config.app.allowedDomainsPath)) || config.app.allowedDomainsPath)}`,
     "",
     "[admin]",
@@ -445,6 +448,7 @@ function parseBackupSettings(section: Record<string, boolean | number | string> 
 
 function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawDeploymentConfig {
   const sections = parseTomlSections(raw);
+  if (sections.app?.trust_local_container_proxy !== undefined && typeof sections.app.trust_local_container_proxy !== "boolean") throw new Error("app.trust_local_container_proxy must be a boolean");
   return {
     privacy: {
       operatorName: String(sections.privacy?.operator_name ?? "").trim(),
@@ -456,6 +460,7 @@ function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawD
     app: {
       baseUrl: String(sections.app?.base_url ?? defaults.app.baseUrl).trim() || defaults.app.baseUrl,
       trustedProxyIps: parseTrustedProxyIps(String(sections.app?.trusted_proxy_ips ?? defaults.app.trustedProxyIps.join(","))),
+      trustLocalContainerProxy: sections.app?.trust_local_container_proxy === true,
       allowedDomainsPath: normalizePathValue(String(sections.app?.allowed_domains_path ?? defaults.app.allowedDomainsPath))
     },
     admin: {
@@ -663,6 +668,7 @@ export class DeploymentConfigManager {
       jiraAccessTokenExpiresAt: undefined,
       appBaseUrl: this.rawConfig.app.baseUrl,
       trustedProxyIps: [...this.rawConfig.app.trustedProxyIps],
+      trustLocalContainerProxy: this.rawConfig.app.trustLocalContainerProxy,
       simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
       simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
       demoModeEnabled: this.rawConfig.demo.enabled,

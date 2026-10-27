@@ -35,10 +35,27 @@ OpaVoting requires HTTPS for company LAN and public deployments, including the h
 
    For a private company hostname, add `tls internal` inside the site block, or use company-managed certificates. Install the CA's public root certificate on clients; never distribute its private key. Caddy redirects external HTTP to HTTPS. Other proxies must overwrite, not append or pass through, `X-Forwarded-Proto` with the actual client-facing protocol. Never hard-code `https` on a proxy that also forwards plaintext HTTP.
 
-5. With Podman NAT, the app may see the proxy connection as a gateway address instead of loopback. Determine the actual peer using your container/network configuration. If HTTPS requests receive 426, inspect `./deploy.sh logs`: a bounded `[transport]` warning reports the untrusted peer IP without URLs, credentials or tokens. **Verify that IP belongs to your proxy/NAT path before adding it** to `trusted_proxy_ips`, then run `./deploy.sh rebuild`. Do not trust arbitrary rejected clients or an entire private subnet.
+5. With Podman NAT, the app may see the proxy connection as a gateway address or as its own container address instead of loopback. Determine the actual peer using your container/network configuration. If HTTPS requests receive 426, inspect `./deploy.sh logs`: a bounded `[transport]` warning reports the untrusted peer IP without URLs, credentials or tokens. **Verify that IP belongs to your proxy/NAT path before adding it** to `trusted_proxy_ips`, then run `./deploy.sh rebuild`. Do not trust arbitrary rejected clients or an entire private subnet.
+   If `podman inspect` confirms the rejected peer is the app's **own container IP** and `podman port` confirms `127.0.0.1:3001`, use the explicit setting below instead of copying a changing container IP:
+
+   ```toml
+   trusted_proxy_ips = "127.0.0.1,::1"
+   trust_local_container_proxy = true
+   ```
+
+   This option is false by default. It accepts HTTPS forwarding only when the TCP peer equals the accepted socket's own local IP, accommodating rootless Podman source rewriting across container recreation. It does not trust gateways, adjacent containers or subnets. Use it only behind a host TLS proxy with a loopback-published backend port; do not enable it for publicly published ports or a shared/untrusted container namespace. The `X-Forwarded-Proto: https` requirement still applies. Install the supporting code before enabling it and restart after editing.
+
 6. Run `./deploy.sh health` and `./deploy.sh public-health`, then sign in and vote with two browser sessions through the HTTPS origin. Reconnect/reload and confirm live updates work. Check both the regular and `/admin` sign-in paths.
 
 Existing non-local `http://` base URLs now fail startup with an explanation. Fix the proxy and base URL before updating; changing the URL alone does not create a certificate or network listener. Existing HTTPS deployments may need the explicit NAT/proxy IP configured before their browser/API access works. The local health probe remains available for diagnosis.
+
+## Recover From Invalid Proxy Configuration
+
+If startup logs say `app.trusted_proxy_ips must contain comma-separated literal proxy IP addresses`, edit the existing line to the valid baseline `trusted_proxy_ips = "127.0.0.1,::1"`, then restart. Never include the literal text `VERIFIED_PROXY_IP`, a hostname or an address with a port. The baseline restores startup but may still reject your actual TLS proxy.
+
+Request the HTTPS URL again and inspect the `[transport]` diagnostic. Verify its peer belongs to your proxy/NAT path before adding that literal address. Keep the HTTPS base URL. Do not disable TLS or trust arbitrary networks to recover.
+
+The original HTTPS enforcement commit `ad35573` left the watchdog checking the root login page over HTTP, producing a false `frontend_unhealthy` incident. Use the follow-up readiness-endpoint fix before interpreting local web health or re-enabling a paused watchdog. After recovery, run both health commands; acknowledge the retained incident only once checks pass.
 
 ## What The App Enforces
 
@@ -47,7 +64,7 @@ Existing non-local `http://` base URLs now fail startup with an explanation. Fix
 - Insecure requests are rejected with HTTP 426 before login, body parsing or application changes. The API does not redirect password/token-bearing requests; the proxy handles browser redirects.
 - WebSocket handshakes follow the same policy, before session processing. Browsers connect through `wss://` on the HTTPS origin.
 - HTTPS-configured sessions use `Secure`, `HttpOnly`, `SameSite=Lax` cookies. Non-local HTTPS responses include HSTS for one year, without subdomain/preload directives.
-- A direct, unforwarded `GET /health` with a loopback Host remains available to local operators and container probes. Other paths are not exempt in HTTPS mode.
+- Direct, unforwarded `GET /health` and `GET /health/web` with a loopback Host remain available to local operators and container probes. The second returns frontend-build readiness JSON, not the login page, so health/watchdog checks do not bypass HTTPS for the UI. Other paths are not exempt in HTTPS mode.
 
 This is defense in depth, not encryption inside the Node HTTP server. A proxy that falsely reports HTTPS or an exposed backend defeats the intended network boundary. Do not expose the backend port or add untrusted proxy addresses.
 

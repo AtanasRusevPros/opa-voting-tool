@@ -13,6 +13,10 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Add default-off `app.trust_local_container_proxy` for verified loopback-published Podman deployments where the host TLS proxy appears as the app container's own changing IP. Match the actual socket peer/local address instead of trusting a subnet or requiring edits after recreation.
+
+- Fix HTTPS deployments being falsely marked frontend-unhealthy by the watchdog: use a dedicated local frontend-readiness JSON endpoint instead of loading the login page over HTTP. Add actual deploy-health/TLS regression coverage and clearer invalid proxy-placeholder errors.
+
 - Require HTTPS for non-local deployments, validate configured origins and trusted proxy IPs, reject insecure API/WebSocket traffic, and use Secure session cookies. Preserve direct localhost testing and local health checks. Existing HTTP LAN installations need TLS; HTTPS container installations must configure the immediate proxy/NAT IP before upgrading. See [HTTPS migration instructions](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md).
 
 ## 1.0.0 - 2026-10-28

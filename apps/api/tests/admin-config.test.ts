@@ -62,6 +62,20 @@ describe("Admin config API", () => {
     const client = request(app);
     expect((await client.get("/api/bootstrap")).status).toBe(426);
     expect((await client.get("/health")).status).toBe(200);
+    const frontend = await client.get("/health/web");
+    expect(frontend.status).toBe(200);
+    expect(frontend.body).toEqual({ ok: true, checks: { frontend: "ok" } });
+    expect(frontend.text).not.toContain("<html");
+    const readFile = fs.readFile;
+    const missingFrontend = vi.spyOn(fs, "readFile").mockImplementation(((...args: any[]) => {
+      if (String(args[0]).endsWith("/web/dist/index.html")) {
+        args[args.length - 1](new Error("missing frontend")); return;
+      }
+      return (readFile as any)(...args);
+    }) as typeof fs.readFile);
+    try {
+      expect((await client.get("/health/web")).status).toBe(503);
+    } finally { missingFrontend.mockRestore(); }
     const credentials = { username: "platform-admin", password: "PlatformAdmin123!" };
     const denied = await client.post("/api/auth/signin-admin").send(credentials);
     expect(denied.status).toBe(426); expect(denied.headers["set-cookie"]).toBeUndefined();
@@ -94,6 +108,16 @@ describe("Admin config API", () => {
     expect(fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8")).toBe(before);
     manager.updateConfig({ admin: { displayName: "Updated" } });
     expect(new DeploymentConfigManager().getConfig().trustedProxyIps).toEqual(["127.0.0.1", "::1"]);
+  });
+
+  it("persists the explicit container proxy option through unrelated config edits and reload", async () => {
+    await loadTestServer('[app]\nbase_url = "https://vote.example.com"\ntrust_local_container_proxy = true\n');
+    const { DeploymentConfigManager } = await import("../src/deploymentConfig.js");
+    const manager = new DeploymentConfigManager();
+    expect(manager.getConfig().trustLocalContainerProxy).toBe(true);
+    manager.updateConfig({ admin: { displayName: "Updated admin" } });
+    expect(new DeploymentConfigManager().getConfig().trustLocalContainerProxy).toBe(true);
+    await expect(loadTestServer('[app]\ntrust_local_container_proxy = "true"\n')).rejects.toThrow("must be a boolean");
   });
 
   it("rejects HTTP LAN configuration at startup", async () => {

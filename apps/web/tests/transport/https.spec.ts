@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { expect, test, chromium } from '@playwright/test';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { promisify } from 'node:util';
 let server: ChildProcess;
-let fixture: { origin: string; backendPort: number; spki: string };
+let fixture: { origin: string; backendPort: number; spki: string; cert: string; deployScript: string };
 test.beforeAll(async () => {
   server = spawn(process.execPath, ['../api/node_modules/tsx/dist/cli.mjs', 'tests/transport/server.mts'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
@@ -71,8 +72,21 @@ test('real HTTPS login, secure cookie, session reload and WSS work through a TLS
 test('direct HTTP is denied except the local health probe', async ({ request }) => {
   const backend = `http://127.0.0.1:${fixture.backendPort}`;
   expect((await request.get(backend + '/health')).status()).toBe(200);
+  const frontend = await request.get(backend + '/health/web');
+  expect(frontend.status()).toBe(200);
+  expect(await frontend.json()).toEqual({ ok: true, checks: { frontend: 'ok' } });
   expect((await request.get(backend + '/admin')).status()).toBe(426);
   const denied = await request.post(backend + '/api/auth/signin-admin', { data: { username: 'https-test-admin', password: 'LocalOnlyTest123!' } });
   expect(denied.status()).toBe(426);
   expect(denied.headers()['set-cookie']).toBeUndefined();
+});
+
+
+test('real deploy health reports local frontend and public TLS healthy without plaintext UI access', async () => {
+  const { stdout } = await promisify(execFile)('bash', [fixture.deployScript, 'health'], {
+    env: { ...process.env, APP_URL: fixture.origin, LOCAL_HEALTH_URL: `http://127.0.0.1:${fixture.backendPort}/health`, CURL_CA_BUNDLE: fixture.cert }
+  });
+  expect(stdout).toContain('Local API: true');
+  expect(stdout).toContain('Local web: true');
+  expect(stdout).toContain('Public health: true');
 });

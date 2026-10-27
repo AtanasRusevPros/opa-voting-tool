@@ -305,7 +305,7 @@ local_web_url() {
   local local_url
   local_url="$(effective_local_health_url)"
   if [[ "$local_url" == */health ]]; then
-    echo "${local_url%/health}/"
+    echo "${local_url%/health}/health/web"
     return
   fi
   echo "$local_url"
@@ -459,7 +459,7 @@ probe_local_web_health() {
   LOCAL_WEB_BODY="$PROBE_BODY"
   LOCAL_WEB_ERROR="$PROBE_ERROR"
   LOCAL_WEB_OK="false"
-  if [[ "$LOCAL_WEB_CURL_EXIT" -eq 0 && "$LOCAL_WEB_HTTP_CODE" =~ ^2 ]]; then
+  if [[ "$LOCAL_WEB_CURL_EXIT" -eq 0 && "$LOCAL_WEB_HTTP_CODE" == "200" && "$(extract_json_ok_flag "$LOCAL_WEB_BODY")" == "true" ]]; then
     LOCAL_WEB_OK="true"
   fi
 }

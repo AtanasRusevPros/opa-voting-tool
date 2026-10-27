@@ -245,6 +245,16 @@ export function registerRoutes({
     next();
   });
 
+  // Probe the frontend artifact without serving the UI over plaintext. This is
+  // independent of proxy/TLS availability so watchdog recovery stays scoped.
+  app.get("/health/web", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    fs.readFile(path.join(webDist, "index.html"), "utf8", (error, html) => {
+      const ok = !error && /<html[\s>]/i.test(html);
+      res.status(ok ? 200 : 503).json({ ok, checks: { frontend: ok ? "ok" : "failed" } });
+    });
+  });
+
   app.get("/health", (_req, res) => {
     try {
       const snapshot = repository.getHealthSnapshot();

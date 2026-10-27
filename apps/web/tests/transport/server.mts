@@ -51,8 +51,13 @@ Object.assign(process.env, {
   SUPER_ADMIN_USERNAME: 'https-test-admin', SUPER_ADMIN_PASSWORD: 'LocalOnlyTest123!',
   DEBUG_TOOLS_ENABLED: '0', E2E_DEBUG_CODES: '0', SIMULATOR_MODE_ENABLED: '0'
 });
-fs.writeFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, `[app]\nbase_url = "${origin}"\ntrusted_proxy_ips = "127.0.0.1,::1"\n`);
+fs.writeFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, `[app]\nbase_url = "${origin}"\ntrusted_proxy_ips = ""\ntrust_local_container_proxy = true\n`);
 ({ server: backend } = await import('../../../api/src/server.ts'));
 backend.listen(0, '127.0.0.1'); await once(backend, 'listening');
 backendPort = (backend.address() as net.AddressInfo).port;
-console.log('TRANSPORT_FIXTURE ' + JSON.stringify({ origin, backendPort, spki }));
+// Exercise the operator script without touching real settings or systemd.
+const deployScript = path.join(directory, 'deploy.sh');
+fs.copyFileSync('../../deploy.sh', deployScript);
+fs.mkdirSync(path.join(directory, 'config'));
+fs.writeFileSync(path.join(directory, 'config/deploy.toml'), `[startup]\nbackend = "disabled"\n[watchdog]\nenabled = false\n[incidents]\ndir = "${directory}/incidents"\n`);
+console.log('TRANSPORT_FIXTURE ' + JSON.stringify({ origin, backendPort, spki, cert, deployScript }));

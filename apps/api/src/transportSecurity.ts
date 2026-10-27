@@ -5,7 +5,7 @@ import { isIP } from "node:net";
 import type { IncomingMessage } from "node:http";
 import type { RequestHandler } from "express";
 
-type TransportConfig = { appBaseUrl: string; trustedProxyIps?: string[] };
+type TransportConfig = { appBaseUrl: string; trustedProxyIps?: string[]; trustLocalContainerProxy?: boolean };
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const normalizedIp = (ip: string) => ip.startsWith("::ffff:") ? ip.slice(7) : ip;
 
@@ -20,7 +20,7 @@ export function validateBaseUrl(value: string): void {
 
 export function parseTrustedProxyIps(value: string): string[] {
   const ips = value.split(",").map(ip => ip.trim()).filter(Boolean);
-  if (ips.some(ip => !isIP(ip))) throw new Error("app.trusted_proxy_ips must contain comma-separated literal proxy IP addresses (no wildcards or networks).");
+  if (ips.some(ip => !isIP(ip))) throw new Error("app.trusted_proxy_ips must contain comma-separated literal proxy IP addresses (no placeholders, wildcards or networks). Remove VERIFIED_PROXY_IP if copied from an example; start with 127.0.0.1,::1 and add only your verified proxy address.");
   return ips.map(normalizedIp);
 }
 
@@ -34,7 +34,11 @@ function localHost(request: IncomingMessage): boolean {
 export function isHttpsRequest(request: IncomingMessage, config: TransportConfig): boolean {
   if ((request.socket as typeof request.socket & { encrypted?: boolean }).encrypted) return true;
   const peer = normalizedIp(request.socket.remoteAddress ?? "");
-  return (config.trustedProxyIps ?? ["127.0.0.1", "::1"]).includes(peer) &&
+  const local = normalizedIp(request.socket.localAddress ?? "");
+  // Explicit opt-in for loopback-published rootless Podman ports that rewrite
+  // the host proxy source to this socket's own container address. Never a subnet.
+  const containerProxy = config.trustLocalContainerProxy === true && !!isIP(peer) && peer === local;
+  return ((config.trustedProxyIps ?? ["127.0.0.1", "::1"]).includes(peer) || containerProxy) &&
     request.headers["x-forwarded-proto"] === "https";
 }
 
@@ -53,7 +57,7 @@ export function transportAllowed(request: IncomingMessage, config: TransportConf
   // Packaged localhost traffic crosses container NAT. The host port MUST remain
   // bound to loopback (compose default); Host alone cannot secure an exposed port.
   if (noProxyHeaders && localHost(request)) {
-    if (request.method === "GET" && request.url === "/health") return true;
+    if (request.method === "GET" && ["/health", "/health/web"].includes(request.url ?? "")) return true;
     const origin = new URL(config.appBaseUrl);
     return origin.protocol === "http:" && loopbackHosts.has(origin.hostname);
   }

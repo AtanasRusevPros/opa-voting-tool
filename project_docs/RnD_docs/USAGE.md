@@ -551,3 +551,5 @@ Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite c
 ## Workspace identity on a team
 
 See [workspace labels and long-name expansion](TEAM_ADMIN_GUIDE.md#workspace-identity-on-a-team). Default self-hosted teams omit this label; hosted workspace renaming is in Account → Workspaces.
+
+Local health supervision uses `/health` for API/database readiness and `/health/web` for frontend-build readiness, preserving HTTPS-only browser access. See [proxy configuration recovery](HTTPS_DEPLOYMENT.md#recover-from-invalid-proxy-configuration) if startup fails after editing trusted proxy IPs.

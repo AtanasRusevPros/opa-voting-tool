@@ -12,6 +12,9 @@ base_url = "http://localhost:3001"
 # HTTPS required except localhost testing. Trust only the immediate TLS proxy IP.
 # With container NAT, add its observed source IP; keep port 3001 loopback-only.
 trusted_proxy_ips = "127.0.0.1,::1"
+# Opt in only when the host TLS proxy reaches a loopback-published Podman port
+# and its observed peer equals the app container's own IP. Never expose port 3001.
+trust_local_container_proxy = false
 allowed_domains_path = "config/allowed-domains.txt"
 
 [admin]
