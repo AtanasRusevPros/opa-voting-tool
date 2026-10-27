@@ -194,6 +194,8 @@ Behavior choices:
 
 ## Runtime And Container Decisions
 
+HTTPS is enforced outside localhost testing: [transport policy, proxy trust and upgrade steps](HTTPS_DEPLOYMENT.md). Session cookies are Secure in HTTPS mode, and WebSocket upgrades enforce the same transport boundary.
+
 - The packaged stack is aligned to Podman-first operation for rootless-friendly local deployment.
 - `infra/containers/compose.yaml` is intended to be run through `podman-compose` or `podman compose`.
 - `deploy.sh` is the deployed/self-hosted server operator wrapper around the compose stack, Caddy reload/status commands, health checks, logs, diagnostics, backups, and release updates.

@@ -22,7 +22,7 @@ Ask together for missing essentials: target machine/access, intended audience, U
 | Target | Access and configuration |
 | --- | --- |
 | This computer only | Keep `http://localhost:3001` and the shipped loopback port mapping. No DNS, public firewall or proxy setup needed. |
-| Company LAN | Use a company-resolvable hostname and a reverse proxy on the app host. Prefer company TLS certificates or an internal CA trusted by every client. Restrict proxy access to the intended LAN/VPN. |
+| Company LAN | Use a company-resolvable hostname and a reverse proxy on the app host. Require company TLS certificates or an internal CA trusted by every client. Restrict proxy access to the intended LAN/VPN. |
 | Public server | Use a public DNS name and HTTPS reverse proxy. Follow the [first VPS runbook](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md) for DNS, firewall and host preparation. |
 
 Changing `app.base_url` does **not** change listening interfaces, DNS or firewall rules. The packaged app listens on host `127.0.0.1:3001`; other computers reach the proxy, not that port. Keep this binding. For a remote localhost-only evaluation, an SSH tunnel can expose the server's loopback port on the operator's computer.
@@ -115,7 +115,7 @@ Validate and reload the proxy after configuration, then check the chosen origin:
 ./deploy.sh public-health
 ```
 
-The command named `public-health` checks the configured origin, including a LAN origin. Run a browser check from another intended client too: a server-local request does not prove LAN routing, firewall or client certificate trust. Caddy forwards WebSocket upgrades; validate real two-browser voting through the proxy. Use a protected HTTP LAN only if the operator knowingly chooses that tradeoff; public deployment should use HTTPS.
+The command named `public-health` checks the configured origin, including a LAN origin. Run a browser check from another intended client too: a server-local request does not prove LAN routing, firewall or client certificate trust. Caddy forwards WebSocket upgrades; validate real two-browser voting through the proxy. LAN and public deployment require HTTPS. Configure explicit immediate proxy trust (including the observed container NAT peer when applicable) before browser verification; follow [HTTPS setup](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md). HTTP LAN hosting is rejected.
 
 For a failed start, inspect `./deploy.sh logs` and `./deploy.sh health` first. An HTTP 502 can mean the app is down; do not repeatedly change TLS settings or erase the database. Use `./deploy.sh diagnose` if needed and redact secrets before sharing output.
 

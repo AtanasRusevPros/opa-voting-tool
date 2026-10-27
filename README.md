@@ -39,7 +39,7 @@ cd app
 ./deploy.sh health
 ```
 
-The app starts at `http://localhost:3001`; administrator sign-in is `/admin`. Company LAN/public hosting requires DNS/network/proxy configuration: changing the base URL alone does not expose the loopback-bound port. Use HTTPS for public service. Follow [AI deployment](AI_DEPLOYMENT.md) or the [step-by-step VPS runbook](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md).
+The app starts at `http://localhost:3001`; administrator sign-in is `/admin`. Company LAN/public hosting requires HTTPS and an explicitly trusted TLS proxy; see [HTTPS setup and upgrade requirements](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md). It also requires DNS/network/proxy configuration: changing the base URL alone does not expose the loopback-bound port. Use HTTPS for public service. Follow [AI deployment](AI_DEPLOYMENT.md) or the [step-by-step VPS runbook](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md).
 
 **SMTP is optional.** Without it, admins provision allowlisted users and securely share generated passwords. Fresh company installations leave hosted-trial mode disabled and have no demo quotas. Authentication, team permissions and hardware limits still apply.
 

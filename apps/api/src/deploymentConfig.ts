@@ -12,6 +12,7 @@ import {
   type HistoryTimeZoneKey
 } from "@planning-poker/shared";
 import { repoRoot, resolveDefaultDeploymentConfigPath } from "./configPaths.js";
+import { parseTrustedProxyIps, validateBaseUrl } from "./transportSecurity.js";
 import type { AppConfig } from "./types.js";
 
 type RawDeploymentConfig = {
@@ -20,6 +21,7 @@ type RawDeploymentConfig = {
   accessRequestsEnabled: boolean;
   app: {
     baseUrl: string;
+    trustedProxyIps: string[];
     allowedDomainsPath: string;
   };
   admin: {
@@ -261,6 +263,7 @@ function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: st
     accessRequestsEnabled: true,
     app: {
       baseUrl: appBaseUrl,
+      trustedProxyIps: ["127.0.0.1", "::1"],
       allowedDomainsPath
     },
     admin: {
@@ -330,6 +333,7 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
     "",
     "[app]",
     `base_url = ${quoteToml(config.app.baseUrl)}`,
+    `trusted_proxy_ips = ${quoteToml(config.app.trustedProxyIps.join(","))}`,
     `allowed_domains_path = ${quoteToml(path.relative(repoRoot, normalizePathValue(config.app.allowedDomainsPath)) || config.app.allowedDomainsPath)}`,
     "",
     "[admin]",
@@ -451,6 +455,7 @@ function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawD
     accessRequestsEnabled: typeof sections.auth?.access_requests_enabled === "boolean" ? sections.auth.access_requests_enabled : defaults.accessRequestsEnabled,
     app: {
       baseUrl: String(sections.app?.base_url ?? defaults.app.baseUrl).trim() || defaults.app.baseUrl,
+      trustedProxyIps: parseTrustedProxyIps(String(sections.app?.trusted_proxy_ips ?? defaults.app.trustedProxyIps.join(","))),
       allowedDomainsPath: normalizePathValue(String(sections.app?.allowed_domains_path ?? defaults.app.allowedDomainsPath))
     },
     admin: {
@@ -617,6 +622,7 @@ export class DeploymentConfigManager {
     const rawFile = fs.readFileSync(deploymentConfigPath, "utf8");
     this.rawConfig = parseDeploymentConfig(rawFile, this.defaults);
     validateRequiredAdminCredentials(this.rawConfig, deploymentConfigPath);
+    validateBaseUrl(this.rawConfig.app.baseUrl);
     // Upgrade the retired hosted-trial allowance in persisted deployments too.
     // Keep unrelated settings and operator comments intact.
     if (this.rawConfig.publicTrial.enabled && this.rawConfig.publicTrial.maxRevealedRoundsPerWorkspacePerMonth === 40) {
@@ -656,6 +662,7 @@ export class DeploymentConfigManager {
       jiraRefreshToken: undefined,
       jiraAccessTokenExpiresAt: undefined,
       appBaseUrl: this.rawConfig.app.baseUrl,
+      trustedProxyIps: [...this.rawConfig.app.trustedProxyIps],
       simulatorModeEnabled: process.env.SIMULATOR_MODE_ENABLED === "1",
       simulatorSharedSecret: process.env.SIMULATOR_SHARED_SECRET ?? "planning-poker-simulator",
       demoModeEnabled: this.rawConfig.demo.enabled,
@@ -749,6 +756,7 @@ export class DeploymentConfigManager {
       if (!nextBaseUrl) {
         throw new Error("Base URL is required.");
       }
+      validateBaseUrl(nextBaseUrl);
       this.rawConfig.app.baseUrl = nextBaseUrl;
     }
     if (patch.admin?.username !== undefined) {

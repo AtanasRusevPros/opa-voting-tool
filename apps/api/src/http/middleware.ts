@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import express from "express";
+import { isHttpsRequest } from "../transportSecurity.js";
 import { Repository } from "../repository.js";
 import type { SessionUser } from "../types.js";
 
@@ -14,6 +15,8 @@ type MiddlewareDeps = {
     simulatorModeEnabled: boolean;
     simulatorSharedSecret: string;
     sessionTtlDays: number;
+    appBaseUrl: string;
+    trustedProxyIps?: string[];
   };
   repository: Repository;
 };
@@ -57,13 +60,13 @@ export function createHttpMiddleware(deps: MiddlewareDeps) {
     res.cookie("session_token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: new URL(config.appBaseUrl).protocol === "https:" || isHttpsRequest(res.req, config),
       maxAge: config.sessionTtlDays * 24 * 60 * 60 * 1000
     });
   }
 
   function clearSessionCookie(res: express.Response) {
-    res.clearCookie("session_token");
+    res.clearCookie("session_token", { httpOnly: true, sameSite: "lax", secure: new URL(config.appBaseUrl).protocol === "https:" || isHttpsRequest(res.req, config) });
   }
 
   function requireMembership(req: express.Request, res: express.Response): boolean {

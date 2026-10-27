@@ -133,3 +133,5 @@ Use disposable data for development. `debugCode` is enabled when `NODE_ENV` is n
 ## Choosing Verification
 
 `./dev.sh test:full` runs shell, API unit/integration, web and simulator unit checks; it does not include browser suites. Use `test:e2e` for regular browser coverage and `test:e2e:responsive` for UI/layout/touch changes. The responsive suite is opt-in; see [its matrix](RESPONSIVE_TESTING.md). Run simulator-backed suites serially. Check [Usage verification](USAGE.md#verification-matrix) for a change-based checklist.
+
+For transport changes, run the separate [HTTPS Chromium regression](HTTPS_DEPLOYMENT.md#local-regression-checks). It uses a disposable TLS proxy and database; the ordinary localhost suites remain HTTP.

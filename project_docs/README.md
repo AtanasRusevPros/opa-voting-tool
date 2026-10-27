@@ -15,6 +15,7 @@ Choose your role or task. Guides describe the current app; planned product direc
 | Run voting and manage a team | [Team Admin Guide](RnD_docs/TEAM_ADMIN_GUIDE.md) | [Phone controls](RnD_docs/TEAM_ADMIN_GUIDE.md#phone-and-touch-use), [title editing](RnD_docs/TEAM_ADMIN_GUIDE.md#edit-an-issue-title) |
 | Understand activity, votes and live counts | [Statistics Guide](RnD_docs/STATISTICS_GUIDE.md) | Separate team, workspace-owner and platform permissions |
 | Install on a company network or server | [AI-assisted deployment](../AI_DEPLOYMENT.md) | [VPS runbook](RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md), [verified scope](RnD_docs/AI_DEPLOYMENT_VERIFICATION.md) |
+| Configure HTTPS and trusted proxies | [HTTPS deployment](RnD_docs/HTTPS_DEPLOYMENT.md) | Localhost exception, LAN/public TLS, Podman NAT and upgrade checks |
 | Configure users, SMTP, branding or Jira | [Super-Admin Guide](RnD_docs/SUPER_ADMIN_GUIDE.md) | [Configuration files](RnD_docs/USAGE.md#editable-deployment-files) |
 | Update, diagnose, back up or restore | [Operator workflow](RnD_docs/USAGE.md#deployed-vps-operator-workflow) | [VPS maintenance](RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md#10-operational-checks), [privacy/backups](RnD_docs/PRIVACY_AND_BACKUPS.md) |
 | Understand deletion and privacy boundaries | [Privacy And Backups](RnD_docs/PRIVACY_AND_BACKUPS.md) | Deployment-specific public notices are available in the app |

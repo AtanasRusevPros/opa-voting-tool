@@ -214,7 +214,7 @@ YOUR_SERVER_IP
 
 ## 7. HTTPS Certificate
 
-Use Let's Encrypt certificates through Caddy.
+Use Let's Encrypt certificates through Caddy. The app enforces HTTPS for non-local deployments; configure the immediate trusted proxy IP (including Podman NAT where needed) using [HTTPS setup and upgrade requirements](HTTPS_DEPLOYMENT.md).
 
 This is the cheap and fast path:
 - Let's Encrypt is free.

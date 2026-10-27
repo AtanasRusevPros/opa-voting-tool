@@ -193,7 +193,7 @@ describe("Password and invite HTTP flows", () => {
     expect(html).toContain('rel="canonical" href="https://vote.example.com/"');
     expect(html).toContain('property="og:url" content="https://vote.example.com/"');
     expect(html).toContain('name="twitter:card" content="summary"');
-    const robots = await request(app).get("/robots.txt").set("Host", "untrusted.example");
+    const robots = await request(app).get("/robots.txt").set("Host", "untrusted.example").set("X-Forwarded-Proto", "https");
     expect(robots.status).toBe(200);
     expect(robots.headers["content-type"]).toContain("text/plain");
     expect(robots.text).toContain("Disallow: /api/");

@@ -82,6 +82,8 @@ Behavior:
 
 ## Deployed VPS Operator Workflow
 
+HTTPS is enforced for LAN/public deployments. Before upgrading, follow [HTTPS configuration and trusted proxy setup](HTTPS_DEPLOYMENT.md), including the container NAT peer address if applicable. HTTP remains available for localhost testing and the direct local health probe.
+
 Use [`deploy.sh`](../../deploy.sh) on the server after the repo is cloned to `/opt/opa-voting-tool/app` or another deployment directory. This script is for deployed operations; keep using `./dev.sh` for local development and automated verification.
 
 Public clone command for a fresh deployed checkout:

@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Require HTTPS for non-local deployments, validate configured origins and trusted proxy IPs, reject insecure API/WebSocket traffic, and use Secure session cookies. Preserve direct localhost testing and local health checks. Existing HTTP LAN installations need TLS; HTTPS container installations must configure the immediate proxy/NAT IP before upgrading. See [HTTPS migration instructions](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md).
+
 ## 1.0.0 - 2026-10-28
 
 - Promote the project and all workspace packages to 1.0.0; version commands now report stable status. Existing local configuration, databases and branch-based updates remain unchanged.

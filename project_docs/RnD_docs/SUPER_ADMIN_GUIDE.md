@@ -108,6 +108,8 @@ Deployment security note:
 
 ## Platform Settings Responsibilities
 
+HTTPS is enforced outside localhost testing: [transport policy, proxy trust and upgrade steps](HTTPS_DEPLOYMENT.md). Session cookies are Secure in HTTPS mode, and WebSocket upgrades enforce the same transport boundary.
+
 Open **Platform** from the chooser. Its tabs are:
 
 | Tab | Controls |

@@ -101,3 +101,5 @@ copies and a 21-day age limit while running. Follow the
 [privacy and backup guide](PRIVACY_AND_BACKUPS.md) for restore rehearsal, retention
 exceptions and operator notices. Policy wording changes update the signup terms
 version; existing acceptance records are preserved, not silently backdated.
+
+For the pending HTTPS enforcement update, existing HTTP LAN installations must configure TLS before upgrading; HTTPS container installations must verify the immediate proxy/NAT IP. See [HTTPS migration steps](HTTPS_DEPLOYMENT.md). These requirements are newer than the original 1.0.0 publication.

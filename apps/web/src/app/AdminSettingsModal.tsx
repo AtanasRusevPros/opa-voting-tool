@@ -805,7 +805,7 @@ export function AdminSettingsModal(props: {
                 <section className="admin-settings-section">
                   <h3>App settings</h3>
                   <label>
-                    Base URL
+                    Base URL (HTTPS required except localhost)
                     <input value={draft.app.baseUrl} onChange={(event) => updateDraft((current) => ({ ...current, app: { ...current.app, baseUrl: event.target.value } }))} />
                   </label>
                   <label>

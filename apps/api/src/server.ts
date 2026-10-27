@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import http from "node:http";
+import { enforceHttps, transportAllowed, warnUntrustedHttpsProxy } from "./transportSecurity.js";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -747,6 +748,7 @@ function serializeBroadcastMessage(
 
 function createApp(currentDemoModeManager: DemoModeManager) {
   const app = express();
+  app.use(enforceHttps(config));
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: "4mb" }));
   app.use(cookieParser());
@@ -856,7 +858,14 @@ const demoModeManager = new DemoModeManager({
 });
 const app = createApp(demoModeManager);
 const server = http.createServer(app);
-const wsServer = new WebSocketServer({ server, path: "/ws" });
+const wsServer = new WebSocketServer({
+  server, path: "/ws",
+  verifyClient: (info, done) => {
+    const allowed = transportAllowed(info.req, config);
+    if (!allowed) warnUntrustedHttpsProxy(info.req, config);
+    done(allowed, allowed ? undefined : 426, allowed ? undefined : "HTTPS is required");
+  }
+});
 
 const eventLoopGaugeInterval = setInterval(() => {
   perfTracker.setGauge("eventLoopDelay.meanMs", Number((eventLoopDelayMonitor.mean / 1_000_000).toFixed(2)));

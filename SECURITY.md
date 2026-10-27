@@ -28,7 +28,7 @@ Please include, privately:
 ## Security Expectations For Operators
 
 - Configure explicit super-admin credentials in ignored `config/deployment.local.toml` before starting any shared or public deployment. The repository does not ship usable default super-admin credentials.
-- Keep the app behind HTTPS for internet-facing deployments.
+- HTTPS is enforced for LAN and internet-facing deployments; only localhost testing permits plain HTTP. Follow [HTTPS and proxy trust setup](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md). Keep the backend loopback-bound and trust only the immediate TLS proxy; forwarded headers alone are not evidence of encryption.
 - Keep the internal app port private to the host or reverse proxy.
 - Review `config/allowed-domains.txt` and `config/deployment.local.toml` before first use.
 - Keep backups of app data and deployment configuration.

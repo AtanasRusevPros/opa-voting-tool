@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import WebSocket from "ws";
+import { once } from "node:events";
 
 const tempDirs: string[] = [];
 
@@ -55,12 +57,55 @@ afterEach(() => {
 });
 
 describe("Admin config API", () => {
+  it("enforces deployed HTTPS for login and WebSocket upgrades, with secure cookies and local health", async () => {
+    const { app, server } = await loadTestServer('[app]\nbase_url = "https://vote.example.com"\ntrusted_proxy_ips = "127.0.0.1,::1"\n');
+    const client = request(app);
+    expect((await client.get("/api/bootstrap")).status).toBe(426);
+    expect((await client.get("/health")).status).toBe(200);
+    const credentials = { username: "platform-admin", password: "PlatformAdmin123!" };
+    const denied = await client.post("/api/auth/signin-admin").send(credentials);
+    expect(denied.status).toBe(426); expect(denied.headers["set-cookie"]).toBeUndefined();
+    const login = await client.post("/api/auth/signin-admin").set("X-Forwarded-Proto", "https").send(credentials);
+    expect(login.status).toBe(200);
+    const cookie = login.headers["set-cookie"][0].split(";")[0];
+    expect(login.headers["set-cookie"][0]).toContain("Secure");
+    expect(login.headers["set-cookie"][0]).toContain("HttpOnly");
+    expect(login.headers["set-cookie"][0]).toContain("SameSite=Lax");
+    expect((await client.get("/api/auth/session").set("Cookie", cookie).set("X-Forwarded-Proto", "http")).status).toBe(426);
+    expect((await client.get("/api/auth/session").set("Cookie", cookie).set("X-Forwarded-Proto", "https")).status).toBe(200);
+    server.listen(0, "127.0.0.1"); await once(server, "listening");
+    const port = (server.address() as { port: number }).port;
+    try {
+      const status = await new Promise<number>((resolve, reject) => {
+        const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?scope=chooser`, { headers: { Cookie: cookie } });
+        socket.on("error", () => {});
+        socket.on("open", () => { socket.close(); reject(new Error("Plaintext WebSocket was accepted")); });
+        socket.on("unexpected-response", (_req, res) => { res.resume(); socket.terminate(); resolve(res.statusCode!); });
+      });
+      expect(status).toBe(426);
+      const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?scope=chooser`, { headers: { Cookie: cookie, "X-Forwarded-Proto": "https" } });
+      await once(socket, "open");
+      const closed = once(socket, "close"); socket.close(); await closed;
+    } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
+    const { DeploymentConfigManager } = await import("../src/deploymentConfig.js");
+    const manager = new DeploymentConfigManager();
+    const before = fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8");
+    expect(() => manager.updateConfig({ app: { baseUrl: "http://vote.example.com" } })).toThrow("HTTPS");
+    expect(fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8")).toBe(before);
+    manager.updateConfig({ admin: { displayName: "Updated" } });
+    expect(new DeploymentConfigManager().getConfig().trustedProxyIps).toEqual(["127.0.0.1", "::1"]);
+  });
+
+  it("rejects HTTP LAN configuration at startup", async () => {
+    await expect(loadTestServer('[app]\nbase_url = "http://192.168.1.10:3001"\n')).rejects.toThrow("HTTPS");
+  });
+
   it.each([[true, 40, 80], [true, 80, 80], [true, 120, 120], [false, 40, 40]])(
     "loads trial enabled=%s quota=%s as %s without changing unrelated settings",
     async (enabled, quota, expected) => {
       const original = `# Operator notes\n[public_trial]\nenabled = ${enabled}\nmax_revealed_rounds_per_workspace_per_month = ${quota}\nmax_teams_per_workspace = 3\n[app]\nbase_url = "https://vote.example.com"\n`;
       const { app } = await loadTestServer(original);
-      const bootstrap = await request(app).get("/api/bootstrap");
+      const bootstrap = await request(app).get("/api/bootstrap").set("X-Forwarded-Proto", "https");
       expect(bootstrap.body.publicTrial.maxRevealedRoundsPerWorkspacePerMonth).toBe(expected);
       const saved = fs.readFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, "utf8");
       expect(saved).toBe(original.replace(`max_revealed_rounds_per_workspace_per_month = ${quota}`, `max_revealed_rounds_per_workspace_per_month = ${expected}`));
@@ -79,6 +124,7 @@ describe("Admin config API", () => {
 
     expect(signInResponse.status).toBe(200);
     const cookie = signInResponse.headers["set-cookie"];
+    expect(cookie[0]).not.toContain("Secure");
 
     const configResponse = await request(app).get("/api/admin/config").set("Cookie", cookie);
     expect(configResponse.status).toBe(200);
