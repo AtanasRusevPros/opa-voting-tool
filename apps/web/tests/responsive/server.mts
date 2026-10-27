@@ -11,7 +11,8 @@ Object.assign(process.env, {
   DEPLOYMENT_CONFIG_PATH: path.join(directory,'deployment.toml'), MANAGED_BRANDING_DIR: path.join(directory,'branding'),
   SUPER_ADMIN_USERNAME: 'local-test-admin', SUPER_ADMIN_PASSWORD: 'LocalOnlyTest123!'
 });
-fs.writeFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, trial ? '[public_trial]\nenabled = true\nmode = "open_signup"\n[auth]\naccess_requests_enabled = false\n' : '');
+// Allow isolated accounts per viewport in this disposable fixture; production limits are unchanged.
+fs.writeFileSync(process.env.DEPLOYMENT_CONFIG_PATH!, trial ? '[public_trial]\nenabled = true\nmode = "open_signup"\nmax_signup_requests_per_ip_per_hour = 1000\nmax_workspace_creations_per_ip_per_day = 1000\n[auth]\naccess_requests_enabled = false\n' : '');
 const {server} = await import('../../../api/src/server.ts');
 server.listen(trial ? 3138 : 3137, '127.0.0.1');
 process.on('SIGTERM', () => { server.close(); fs.rmSync(directory,{recursive:true,force:true}); process.exit(0); });

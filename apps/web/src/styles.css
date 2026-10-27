@@ -3501,3 +3501,22 @@ textarea {
 }
 
 .is-mobile-board .team-settings-popup:has(.team-settings-secondary) > :not(.team-settings-secondary) { filter: blur(2px); pointer-events: none; }
+
+/* Team identity stays compact; the native disclosure exposes long names on touch. */
+.team-title-context { min-width: 0; flex: 1 1 auto; }
+.workspace-context { min-width: 0; max-width: 100%; color: #526781; font-size: .82rem; line-height: 1.4; margin-top: 3px; }
+.workspace-context summary { display: flex; align-items: center; gap: 5px; cursor: pointer; min-width: 0; padding: 4px 0; list-style: none; }
+.workspace-context summary::-webkit-details-marker { display: none; }
+.workspace-context summary::before { content: "▸"; flex: 0 0 auto; }
+.workspace-context[open] summary::before { content: "▾"; }
+.workspace-context summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.workspace-context summary:focus-visible { outline: 2px solid var(--brand-primary-action); outline-offset: 2px; border-radius: 4px; }
+.workspace-context-full { overflow-wrap: anywhere; padding: 4px 0; }
+.is-mobile-board .team-title-context { flex-basis: 100%; }
+.team-directory-modal .modal-header > div:first-child { min-width: 0; flex: 1; }
+
+.team-directory-modal { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 600px) {
+  .team-directory-modal .modal-header { flex-wrap: wrap; }
+  .team-directory-modal .modal-header > div:first-child { flex-basis: 100%; }
+}

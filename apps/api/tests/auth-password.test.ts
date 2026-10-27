@@ -320,6 +320,16 @@ describe("Password and invite HTTP flows", () => {
     expect((await client.patch(`/api/workspaces/${workspaceId}`).set("Cookie", ownerCookie).send({ name: "  Delivery Team  " })).status).toBe(200);
     const renamed = await client.get("/api/workspaces/trial").set("Cookie", ownerCookie);
     expect(renamed.body.workspaces[0]).toMatchObject({ id: workspaceId, name: "Delivery Team", isOwner: true, revealedRounds: 0 });
+    const firstTeamId = firstSignupResponse.body.team.id;
+    for (const suffix of ["state", "directory"]) {
+      const own = await client.get(`/api/teams/${firstTeamId}/${suffix}`).set("Cookie", ownerCookie);
+      expect(own.status).toBe(200);
+      expect(own.body.team.workspace).toEqual({id: workspaceId, name: "Delivery Team"});
+      const denied = await client.get(`/api/teams/${firstTeamId}/${suffix}`).set("Cookie", otherCookie);
+      expect(denied.status).toBe(403);
+      expect(JSON.stringify(denied.body)).not.toContain("Delivery Team");
+    }
+
 
 
     const duplicateCodeResponse = await client.post("/api/auth/public-trial/request-code").send({

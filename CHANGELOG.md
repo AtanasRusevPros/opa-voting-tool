@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Show compact hosted-workspace identity on boards and in Team Admin/People, with accessible full-name disclosure, mobile controls placement and live rename updates. Ordinary self-hosted teams remain uncluttered.
+
 - Hide marked demo/test accounts in Platform People and operator usage exports by default. Add labelled diagnostic inclusion, consistent filtered totals, and mixed-data/search/pagination regression coverage.
 
 - Keep simulator heartbeats running during large-scenario startup so loaded test rooms do not temporarily disappear while remaining bots connect.

@@ -1168,12 +1168,13 @@ export class Repository {
     }));
   }
 
-  renamePublicTrialWorkspace(userId: string, workspaceId: string, input: unknown): void {
+  renamePublicTrialWorkspace(userId: string, workspaceId: string, input: unknown): string[] {
     if (!this.config.publicTrial.enabled) throw new Error("Workspace renaming is only available for hosted trials.");
     if (typeof input !== "string" || !input.trim() || input.trim().length > 80) throw new Error("Use a workspace name between 1 and 80 characters.");
     const result = this.db.prepare(`UPDATE workspaces SET name = ?, updated_at = ?
       WHERE id = ? AND kind = 'public_trial' AND created_by = ?`).run(input.trim(), nowIso(), workspaceId, userId);
     if (!result.changes) throw new Error("Only the workspace owner can rename this trial workspace.");
+    return (this.db.prepare("SELECT id FROM teams WHERE workspace_id = ?").all(workspaceId) as Array<{id: string}>).map(team => team.id);
   }
 
   leavePublicTrialWorkspace(userId: string, workspaceId: string): string[] {
@@ -2148,10 +2149,12 @@ export class Repository {
   getTeam(teamId: string): TeamSummary | null {
     const row = this.db
       .prepare(
-        "SELECT id, name, slug, demo, deck_key, fibonacci_range_start, fibonacci_range_end, timer_seconds, icon_key, logo_opacity, background_opacity, history_timezone_popup_enabled, history_timezone_keys_json, minimum_vote_percent_enabled, minimum_vote_percent, jira_project_key, jira_jql, archived, last_activity_at FROM teams WHERE id = ?"
+        "SELECT workspace_id, (SELECT name FROM workspaces w WHERE w.id = teams.workspace_id AND w.kind = 'public_trial') AS workspace_name, id, name, slug, demo, deck_key, fibonacci_range_start, fibonacci_range_end, timer_seconds, icon_key, logo_opacity, background_opacity, history_timezone_popup_enabled, history_timezone_keys_json, minimum_vote_percent_enabled, minimum_vote_percent, jira_project_key, jira_jql, archived, last_activity_at FROM teams WHERE id = ?"
       )
       .get(teamId) as
       | {
+          workspace_id: string;
+          workspace_name: string | null;
           id: string;
           name: string;
           slug: string;
@@ -2178,6 +2181,7 @@ export class Repository {
 
     return row
       ? {
+        ...(row.workspace_name != null ? { workspace: { id: row.workspace_id, name: row.workspace_name } } : {}),
         id: row.id,
         name: row.name,
         slug: row.slug,

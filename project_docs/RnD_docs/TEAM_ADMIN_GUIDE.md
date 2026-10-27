@@ -328,3 +328,8 @@ Pull downward on unused board-header space and release after “Release to refre
 On desktop and tablet, the small circular arrow at the history edge hides or restores the panel without losing its previous size. Drag elsewhere on the divider to resize immediately.
 
 Phone board controls open as a compact panel; the X at its top right closes it. Submenus have a distinct border and lightly blur the controls behind them. Thin blue borders identify enabled actions; neutral status chips such as the board timer are informational. A disabled timer-settings control is unavailable to regular members.
+
+
+### Workspace identity on a team
+
+In hosted workspaces, the board and Team Admin/People show **Workspace: name** beneath the team title. On phones it appears inside board controls, keeping the compact header clear. Long names are shortened on one line; hover to read the tooltip, or tap/click the line (Enter on a keyboard) to expand the full name. Workspace renames update connected boards and open People panels. Ordinary self-hosted teams omit this label; workspace renaming stays in **Account → Workspaces**.

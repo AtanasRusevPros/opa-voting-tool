@@ -82,3 +82,8 @@ The phone controls panel fits its contents, bounded by the visible viewport. Its
 - Simulator performance: **7 passed** after correcting startup heartbeat timing. Periodic heartbeats must run while the 950-bot scenario is connecting, not only after startup completes; otherwise the simulator visibility lease can expire during a 400-person voting burst. State-read failures now include HTTP status/body and still fail immediately without retries.
 
 The earlier failing runs are retained in the work history; the notification correction was a targeted rerun, not a second complete packaged run. Physical Galaxy S23 Ultra and iOS acceptance remains separate from local Chromium verification.
+
+
+## Workspace identity coverage
+
+`workspace-context.spec.ts` covers the full phone portrait/landscape matrix, the 640×900 transition, tablets and desktop (26 sizes). Each uses short, medium, long multiword and unbroken 80-character workspace names, with collapsed/expanded board and Team Admin labels, touch/click and keyboard disclosure, rename controls and starting a vote. Additional cases cover absent labels in ordinary self-hosting and collaborator workspace switching/live renames. The disposable trial fixture raises signup rate limits to permit isolated accounts per viewport; production limits are unchanged.

@@ -597,3 +597,8 @@ Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite c
 - Phone: tap the history grip to show/hide; hold briefly, then drag to resize up to half the screen. Arrow keys also resize.
 - Desktop/tablet: click the circular arrow on the history edge to collapse/restore, or drag the divider to resize.
 - Phone board controls fit their contents and close with the top-right X. Blue outlines indicate enabled actions; ordinary status chips retain neutral borders.
+
+
+### Workspace identity on a team
+
+In hosted workspaces, the board and Team Admin/People show **Workspace: name** beneath the team title. On phones it appears inside board controls, keeping the compact header clear. Long names are shortened on one line; hover to read the tooltip, or tap/click the line (Enter on a keyboard) to expand the full name. Workspace renames update connected boards and open People panels. Ordinary self-hosted teams omit this label; workspace renaming stays in **Account → Workspaces**.

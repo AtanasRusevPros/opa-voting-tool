@@ -1,4 +1,5 @@
 import { useViewportHeight } from "./app/useViewportHeight";
+import { WorkspaceContext } from "./app/WorkspaceContext";
 import { boardViewport, mobileHistorySize, MOBILE_HISTORY_GRIP } from "./app/boardViewport";
 import { pointerDrag } from "./app/pointerDrag";
 import { closeSocket } from "./app/closeSocket";
@@ -3182,7 +3183,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
     const focusable = () => {
       const activePanel = panel?.querySelector<HTMLElement>(".team-settings-secondary, .notification-panel")
         ?? panel?.querySelector<HTMLElement>(".timer-settings-popup, .team-settings-popup, .switch-team-menu") ?? panel;
-      return Array.from(activePanel?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]") ?? []).filter(el => el.getClientRects().length > 0);
+      return Array.from(activePanel?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], summary") ?? []).filter(el => el.getClientRects().length > 0);
     };
     focusable()[0]?.focus();
     const trap = (event: KeyboardEvent) => {
@@ -3815,11 +3816,14 @@ export const TeamBoard = memo(function TeamBoard(props: {
           <div className="team-branding">
             <img className="team-icon" src={branding.teamLogo} alt="" />
             <div className="team-name-row">
+              <div className="team-title-context">
               <h1 title={props.state.team.name} aria-hidden={isMobileBoard || undefined}>
                 {props.state.team.name}
                 {props.state.team.demo ? <span className="team-state-chip demo">Demo</span> : null}
                 {props.state.team.archived ? <span className="team-state-chip archived">Archived</span> : null}
               </h1>
+              <WorkspaceContext workspace={props.state.team.workspace} />
+              </div>
               <div className="timer-settings-wrap" ref={timerSettingsRef}>
                 <button
                   className={timerMenuOpen ? "header-chip active" : "header-chip"}
@@ -5476,6 +5480,8 @@ export default function App() {
           sameMembers &&
           current.team.id === teamState.team.id &&
           current.team.name === teamState.team.name &&
+          current.team.workspace?.name === teamState.team.workspace?.name &&
+          current.team.workspace?.id === teamState.team.workspace?.id &&
           current.team.deckKey === teamState.team.deckKey &&
           current.currentUserId === teamState.currentUser.id &&
           current.currentUserRole === teamState.currentUserRole &&
@@ -5878,6 +5884,8 @@ export default function App() {
               samePendingIssues &&
               current.team.id === normalizedPayload.team.id &&
               current.team.name === normalizedPayload.team.name &&
+              current.team.workspace?.name === normalizedPayload.team.workspace?.name &&
+              current.team.workspace?.id === normalizedPayload.team.workspace?.id &&
               current.team.archived === normalizedPayload.team.archived &&
               current.team.jiraProjectKey === normalizedPayload.team.jiraProjectKey &&
               current.team.jiraJql === normalizedPayload.team.jiraJql

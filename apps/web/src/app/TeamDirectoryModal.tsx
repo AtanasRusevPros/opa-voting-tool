@@ -4,6 +4,7 @@
 import { StatsPanel } from "./StatsPanel";
 import { EditPencilIcon } from "./icons";
 import { useEffect, useMemo, useState } from "react";
+import { WorkspaceContext } from "./WorkspaceContext";
 import type { TeamDirectoryResponse, TeamHistoryImportResponse, TeamMemberCandidateResponse, TeamMemberInviteResponse, TeamMemberPasswordResetResponse } from "./types";
 
 export function TeamDirectoryModal(props: {
@@ -111,6 +112,7 @@ export function TeamDirectoryModal(props: {
             <div className="team-title-actions"><h2>{props.directory.team.name}</h2>
               {canEditMembership && props.onRenameTeam ? <button className="header-chip icon-only" type="button" aria-label="Rename team" disabled={props.isBusy || renamePending} onClick={() => { setTeamName(props.directory.team.name); setRenaming(true); setRenameError(""); setRenameNotice(""); }}><EditPencilIcon /></button> : null}
             </div>
+            <WorkspaceContext workspace={props.directory.team.workspace} />
             {renaming ? <form className="workspace-rename-form" onSubmit={async event => {
               event.preventDefault();
               if (renamePending || teamName.trim().length < 2) return;

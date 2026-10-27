@@ -359,6 +359,8 @@ export interface CurrentUserSummary extends UserSummary {
 }
 
 export interface TeamSummary {
+  /** Hosted workspace context; absent for ordinary self-hosted teams. */
+  workspace?: { id: string; name: string };
   id: string;
   name: string;
   slug: string;

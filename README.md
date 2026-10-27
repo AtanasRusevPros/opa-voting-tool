@@ -460,7 +460,7 @@ Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
 calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
 separately. Invitations and workspace membership changes do not reset it. At the cap,
 new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
+available. Team cards show compact workspace identity, role and usage. Hosted-team boards and Team Admin/People also show their workspace name; on phones, open board controls to see it. Tap the workspace line to read a long name in full. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
 
 Removing a team member revokes their board socket and returns their browser to the
 team chooser. Adding an already registered user does not require SMTP; inviting a

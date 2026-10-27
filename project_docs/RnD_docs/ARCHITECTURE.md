@@ -284,3 +284,8 @@ Phone board layout decisions are centralized in `apps/web/src/app/boardViewport.
 History resizing uses captured pointer events with cleanup on cancellation/unmount. Phone taps toggle the panel; movement beyond eight pixels resizes only after a 250ms hold, while early swipes suppress both resizing and the following click. Desktop drag behavior is immediate, with independent side/stacked collapsed state and separate circular toggle buttons preserving saved dimensions. Phone and desktop size preferences remain independent.
 
 Mobile controls use a content-sized, viewport-bounded fixed panel with an accessible icon-only close button. Backdrop layers blur underlying content without applying a filter to ancestors of fixed popups. Keyboard traversal selects the active nested panel. A shared CSS action-outline token differentiates enabled controls from informational and disabled chips; no viewport polling or additional React layout provider is needed.
+
+
+### Team workspace context
+
+Authorized board/directory team summaries include optional hosted workspace ID/name, read alongside the team through a scalar subquery; ordinary default-workspace teams omit it. The UI uses one native disclosure component for the board and directory, inside mobile controls on phones. Workspace renaming invalidates and broadcasts affected team state and directory observers as well as the chooser; client directory equality checks include workspace identity. The label adds no polling, new permissions or per-vote writes.

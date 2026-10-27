@@ -350,7 +350,8 @@ export function registerRoutes({
 
   app.patch("/api/workspaces/:workspaceId", requireUser, (req, res) => {
     try {
-      repository.renamePublicTrialWorkspace((req as AuthedRequest).user.id, String(req.params.workspaceId), req.body?.name);
+      const teamIds = repository.renamePublicTrialWorkspace((req as AuthedRequest).user.id, String(req.params.workspaceId), req.body?.name);
+      for (const teamId of teamIds) broadcastSoon(teamId);
       broadcastChooserSoon();
       res.json({ ok: true });
     } catch (error) { res.status(400).json({ error: (error as Error).message }); }
