@@ -13,6 +13,10 @@ Guidance for agents working in this repository.
 
 Make safe, minimal, well-verified changes with as little context as necessary while preserving the documentation-first bootstrap discipline from the root project guides.
 
+## AI-Assisted Deployment
+
+For requests to self-host, install or operate OpaVoting, start with [AI_DEPLOYMENT.md](AI_DEPLOYMENT.md). It distinguishes localhost, company LAN and public-server deployment, uses the existing operator commands, and defines verification and handoff. The optional [deployment skill](.agents/skills/deploy-opavoting/SKILL.md) references the same guide.
+
 ## Repo Shape
 
 - `apps/web`: React + Vite client

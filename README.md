@@ -43,6 +43,14 @@ Important public-release notes:
 - SMTP-backed account delivery has been smoke-tested on the alpha VPS through a real transactional mail provider.
 - Do not report security vulnerabilities in public issues; see [`SECURITY.md`](SECURITY.md).
 
+## Deploy With Your AI Assistant
+
+**[AI-assisted self-hosting guide](AI_DEPLOYMENT.md)** — deploy for your company with an agent that has terminal access. Supports a clear path for localhost evaluation, company LAN or public-server hosting; no demo quotas and no SMTP requirement.
+
+> Clone https://github.com/AtanasRusevPros/opa-voting-tool and follow AI_DEPLOYMENT.md to deploy it for internal company use. Inspect my target environment, ask only for missing choices or access, and verify the setup.
+
+See the guide for prerequisites and [verification limits](project_docs/RnD_docs/AI_DEPLOYMENT_VERIFICATION.md).
+
 ## Quick Start
 
 1. Use Node.js `22.22.2`. The pinned local version lives in [`.nvmrc`](.nvmrc), so nvm users can run:
@@ -78,6 +86,8 @@ podman compose -f infra/containers/compose.yaml up -d
 ```
 
 Use `./deploy.sh update` for new releases on an existing deployment.
+
+`./deploy.sh restore <archive>` replaces data/config and checks health. It returns exit status 0 on success and nonzero on failure, and cleans up temporary extraction files. Rehearse on disposable data before production use.
 
 `./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
 

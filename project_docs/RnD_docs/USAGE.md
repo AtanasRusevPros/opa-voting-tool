@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 Created: 2026-04-03 10:35 EEST
 
+For an agent-led setup from scratch, start with the [AI-assisted deployment guide](../../AI_DEPLOYMENT.md), including localhost/LAN/public-server choices and verification.
+
 ## Try It Online
 
 **[Try the free live demo](https://app.opavotingtool.eu)** — no installation needed. Enter your email, choose **Start free public trial**, and follow the email instructions to start voting with your team. The hosted demo has [usage limits](#hosted-trial-collaboration-and-limits); self-host for ongoing or company-wide use.
@@ -102,6 +104,8 @@ New release/update flow on the VPS:
 4. Run `./deploy.sh public-health`.
 5. Open the HTTPS app and do a short login/team/vote/reveal smoke test.
 6. If anything looks wrong, run `./deploy.sh diagnose` before editing Caddy or firewall settings.
+
+`./deploy.sh restore <archive>` replaces data/config and checks health. It returns exit status 0 on success and nonzero on failure, and cleans up temporary extraction files. Rehearse on disposable data before production use.
 
 `./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
 

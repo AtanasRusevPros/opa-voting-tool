@@ -164,7 +164,7 @@ Do not invent owner identity, copyright holder, public org/repo URL, donation wo
 
 ### Deployment Operator Mode
 
-Use for VPS, Caddy, Podman, HTTPS, backups, or deployed release updates.
+Use for VPS, Caddy, Podman, HTTPS, backups, or deployed release updates. For agent-led installation from scratch, follow [AI_DEPLOYMENT.md](../../AI_DEPLOYMENT.md); it distinguishes localhost, company LAN and public hosting and defines the verification/handoff.
 
 Rules:
 

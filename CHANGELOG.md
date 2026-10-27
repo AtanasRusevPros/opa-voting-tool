@@ -13,6 +13,10 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Fix deployment restore cleanup reporting an unbound temporary-directory variable after a successful restore; retain cleanup and nonzero status on failures.
+
+- Add an AI-assisted self-hosting guide, repository agent entry points and portable deployment skill. Exclude local credentials/data and generated artifacts from Podman image builds; runtime configuration remains mounted.
+
 - Show compact hosted-workspace identity on boards and in Team Admin/People, with accessible full-name disclosure, mobile controls placement and live rename updates. Ordinary self-hosted teams remain uncluttered.
 
 - Hide marked demo/test accounts in Platform People and operator usage exports by default. Add labelled diagnostic inclusion, consistent filtered totals, and mixed-data/search/pagination regression coverage.

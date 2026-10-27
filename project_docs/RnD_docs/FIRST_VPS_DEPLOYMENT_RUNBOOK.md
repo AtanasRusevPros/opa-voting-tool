@@ -8,6 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 Created: 2026-05-11
 Example hostname: `vote.example.com`
 
+For an agent-led setup from scratch, start with the [AI-assisted deployment guide](../../AI_DEPLOYMENT.md), including localhost/LAN/public-server choices and verification.
+
 ## Purpose
 
 This runbook captures a practical Ubuntu 24.04 LTS VPS deployment path for the app.
@@ -454,6 +456,8 @@ cd /opt/opa-voting-tool/app
 ./deploy.sh public-health
 ```
 
+
+`./deploy.sh restore <archive>` replaces data/config and checks health. It returns exit status 0 on success and nonzero on failure, and cleans up temporary extraction files. Rehearse on disposable data before production use.
 
 `./deploy.sh update` first fetches the tracked Git branch. If its commit matches the downloaded sources, it reports **Already up to date** and skips backup, rebuild and restart. This checks source versions, not running-container health; use `./deploy.sh rebuild` to redeploy existing sources (including retrying a failed deployment). Fetch errors stop the update.
 
