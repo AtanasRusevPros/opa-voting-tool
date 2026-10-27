@@ -490,6 +490,8 @@ For ongoing operator visibility, also run:
 ./deploy.sh usage
 ```
 
+Usage reports exclude marked demo/test accounts and teams by default. For diagnostic totals including them, run `./deploy.sh usage --include-synthetic`. The same flag works with `usage:json`, `users:export` and `workspaces:export`; backups and team-history exports are unaffected.
+
 ### Backup And Restore Rehearsal
 
 Use the test VPS or another disposable deployment before trusting restore in a real production environment.

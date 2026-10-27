@@ -166,6 +166,8 @@ The packaged compose service publishes the app on host-local `127.0.0.1:3001` an
 
 For a deployed VPS, use [`deploy.sh`](deploy.sh) instead of typing long compose/Caddy commands. It provides short operator commands such as `./deploy.sh rebuild`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh startup:enable`, `./deploy.sh startup:disable`, `./deploy.sh watchdog:status`, `./deploy.sh watchdog:run`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh diagnose:demo-counts`, `./deploy.sh backup`, `./deploy.sh backup:list`, `./deploy.sh backup:prune`, `./deploy.sh restore <file>`, `./deploy.sh usage`, `./deploy.sh usage:json`, `./deploy.sh users:export`, `./deploy.sh workspaces:export`, and `./deploy.sh update`.
 
+People and operator usage reports hide marked demo/test data by default. Super-admins can select **Include demo/test accounts** in **Platform → People**, or add `--include-synthetic` to `usage`, `usage:json`, `users:export` or `workspaces:export` for diagnostics. Backups and team history exports remain complete.
+
 ## Deployment Edits Before First Use
 
 The first live VPS bootstrap checklist currently lives in:

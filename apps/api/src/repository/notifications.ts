@@ -17,6 +17,7 @@ export type PlatformUserSummary = {
   createdAt: string;
   updatedAt: string;
   lastActiveAt: string;
+  synthetic: boolean;
 };
 
 export type PlatformUserSort = "recent" | "oldest" | "alpha" | "alpha-desc";
@@ -101,6 +102,7 @@ export function getPlatformUsers(
     limit?: number;
     query?: string;
     sort?: PlatformUserSort;
+    includeSynthetic?: boolean;
   }
 ): PlatformUsersPage {
   const offset = Math.max(options?.offset ?? 0, 0);
@@ -128,9 +130,10 @@ export function getPlatformUsers(
   const rows = db
     .prepare(
       `
-      SELECT id, email, display_name, created_at, updated_at, last_active_at
+      SELECT id, email, display_name, created_at, updated_at, last_active_at, is_synthetic
       FROM users
       WHERE is_super_admin = 0 AND deleted_at IS NULL
+      ${options?.includeSynthetic ? "" : "AND is_synthetic = 0"}
       ${searchClause}
       ${orderClause}
       LIMIT ?
@@ -144,6 +147,7 @@ export function getPlatformUsers(
     created_at: string;
     updated_at: string;
     last_active_at: string;
+    is_synthetic: number;
   }>;
 
   return {
@@ -153,7 +157,8 @@ export function getPlatformUsers(
       displayName: row.display_name,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      lastActiveAt: row.last_active_at
+      lastActiveAt: row.last_active_at,
+      synthetic: Boolean(row.is_synthetic)
     })),
     nextOffset: rows.length > limit ? offset + limit : null
   };

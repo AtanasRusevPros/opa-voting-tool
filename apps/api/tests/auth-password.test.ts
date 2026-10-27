@@ -888,6 +888,32 @@ describe("Password and invite HTTP flows", () => {
     expect(resetResponse.body.error).toContain("not a member");
   });
 
+  it("restricts People filtering to super-admins and applies it before search, sort and pagination", async () => {
+    const {app, repository} = await loadTestServer();
+    const client = request(app);
+    const regularCookie = await createRegularUser(client, "real@example-company.com", "Real");
+    const bot = repository.ensureUser({email: "ordinary@example.com", displayName: "Filter 00", synthetic: true, avatarIconKey: "bear", avatarColorKey: "azure"});
+    for (let i = 1; i <= 31; i++) repository.ensureUser({email: `demo.real${i}@example.com`, displayName: `Filter ${String(i).padStart(2, "0")}`, avatarIconKey: "bear", avatarColorKey: "azure"});
+    expect((await client.get("/api/admin/people?includeSynthetic=true")).status).toBe(401);
+    expect((await client.get("/api/admin/people?includeSynthetic=true").set("Cookie", regularCookie)).status).toBe(403);
+    const admin = await client.post("/api/auth/signin-admin").send({username: "platform-admin", password: "PlatformAdmin123!"});
+    const get = (query: string) => client.get(`/api/admin/people?${query}`).set("Cookie", admin.headers["set-cookie"]);
+    const first = await get("q=Filter&sort=alpha");
+    expect(first.status).toBe(200);
+    expect(first.body.users).toHaveLength(30);
+    expect(first.body.users.every((u: {synthetic: boolean}) => !u.synthetic)).toBe(true);
+    expect(first.body.users[0].displayName).toBe("Filter 01");
+    const second = await get(`q=Filter&sort=alpha&offset=${first.body.nextOffset}`);
+    expect(second.body.users).toHaveLength(1);
+    expect(second.body.users[0].displayName).toBe("Filter 31");
+    expect(second.body.nextOffset).toBeNull();
+    const included = await get("q=Filter&sort=alpha&includeSynthetic=true");
+    expect(included.body.users[0]).toMatchObject({id: bot.id, synthetic: true});
+    expect((await get("q=ordinary&includeSynthetic=false")).body.users).toEqual([]);
+    expect((await get("q=ordinary&includeSynthetic=true")).body.users).toHaveLength(1);
+    expect((await get("includeSynthetic=invalid")).status).toBe(400);
+  });
+
   it("creates a platform access request and lets the super-admin admit it with a manual-share password", async () => {
     const { app } = await loadTestServer();
     const client = request(app);

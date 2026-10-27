@@ -175,6 +175,7 @@ export type PlatformUserSummary = {
   createdAt: string;
   updatedAt: string;
   lastActiveAt: string;
+  synthetic: boolean;
 };
 
 export type PlatformPeopleResponse = {

@@ -4,11 +4,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BRANDING_MANIFEST, DEFAULT_HISTORY_TIME_ZONE_KEYS } from "@planning-poker/shared";
 import { Repository } from "../src/repository.js";
 import type { AppConfig } from "../src/types.js";
-import { buildReport, usersExport } from "../src/usageReportCli.js";
+import { buildReport, usersExport, runUsageReportCommand } from "../src/usageReportCli.js";
 
 const tempDirs: string[] = [];
 
@@ -69,6 +69,52 @@ afterEach(() => {
 });
 
 describe("usage report CLI helpers", () => {
+  it("filters marked accounts, seeded teams, sessions and votes consistently without changing stored data", () => {
+    const config = createTestConfig();
+    const repo = new Repository(config);
+    // A demo-looking name is still a real person unless explicitly marked.
+    const human = repo.ensureUser({email: "demo.real@example.com", displayName: "Demo Real", avatarIconKey: "bear", avatarColorKey: "azure"});
+    const bot = repo.ensureUser({email: "ordinary@example.com", displayName: "Ordinary", synthetic: true, avatarIconKey: "bear", avatarColorKey: "azure"});
+    repo.createSessionForExistingUser(human.id);
+    repo.createSessionForExistingUser(bot.id);
+    const team = repo.createTeam(human.id, "Real team");
+    repo.joinTeam(bot.id, team.id);
+    const simulated = repo.syncSimulatorTeams(bot.id, [{name: "Synthetic team", memberUserIds: [bot.id, human.id]}])[0];
+    const demo = repo.syncDemoTeams(bot.id, [{name: "Demo team", memberUserIds: [bot.id]}])[0];
+    for (const target of [team, simulated, demo]) {
+      const round = repo.createRound(target.id, "Report round");
+      repo.castVote(round.id, bot.id, "3");
+      if (target.id === team.id) repo.castVote(round.id, human.id, "5");
+      repo.revealRound(round.id);
+    }
+    const all = buildReport(config.databasePath, {includeSynthetic: true});
+    const real = buildReport(config.databasePath);
+    expect(real.includesSynthetic).toBe(false);
+    expect(real.totals).toMatchObject({users: 1, teams: 1, historyEntries: 1, currentSessions: 1});
+    expect(real.monthly).toMatchObject({revealedRounds: 1, votes: 1});
+    expect(all.includesSynthetic).toBe(true);
+    expect(all.totals).toMatchObject({users: 2, teams: 3, historyEntries: 3, currentSessions: 2});
+    expect(all.monthly).toMatchObject({revealedRounds: 3, votes: 4});
+    expect(real.workspaces).toEqual([expect.objectContaining({userCount: 1, teamCount: 1, monthlyReveals: 1, monthlyVotes: 1})]);
+    expect(usersExport(config.databasePath)).toEqual([expect.objectContaining({id: human.id, synthetic: false, teamCount: 1})]);
+    expect(usersExport(config.databasePath, {includeSynthetic: true})).toEqual(expect.arrayContaining([
+      expect.objectContaining({id: bot.id, synthetic: true}), expect.objectContaining({id: human.id, teamCount: 2})
+    ]));
+    const output = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runUsageReportCommand("usage:json", config.databasePath);
+      expect(JSON.parse(output.mock.calls.at(-1)![0]).totals.users).toBe(1);
+      runUsageReportCommand("users:export", config.databasePath, {includeSynthetic: true});
+      expect(JSON.parse(output.mock.calls.at(-1)![0])).toHaveLength(2);
+      runUsageReportCommand("workspaces:export", config.databasePath);
+      expect(JSON.parse(output.mock.calls.at(-1)![0])[0].teamCount).toBe(1);
+      runUsageReportCommand("usage", config.databasePath);
+      expect(output).toHaveBeenCalledWith("Demo/test data: excluded");
+    } finally { output.mockRestore(); }
+    expect(buildReport(config.databasePath, {includeSynthetic: true}).totals).toEqual(all.totals);
+    expect(repo.getTeamMembers(demo.id).some(member => member.id === bot.id)).toBe(true);
+  });
+
   it("excludes deactivated users and purged workspaces while preserving unrelated reports", () => {
     const config = createTestConfig();
     process.env.DEPLOYMENT_CONFIG_PATH = config.deploymentConfigPath;
@@ -216,6 +262,7 @@ describe("usage report CLI helpers", () => {
       "email",
       "id",
       "lastActiveAt",
+      "synthetic",
       "teamCount",
       "updatedAt",
       "workspaceCount"

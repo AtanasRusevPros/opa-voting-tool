@@ -247,6 +247,7 @@ type PlatformUserSummary = {
   createdAt: string;
   updatedAt: string;
   lastActiveAt: string;
+  synthetic: boolean;
 };
 
 type PlatformPeopleResponse = {
@@ -4741,7 +4742,7 @@ export default function App() {
     return api<AdminConfigView>("/api/admin/config");
   }, []);
 
-  const loadAdminPeople = useCallback(async (options?: { offset?: number; sort?: PlatformPeopleSort; q?: string }) => {
+  const loadAdminPeople = useCallback(async (options?: { offset?: number; sort?: PlatformPeopleSort; q?: string; includeSynthetic?: boolean }) => {
     const params = new URLSearchParams();
     if (typeof options?.offset === "number" && options.offset > 0) {
       params.set("offset", String(options.offset));
@@ -4752,6 +4753,7 @@ export default function App() {
     if (options?.q?.trim()) {
       params.set("q", options.q.trim());
     }
+    if (options?.includeSynthetic) params.set("includeSynthetic", "true");
     const query = params.toString();
     return api<PlatformPeopleResponse>(`/api/admin/people${query ? `?${query}` : ""}`);
   }, []);

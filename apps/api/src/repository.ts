@@ -105,6 +105,7 @@ interface PlatformAccessRequestSummary {
 }
 
 interface PlatformUserSummary {
+  synthetic: boolean;
   id: string;
   email: string;
   displayName: string;
@@ -1663,7 +1664,7 @@ export class Repository {
     return getPlatformUsers(this.db, { limit: 10000 }).users;
   }
 
-  getPlatformUsersPage(options?: { offset?: number; limit?: number; query?: string; sort?: PlatformUserSort }): { users: PlatformUserSummary[]; nextOffset: number | null } {
+  getPlatformUsersPage(options?: { offset?: number; limit?: number; query?: string; sort?: PlatformUserSort; includeSynthetic?: boolean }): { users: PlatformUserSummary[]; nextOffset: number | null } {
     return getPlatformUsers(this.db, options);
   }
 

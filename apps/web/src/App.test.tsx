@@ -3858,7 +3858,7 @@ describe("App", () => {
           displayName: "Ada Lovelace",
           createdAt: "2026-04-29T06:00:00.000Z",
           updatedAt: "2026-04-29T06:00:00.000Z",
-          lastActiveAt: "2026-04-29T06:00:00.000Z"
+          lastActiveAt: "2026-04-29T06:00:00.000Z", synthetic: false
         }
       ],
       nextOffset: null
@@ -3915,6 +3915,11 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Sort"), { target: { value: "alpha-desc" } });
     await waitFor(() => expect(loadPeople).toHaveBeenCalledWith(expect.objectContaining({ q: "Ada", sort: "alpha-desc" })));
     expect(screen.getByLabelText("Sort")).toHaveValue("alpha-desc");
+    fireEvent.click(screen.getByLabelText("Include demo/test accounts"));
+    await waitFor(() => expect(loadPeople).toHaveBeenLastCalledWith(expect.objectContaining({q: "Ada", sort: "alpha-desc", offset: 0, includeSynthetic: true})));
+    fireEvent.click(screen.getByLabelText("Include demo/test accounts"));
+    await waitFor(() => expect(loadPeople).toHaveBeenLastCalledWith(expect.objectContaining({includeSynthetic: false, offset: 0})));
+
   });
 
   it("appends loaded platform people pages without a background reset", async () => {
@@ -3971,7 +3976,7 @@ describe("App", () => {
                 displayName: "Ada Lovelace",
                 createdAt: "2026-04-29T06:00:00.000Z",
                 updatedAt: "2026-04-29T06:00:00.000Z",
-                lastActiveAt: "2026-04-29T06:00:00.000Z"
+                lastActiveAt: "2026-04-29T06:00:00.000Z", synthetic: false
               }
             ]
           : [
@@ -3981,7 +3986,7 @@ describe("App", () => {
                 displayName: "Grace Hopper",
                 createdAt: "2026-04-29T07:00:00.000Z",
                 updatedAt: "2026-04-29T07:00:00.000Z",
-                lastActiveAt: "2026-04-29T07:00:00.000Z"
+                lastActiveAt: "2026-04-29T07:00:00.000Z", synthetic: false
               }
             ],
       nextOffset: offset === 0 ? 1 : null

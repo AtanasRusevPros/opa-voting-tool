@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Hide marked demo/test accounts in Platform People and operator usage exports by default. Add labelled diagnostic inclusion, consistent filtered totals, and mixed-data/search/pagination regression coverage.
+
 - Keep simulator heartbeats running during large-scenario startup so loaded test rooms do not temporarily disappear while remaining bots connect.
 
 - Add explicit desktop/tablet history arrow toggles, phone tap versus hold-and-drag resizing, compact mobile board controls with an accessible X, layered blurred backdrops, and gentle blue outlines for enabled actions. Preserve neutral status chips and independent history size preferences.

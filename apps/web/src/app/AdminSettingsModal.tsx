@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { StatsPanel } from "./StatsPanel";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AccountDeletionPreview, AdminConfigSaveResult, AdminConfigView, AdminSettingsTab, BrandingAssetSlot, PlatformAccessRequestActionResponse, PlatformAccessRequestSummary, PlatformPeopleResponse, PlatformPeopleSort, PlatformUserSummary, TeamMemberPasswordResetResponse } from "./types";
 import { EyeIcon } from "./icons";
@@ -36,7 +36,7 @@ export function AdminSettingsModal(props: {
   onClose: () => void;
   onConfigApplied: (result: AdminConfigSaveResult) => Promise<void> | void;
   loadConfig: () => Promise<AdminConfigView>;
-  loadPeople: (options?: { offset?: number; sort?: PlatformPeopleSort; q?: string }) => Promise<PlatformPeopleResponse>;
+  loadPeople: (options?: { offset?: number; sort?: PlatformPeopleSort; q?: string; includeSynthetic?: boolean }) => Promise<PlatformPeopleResponse>;
   admitAccessRequest: (request: PlatformAccessRequestSummary) => Promise<PlatformAccessRequestActionResponse>;
   denyAccessRequest: (requestId: string) => Promise<void>;
   resetPlatformUserPassword: (userId: string) => Promise<TeamMemberPasswordResetResponse>;
@@ -71,6 +71,8 @@ export function AdminSettingsModal(props: {
   const [jiraClientSecretDirty, setJiraClientSecretDirty] = useState(false);
   const [accessRequests, setAccessRequests] = useState<PlatformAccessRequestSummary[]>([]);
   const [people, setPeople] = useState<PlatformUserSummary[]>([]);
+  const [includeSynthetic, setIncludeSynthetic] = useState(false);
+  const peopleRequest = useRef(0);
   const [peopleQuery, setPeopleQuery] = useState("");
   const [peopleSort, setPeopleSort] = useState<PlatformPeopleSort>("recent");
   const [peopleNextOffset, setPeopleNextOffset] = useState<number | null>(null);
@@ -90,16 +92,19 @@ export function AdminSettingsModal(props: {
   };
 
   const loadPeopleData = useCallback(async (options?: { reset?: boolean; offset?: number; sort?: PlatformPeopleSort; q?: string }) => {
+    const requestId = ++peopleRequest.current;
     const response = await props.loadPeople({
       offset: options?.offset ?? 0,
       sort: options?.sort ?? peopleSort,
-      q: options?.q ?? peopleQuery
+      q: options?.q ?? peopleQuery,
+      includeSynthetic
     });
+    if (requestId !== peopleRequest.current) return response;
     setAccessRequests(response.requests);
     setPeople((current) => (options?.reset === false ? [...current, ...response.users] : response.users));
     setPeopleNextOffset(response.nextOffset ?? null);
     return response;
-  }, [peopleQuery, peopleSort, props.loadPeople]);
+  }, [includeSynthetic, peopleQuery, peopleSort, props.loadPeople]);
 
   useEffect(() => {
     if (!props.open) {
@@ -114,10 +119,12 @@ export function AdminSettingsModal(props: {
     setCredentialReveal(null);
     setDeletionPreview(null);
     setDeletionConfirmation("");
+    setIncludeSynthetic(false);
     setPeopleQuery("");
     setPeopleSort("recent");
     setPeopleNextOffset(null);
 
+    const initialRequestId = ++peopleRequest.current;
     void Promise.all([props.loadConfig(), props.loadPeople({ offset: 0, sort: "recent", q: "" })])
       .then(([response, peopleResponse]) => {
         if (cancelled) {
@@ -126,9 +133,11 @@ export function AdminSettingsModal(props: {
         const normalizedResponse = normalizeAdminConfigView(response);
         setConfig(normalizedResponse);
         setDraft(normalizedResponse);
-        setAccessRequests(peopleResponse.requests);
-        setPeople(peopleResponse.users);
-        setPeopleNextOffset(peopleResponse.nextOffset ?? null);
+        if (initialRequestId === peopleRequest.current) {
+          setAccessRequests(peopleResponse.requests);
+          setPeople(peopleResponse.users);
+          setPeopleNextOffset(peopleResponse.nextOffset ?? null);
+        }
         setAdminPasswordValue("");
         setAdminPasswordDirty(false);
         setAdminPasswordVisible(false);
@@ -151,6 +160,7 @@ export function AdminSettingsModal(props: {
 
     return () => {
       cancelled = true;
+      ++peopleRequest.current;
     };
   }, [props.loadConfig, props.loadPeople, props.open]);
 
@@ -192,7 +202,7 @@ export function AdminSettingsModal(props: {
     void loadPeopleData({ reset: true }).catch((error) => {
       setErrorText((error as Error).message);
     });
-  }, [loadPeopleData, props.open, props.peopleRefreshTick]);
+  }, [activeTab, loadPeopleData, props.open, props.peopleRefreshTick]);
 
   useEffect(() => {
     if (!props.open) {
@@ -214,14 +224,6 @@ export function AdminSettingsModal(props: {
     };
   }, [props.onClose, props.open]);
 
-  useEffect(() => {
-    if (!props.open || activeTab !== "people") {
-      return;
-    }
-    void loadPeopleData({ reset: true }).catch((error) => {
-      setErrorText((error as Error).message);
-    });
-  }, [activeTab, loadPeopleData, peopleQuery, peopleSort, props.open]);
 
   if (!props.open) {
     return null;
@@ -591,6 +593,15 @@ export function AdminSettingsModal(props: {
                       </select>
                     </label>
                   </div>
+                  <label className="settings-toggle-row">
+                    <input type="checkbox" checked={includeSynthetic} onChange={(event) => {
+                      ++peopleRequest.current;
+                      setPeople([]);
+                      setPeopleNextOffset(null);
+                      setIncludeSynthetic(event.target.checked);
+                    }} />
+                    <span>Include demo/test accounts</span>
+                  </label>
                   <div
                     className="admin-settings-scroll-list"
                     onScroll={(event) => {
@@ -600,11 +611,12 @@ export function AdminSettingsModal(props: {
                       }
                     }}
                   >
-                    {people.length === 0 ? <p>No admitted users yet.</p> : null}
+                    {people.length === 0 ? <p>No users match these filters.</p> : null}
                     {people.map((user) => (
                       <div key={user.id} className="directory-row directory-row-wrap">
                         <div className="directory-row-main">
                           <strong>{user.displayName}</strong>
+                          {user.synthetic ? <span className="status-chip">Demo/test account</span> : null}
                           <span>{user.email}</span>
                           <span>
                             Updated {formatHistoryDisplay(user.updatedAt).heading} • Created {formatHistoryDisplay(user.createdAt).heading}

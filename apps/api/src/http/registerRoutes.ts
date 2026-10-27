@@ -1085,11 +1085,17 @@ export function registerRoutes({
         ? req.query.sort
         : "recent";
     const query = typeof req.query.q === "string" ? req.query.q : "";
+    if (req.query.includeSynthetic !== undefined && req.query.includeSynthetic !== "true" && req.query.includeSynthetic !== "false") {
+      res.status(400).json({ error: "includeSynthetic must be true or false." });
+      return;
+    }
+    const includeSynthetic = req.query.includeSynthetic === "true";
     const peoplePage = repository.getPlatformUsersPage({
       offset,
       limit: 30,
       query,
-      sort
+      sort,
+      includeSynthetic
     });
     res.json({
       requests: repository.getPlatformAccessRequests(),

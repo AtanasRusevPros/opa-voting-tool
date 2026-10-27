@@ -532,6 +532,12 @@ summary_cap_mb = 5
 local_url = ""
 public_url = ""
 EOF
+# All four reporting commands must forward the opt-in scope to the container CLI.
+for report_command in usage usage:json users:export workspaces:export; do
+  PATH="$fake_bin_dir:$PATH" FAKE_STATE_DIR="$fake_state_dir" ./deploy.sh "$report_command" --include-synthetic >/dev/null
+  assert_contains "$(cat "$fake_state_dir/podman.log")" "tsx src/usageReportCli.ts $report_command --include-synthetic" "reporting scope forwarding"
+done
+
 deploy_up_output="$(
   PATH="$fake_bin_dir:$PATH" \
   HOME="$fake_host_dir/home" \

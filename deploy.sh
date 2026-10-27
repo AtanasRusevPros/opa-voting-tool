@@ -1428,6 +1428,7 @@ Health and diagnostics:
   ./deploy.sh usage:json      Show usage summary as JSON
   ./deploy.sh users:export    Export registered-user summary JSON
   ./deploy.sh workspaces:export Export workspace summary JSON
+  Reporting defaults to real data; append --include-synthetic to include demo/test data.
 
 Caddy:
   ./deploy.sh caddy:validate  Validate /etc/caddy/Caddyfile
@@ -1449,6 +1450,7 @@ EOF
 
 run_usage_report() {
   local report_cmd="$1"
+  shift
   local container_id
   container_id="$(service_container_id)"
   if [[ -z "$container_id" ]]; then
@@ -1456,7 +1458,7 @@ run_usage_report() {
     exit 1
   fi
 
-  podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/usageReportCli.ts "$report_cmd"
+  podman exec "$container_id" pnpm --filter @planning-poker/api exec tsx src/usageReportCli.ts "$report_cmd" "$@"
 }
 
 run_demo_data_report() {
@@ -1821,16 +1823,16 @@ case "$cmd" in
     run_demo_count_diagnostics "${@:2}"
     ;;
   usage)
-    run_usage_report usage
+    run_usage_report usage "${@:2}"
     ;;
   usage:json)
-    run_usage_report usage:json
+    run_usage_report usage:json "${@:2}"
     ;;
   users:export)
-    run_usage_report users:export
+    run_usage_report users:export "${@:2}"
     ;;
   workspaces:export)
-    run_usage_report workspaces:export
+    run_usage_report workspaces:export "${@:2}"
     ;;
   diagnose)
     echo "== Startup status =="

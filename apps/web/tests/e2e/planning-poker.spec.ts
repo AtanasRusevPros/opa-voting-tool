@@ -810,6 +810,12 @@ test("demo mode is super-admin-only and shows seeded demo teams when enabled", a
   await settingsDialog.getByRole("button", { name: "Save settings" }).first().click();
   await expect(settingsDialog.getByText(/^Saved/)).toBeVisible({ timeout: 60000 });
   await expect(settingsDialog.getByRole("button", { name: "Save settings" }).first()).toBeEnabled();
+  await settingsDialog.getByRole("tab", { name: "People", exact: true }).click();
+  await settingsDialog.getByLabel("Search", { exact: true }).fill("Demo 001");
+  await expect(settingsDialog.getByText("Demo 001", {exact: true})).toHaveCount(0);
+  await settingsDialog.getByLabel("Include demo/test accounts").check();
+  await expect(settingsDialog.getByText("Demo 001", {exact: true})).toBeVisible();
+  await expect(settingsDialog.getByText("Demo/test account", {exact: true})).toBeVisible();
   await settingsDialog.getByRole("button", { name: "Close" }).first().click();
 
   const demoTeamRow = await getChooserTeamRow(page, "Demo Team 10", 15000);
@@ -832,6 +838,12 @@ test("demo mode is super-admin-only and shows seeded demo teams when enabled", a
   await settingsDialog.getByRole("button", { name: "Save settings" }).first().click();
   await expect(settingsDialog.getByText(/^Saved/)).toBeVisible({ timeout: 60000 });
   await expect(settingsDialog.getByRole("button", { name: "Save settings" }).first()).toBeEnabled();
+  await settingsDialog.getByRole("tab", { name: "People", exact: true }).click();
+  await settingsDialog.getByLabel("Search", { exact: true }).fill("Demo 001");
+  await expect(settingsDialog.getByText("Demo 001", {exact: true})).toHaveCount(0);
+  await settingsDialog.getByLabel("Include demo/test accounts").check();
+  await expect(settingsDialog.getByText("Demo 001", {exact: true})).toBeVisible();
+  await expect(settingsDialog.getByText("Demo/test account", {exact: true})).toBeVisible();
   await page.getByRole("dialog", { name: "Platform" }).getByRole("button", { name: "Close" }).first().click();
   await expect(page.getByText("Demo Team 10")).toHaveCount(0);
 
@@ -3054,3 +3066,61 @@ test("initial session restoration retries a temporary outage without another log
   await expect(page.getByRole("button", { name: "Platform", exact: true })).toBeVisible({ timeout: 20000 });
   expect(attempts).toBeGreaterThan(1);
 });
+
+
+for (const viewport of [{width: 1280, height: 800}, {width: 360, height: 800}]) {
+  test(`platform People demo filtering preserves search, pagination and scope at ${viewport.width}px`, async ({page}) => {
+    await page.setViewportSize(viewport);
+    await signInAsSuperAdmin(page);
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+    const rows = Array.from({length: 35}, (_, i) => ({id: `filter-${i}`, email: `filter-${i}@example.com`, displayName: `Filter ${String(i).padStart(2, "0")}`, synthetic: i === 0,
+      createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:00:00.000Z", lastActiveAt: "2026-10-01T00:00:00.000Z"}));
+    let delaySynthetic = false;
+    let releaseSynthetic: (() => void) | undefined;
+    await page.route("**/api/admin/people*", async route => {
+      const params = new URL(route.request().url()).searchParams;
+      const include = params.get("includeSynthetic") === "true";
+      const offset = Number(params.get("offset") || 0);
+      const query = (params.get("q") || "").toLowerCase();
+      const matches = rows.filter(row => (include || !row.synthetic) && row.displayName.toLowerCase().includes(query));
+      if (include && delaySynthetic) await new Promise<void>(resolve => { releaseSynthetic = resolve; });
+      await route.fulfill({json: {requests: [], users: matches.slice(offset, offset + 30), nextOffset: matches.length > offset + 30 ? offset + 30 : null}});
+    });
+    await page.getByRole("button", {name: "Platform", exact: true}).click();
+    const dialog = page.getByRole("dialog", {name: "Platform", exact: true});
+    const toggle = dialog.getByRole("checkbox", {name: "Include demo/test accounts"});
+    await expect(toggle).not.toBeChecked();
+    await expect(dialog.getByText("Filter 01", {exact: true})).toBeVisible();
+    await expect(dialog.getByText("Filter 00", {exact: true})).toHaveCount(0);
+    const list = dialog.locator(".admin-settings-scroll-list").filter({hasText: "Filter 01"});
+    await list.evaluate(el => {el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event("scroll"));});
+    await expect(dialog.getByText("Filter 34", {exact: true})).toHaveCount(1);
+    await toggle.check();
+    await expect(dialog.getByText("Demo/test account", {exact: true})).toHaveCount(1);
+    await dialog.getByLabel("Search", {exact: true}).fill("Filter 00");
+    await expect(dialog.getByText("Filter 00", {exact: true})).toBeVisible();
+    await toggle.uncheck();
+    await expect(dialog.getByText("No users match these filters.")).toBeVisible();
+    // A slow response from the previous scope must not restore hidden bots.
+    delaySynthetic = true;
+    await toggle.check();
+    await expect.poll(() => Boolean(releaseSynthetic)).toBe(true);
+    await toggle.uncheck();
+    const staleResponse = page.waitForResponse(response => response.url().includes("/api/admin/people") && response.url().includes("includeSynthetic=true"));
+    releaseSynthetic!();
+    await staleResponse;
+    await expect(dialog.getByText("No users match these filters.")).toBeVisible();
+    await expect(dialog.getByText("Filter 00", {exact: true})).toHaveCount(0);
+    await dialog.getByLabel("Search", {exact: true}).fill("Filter 01");
+    await expect(dialog.getByText("Filter 01", {exact: true})).toBeVisible();
+    await page.screenshot({path: test.info().outputPath(`people-filter-${viewport.width}.png`), fullPage: true});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await dialog.getByRole("button", {name: "Close", exact: true}).click();
+    await page.getByRole("button", {name: "Platform", exact: true}).click();
+    await expect(toggle).not.toBeChecked();
+    await expect(dialog.getByLabel("Search", {exact: true})).toHaveValue("");
+    expect(errors).toEqual([]);
+  });
+}

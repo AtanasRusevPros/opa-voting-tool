@@ -23,7 +23,7 @@ Open **Platform → Stats**. With **All workspaces**, the super-admin sees insta
 
 ## Count definitions
 
-All reports exclude synthetic demo/simulator identities and teams. Super-admin presence/activity does not count as human adoption. Reports describe usage, not individual productivity.
+All Stats reports exclude synthetic demo/simulator identities and teams. Super-admin presence/activity does not count as human adoption. Reports describe usage, not individual productivity.
 
 | Count | Meaning |
 | --- | --- |
@@ -50,3 +50,25 @@ The **Teams** table shows current Members and On board counts alongside period-s
 Reports update through a read-only live connection and provide Refresh/retry if disconnected. Snapshot time shows when the displayed data was generated. **Export stats JSON** downloads that same authorized snapshot, including team/workspace labels, coverage, period, trends and totals; no individual account list, issue text or vote values.
 
 Statistics do not expire automatically. Account deletion removes activity/voter links; workspace deletion removes its detailed statistics. Only platform-wide completed-round/vote counters survive that purge without identifiers or content. Shared history and backups have separate exceptions. See [privacy and backups](PRIVACY_AND_BACKUPS.md#first-party-usage-statistics). Downloaded exports remain the operator's responsibility.
+
+
+## People And Operator Reports
+
+**Platform → People** lists real, active accounts by default. **Include demo/test accounts** reveals explicitly marked synthetic accounts with a label. The filter applies before search, sorting and pagination; it resets when Platform reopens. Pending access requests are unchanged. Team membership lists, including bots in Demo teams, remain complete.
+
+The operator commands `./deploy.sh usage`, `usage:json`, `users:export` and `workspaces:export` also exclude synthetic data by default. Append `--include-synthetic` for diagnostic inclusion, for example:
+
+```bash
+./deploy.sh usage --include-synthetic
+./deploy.sh users:export --include-synthetic > users-with-demo.json
+```
+
+- Accounts: omit marked synthetic, deleted and super-admin accounts. Included synthetic user-export rows have `synthetic: true`; real rows have `false`.
+- Teams/history: omit marked simulator teams and Demo teams, including their archived/history counts. Monthly votes also exclude marked synthetic voters in real teams. Historical anonymized votes remain countable.
+- Workspaces: retain all existing workspace records, including empty ones; filter their user/team/monthly counts. Joining a Demo team does not make a real account synthetic.
+- Sessions: count unexpired sessions, excluding marked synthetic users by default; this is a session count, not unique people or live board presence. Super-admin sessions remain operational sessions, and super-admin account totals are reported separately.
+- Scope: `usage` prints whether demo/test data is included; `usage:json` exposes `includesSynthetic`. User/workspace exports remain JSON arrays; their scope follows the supplied command flag.
+
+Classification uses stored `is_synthetic` markers and the explicit Demo-team flag, never names or email patterns. Older dormant synthetic accounts acquire markers when their seeder next runs. Reporting does not modify the database or infer classifications for unmarked legacy accounts.
+
+CLI monthly totals use surviving history in the current UTC calendar month; Stats uses its own activity/round records and rolling periods. These are different reports and need not match. Synthetic inclusion does not affect Stats, backups, database exports, team history/import exports, quota enforcement or retention.

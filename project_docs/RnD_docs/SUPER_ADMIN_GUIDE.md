@@ -207,6 +207,8 @@ Operational expectation:
 ## Current Admin Surfaces
 
 - `Platform -> People` keeps pending platform-access requests at the top and the admitted platform user list below.
+- Existing users exclude marked demo/test accounts by default, even when Demo mode is off. Select **Include demo/test accounts** to inspect them; synthetic rows show **Demo/test account**. Search, sort and pagination respect the filter. Closing/reopening Platform resets it to real users. Real people are never hidden merely because they joined a Demo team.
+- Operator usage/export commands use the same default. Add `--include-synthetic` for diagnostics; see [reporting scope and count definitions](STATISTICS_GUIDE.md#people-and-operator-reports).
 - The `People` tab now pages existing users in batches of `30`, supports `Recently updated`, `Oldest updated first`, `Alphabetical A-Z`, and `Alphabetical Z-A` sorting, and activates search at `2+` characters so large installations stay usable.
 - The notification bell now separates live pending actions from a paginated action history.
 - Super-admin action history is platform-wide across all teams.

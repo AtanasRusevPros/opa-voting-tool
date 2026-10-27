@@ -6,6 +6,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
+export type ReportOptions = { includeSynthetic?: boolean };
+
 type WorkspaceReport = {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ type WorkspaceReport = {
 
 type UsageReport = {
   generatedAt: string;
+  includesSynthetic: boolean;
   databasePath: string;
   databaseBytes: number;
   publicTrial: {
@@ -64,10 +67,10 @@ function count(db: DatabaseSync, sql: string, ...params: Array<string | number>)
   return row?.count ?? 0;
 }
 
-function parseVotesCount(votesJson: string): number {
+function parseVotesCount(votesJson: string, syntheticIds: Set<string>): number {
   try {
     const parsed = JSON.parse(votesJson);
-    return Array.isArray(parsed) ? parsed.length : 0;
+    return Array.isArray(parsed) ? parsed.filter(vote => !syntheticIds.has(vote?.userId)).length : 0;
   } catch {
     return 0;
   }
@@ -85,20 +88,24 @@ function readPublicTrialConfig(): UsageReport["publicTrial"] {
   return { enabled, mode };
 }
 
-export function buildReport(dbPath: string): UsageReport {
+export function buildReport(dbPath: string, options: ReportOptions = {}): UsageReport {
   if (!fs.existsSync(dbPath)) {
     throw new Error(`Database not found: ${dbPath}`);
   }
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
     const period = monthWindow();
+    const syntheticIds = new Set(options.includeSynthetic ? [] :
+      (db.prepare("SELECT id FROM users WHERE is_synthetic = 1").all() as Array<{id: string}>).map(user => user.id));
+    const userFilter = options.includeSynthetic ? "" : " AND u.is_synthetic = 0";
+    const teamFilter = options.includeSynthetic ? "" : " AND t.is_synthetic = 0 AND t.demo = 0";
     const monthlyRows = db
       .prepare(
         `
         SELECT t.workspace_id, he.team_id, he.votes_json
         FROM history_entries he
         JOIN teams t ON t.id = he.team_id
-        WHERE he.completed_at >= ? AND he.completed_at < ?
+        WHERE he.completed_at >= ? AND he.completed_at < ? ${teamFilter}
       `
       )
       .all(period.start, period.end) as Array<{ workspace_id: string | null; team_id: string; votes_json: string }>;
@@ -108,7 +115,7 @@ export function buildReport(dbPath: string): UsageReport {
       if (!row.workspace_id) {
         continue;
       }
-      votesByWorkspace.set(row.workspace_id, (votesByWorkspace.get(row.workspace_id) ?? 0) + parseVotesCount(row.votes_json));
+      votesByWorkspace.set(row.workspace_id, (votesByWorkspace.get(row.workspace_id) ?? 0) + parseVotesCount(row.votes_json, syntheticIds));
     }
 
     const workspaceRows = db
@@ -133,18 +140,18 @@ export function buildReport(dbPath: string): UsageReport {
         SELECT COUNT(*) AS count
         FROM workspace_memberships wm
         JOIN users u ON u.id = wm.user_id
-        WHERE wm.workspace_id = ? AND u.is_super_admin = 0
+        WHERE wm.workspace_id = ? AND u.is_super_admin = 0 AND u.deleted_at IS NULL ${userFilter}
       `,
         workspace.id
       ),
-      teamCount: count(db, "SELECT COUNT(*) AS count FROM teams WHERE workspace_id = ?", workspace.id),
+      teamCount: count(db, `SELECT COUNT(*) AS count FROM teams t WHERE workspace_id = ? ${teamFilter}`, workspace.id),
       monthlyReveals: count(
         db,
         `
         SELECT COUNT(*) AS count
         FROM history_entries he
         JOIN teams t ON t.id = he.team_id
-        WHERE t.workspace_id = ? AND he.completed_at >= ? AND he.completed_at < ?
+        WHERE t.workspace_id = ? AND he.completed_at >= ? AND he.completed_at < ? ${teamFilter}
       `,
         workspace.id,
         period.start,
@@ -155,24 +162,25 @@ export function buildReport(dbPath: string): UsageReport {
 
     return {
       generatedAt: new Date().toISOString(),
+      includesSynthetic: options.includeSynthetic === true,
       databasePath: dbPath,
       databaseBytes: fs.statSync(dbPath).size,
       publicTrial: readPublicTrialConfig(),
       totals: {
-        users: count(db, "SELECT COUNT(*) AS count FROM users WHERE is_super_admin = 0 AND deleted_at IS NULL"),
+        users: count(db, `SELECT COUNT(*) AS count FROM users u WHERE is_super_admin = 0 AND deleted_at IS NULL ${userFilter}`),
         superAdmins: count(db, "SELECT COUNT(*) AS count FROM users WHERE is_super_admin = 1"),
         workspaces: workspaces.length,
         publicTrialWorkspaces: workspaces.filter((workspace) => workspace.kind === "public_trial").length,
-        teams: count(db, "SELECT COUNT(*) AS count FROM teams"),
-        archivedTeams: count(db, "SELECT COUNT(*) AS count FROM teams WHERE archived = 1"),
-        historyEntries: count(db, "SELECT COUNT(*) AS count FROM history_entries"),
-        currentSessions: count(db, "SELECT COUNT(*) AS count FROM sessions WHERE expires_at > ?", new Date().toISOString())
+        teams: count(db, `SELECT COUNT(*) AS count FROM teams t WHERE 1 = 1 ${teamFilter}`),
+        archivedTeams: count(db, `SELECT COUNT(*) AS count FROM teams t WHERE archived = 1 ${teamFilter}`),
+        historyEntries: count(db, `SELECT COUNT(*) AS count FROM history_entries he JOIN teams t ON t.id = he.team_id WHERE 1 = 1 ${teamFilter}`),
+        currentSessions: count(db, `SELECT COUNT(*) AS count FROM sessions s JOIN users u ON u.id = s.user_id WHERE expires_at > ? ${userFilter}`, new Date().toISOString())
       },
       monthly: {
         periodStart: period.start,
         periodEnd: period.end,
         revealedRounds: monthlyRows.length,
-        votes: monthlyRows.reduce((sum, row) => sum + parseVotesCount(row.votes_json), 0)
+        votes: monthlyRows.reduce((sum, row) => sum + parseVotesCount(row.votes_json, syntheticIds), 0)
       },
       workspaces
     };
@@ -181,7 +189,7 @@ export function buildReport(dbPath: string): UsageReport {
   }
 }
 
-export function usersExport(dbPath: string): unknown[] {
+export function usersExport(dbPath: string, options: ReportOptions = {}): unknown[] {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
     return (
@@ -195,12 +203,14 @@ export function usersExport(dbPath: string): unknown[] {
             u.created_at,
             u.updated_at,
             u.last_active_at,
+            u.is_synthetic,
             COUNT(DISTINCT wm.workspace_id) AS workspace_count,
-            COUNT(DISTINCT tm.team_id) AS team_count
+            COUNT(DISTINCT t.id) AS team_count
           FROM users u
           LEFT JOIN workspace_memberships wm ON wm.user_id = u.id
           LEFT JOIN team_memberships tm ON tm.user_id = u.id
-          WHERE u.is_super_admin = 0 AND u.deleted_at IS NULL
+          LEFT JOIN teams t ON t.id = tm.team_id ${options.includeSynthetic ? "" : "AND t.is_synthetic = 0 AND t.demo = 0"}
+          WHERE u.is_super_admin = 0 AND u.deleted_at IS NULL ${options.includeSynthetic ? "" : "AND u.is_synthetic = 0"}
           GROUP BY u.id
           ORDER BY u.created_at DESC
         `
@@ -212,6 +222,7 @@ export function usersExport(dbPath: string): unknown[] {
         created_at: string;
         updated_at: string;
         last_active_at: string;
+        is_synthetic: number;
         workspace_count: number;
         team_count: number;
       }>
@@ -222,6 +233,7 @@ export function usersExport(dbPath: string): unknown[] {
       createdAt: user.created_at,
       updatedAt: user.updated_at,
       lastActiveAt: user.last_active_at,
+      synthetic: Boolean(user.is_synthetic),
       workspaceCount: user.workspace_count,
       teamCount: user.team_count
     }));
@@ -236,6 +248,7 @@ export function printSummary(report: UsageReport): void {
     : "0.00";
 
   console.log(`Generated: ${report.generatedAt}`);
+  console.log(`Demo/test data: ${report.includesSynthetic ? "included" : "excluded"}`);
   console.log(`Public trial: enabled=${report.publicTrial.enabled ?? "unknown"} mode=${report.publicTrial.mode ?? "unknown"}`);
   console.log(`Database: ${report.databasePath} (${report.databaseBytes} bytes)`);
   console.log("");
@@ -259,21 +272,25 @@ export function printSummary(report: UsageReport): void {
   }
 }
 
-export function runUsageReportCommand(command = "usage", dbPath = databasePath()): void {
+export function runUsageReportCommand(command = "usage", dbPath = databasePath(), options: ReportOptions = {}): void {
   if (command === "usage") {
-    printSummary(buildReport(dbPath));
+    printSummary(buildReport(dbPath, options));
   } else if (command === "usage:json") {
-    console.log(JSON.stringify(buildReport(dbPath), null, 2));
+    console.log(JSON.stringify(buildReport(dbPath, options), null, 2));
   } else if (command === "users:export") {
-    console.log(JSON.stringify(usersExport(dbPath), null, 2));
+    console.log(JSON.stringify(usersExport(dbPath, options), null, 2));
   } else if (command === "workspaces:export") {
-    console.log(JSON.stringify(buildReport(dbPath).workspaces, null, 2));
+    console.log(JSON.stringify(buildReport(dbPath, options).workspaces, null, 2));
   } else {
-    console.error("Usage: tsx src/usageReportCli.ts <usage|usage:json|users:export|workspaces:export>");
+    console.error("Usage: tsx src/usageReportCli.ts <usage|usage:json|users:export|workspaces:export> [--include-synthetic]");
     process.exit(1);
   }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runUsageReportCommand(process.argv[2] ?? "usage");
+  const flags = process.argv.slice(3);
+  if (flags.some(flag => flag !== "--include-synthetic")) {
+    throw new Error("Unknown reporting option. Supported option: --include-synthetic");
+  }
+  runUsageReportCommand(process.argv[2] ?? "usage", databasePath(), { includeSynthetic: flags.includes("--include-synthetic") });
 }
