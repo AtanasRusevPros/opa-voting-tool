@@ -1693,7 +1693,7 @@ restore_api_data_from_backup() {
   echo "Restored app data volume $data_volume_name."
 }
 
-restore_backup() {
+restore_backup() (
   local archive="${1:-}"
 
   if [[ -z "$archive" ]]; then
@@ -1727,7 +1727,7 @@ restore_backup() {
   maybe_auto_enable_keepalive || true
   clear_planned_action
   echo "Restore complete."
-}
+)
 
 case "$cmd" in
   help)

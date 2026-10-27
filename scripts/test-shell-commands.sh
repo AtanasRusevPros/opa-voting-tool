@@ -374,6 +374,7 @@ EOF
 bash -n dev.sh
 bash -n deploy.sh
 bash scripts/test-deploy-update.sh
+bash scripts/test-deploy-restore.sh
 
 dev_help="$(./dev.sh help)"
 deploy_help="$(./deploy.sh help)"
