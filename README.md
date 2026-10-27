@@ -45,6 +45,10 @@ The app starts at `http://localhost:3001`; administrator sign-in is `/admin`. Co
 
 Use `./deploy.sh update` for new source versions, `./deploy.sh rebuild` to rebuild current sources and `./deploy.sh backup` before maintenance. Unchanged-source updates report **Already up to date**. Restore replaces data/config; rehearse on disposable data. See the [operator workflow](project_docs/RnD_docs/USAGE.md#deployed-vps-operator-workflow).
 
+Build failed after an update? Fix the runtime issue, then use `./deploy.sh rebuild`. See [Podman 6 networking compatibility](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings).
+
+Local health supervision uses `/health` for API/database readiness and `/health/web` for frontend-build readiness, preserving HTTPS-only browser access. See [proxy configuration recovery](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md#recover-from-invalid-proxy-configuration) if startup fails after editing trusted proxy IPs.
+
 ## Deploy With Your AI Assistant
 
 **[AI-assisted deployment instructions](AI_DEPLOYMENT.md)** support localhost, company LAN and public-server setup with an agent that has terminal access. Copy this prompt:
@@ -132,5 +136,3 @@ Like OpaVoting? **[Give the project a GitHub star](https://github.com/AtanasRuse
 ## License
 
 Licensed under **AGPL-3.0-or-later**; see [LICENSE](LICENSE). Project name, logo and official visual identity are covered by [BRANDING.md](BRANDING.md).
-
-Local health supervision uses `/health` for API/database readiness and `/health/web` for frontend-build readiness, preserving HTTPS-only browser access. See [proxy configuration recovery](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md#recover-from-invalid-proxy-configuration) if startup fails after editing trusted proxy IPs.

@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Clarify Podman 6 rootless-network migration, rebuild recovery after a failed update, HTTPS self-NAT diagnosis and watchdog re-enablement in operator and AI deployment instructions.
+
 - Add default-off `app.trust_local_container_proxy` for verified loopback-published Podman deployments where the host TLS proxy appears as the app container's own changing IP. Match the actual socket peer/local address instead of trusting a subnet or requiring edits after recreation.
 
 - Fix HTTPS deployments being falsely marked frontend-unhealthy by the watchdog: use a dedicated local frontend-readiness JSON endpoint instead of loading the login page over HTTP. Add actual deploy-health/TLS regression coverage and clearer invalid proxy-placeholder errors.

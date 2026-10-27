@@ -187,6 +187,21 @@ podman-compose --version
 caddy version
 ```
 
+### Podman 6 And Existing Rootless Settings
+
+Check `podman --version` before reusing older host configuration. Podman 6 removed `slirp4netns` support; an old override can let an existing image start but fail a fresh build with `invalid default_rootless_network_cmd option "slirp4netns"`. This is a host runtime error, not a Node/Corepack failure. See the [upstream Podman 6 changes](https://github.com/podman-container-tools/podman/blob/main/contrib/design-docs/podman6hld.md).
+
+Inspect the deployment user's `~/.config/containers/containers.conf` (or the equivalent under `XDG_CONFIG_HOME`) and system configuration under `/etc/containers`. Verify `pasta` is installed (`command -v pasta`; commonly provided by the `passt` package). For an affected Podman 6 host, edit the existing network setting, preserving unrelated configuration:
+
+```toml
+[network]
+default_rootless_network_cmd = "pasta"
+```
+
+Do not add a duplicate section, reset Podman storage, delete volumes or change a working older VPS just because another machine needs this repair. Host-wide runtime changes can affect other containers; coordinate them with the operator.
+
+If `./deploy.sh update` pulled sources successfully but the image build failed, repair the runtime and run `./deploy.sh rebuild`, then `./deploy.sh health`. Another `update` may correctly report unchanged sources and skip rebuilding. For a localhost test, retain `base_url = "http://localhost:3001"`; no TLS proxy option is needed. An `up` command can enable systemd/watchdog even on a local test installation; check startup status rather than assuming it stops when the terminal closes.
+
 ## 6. DNS
 
 The app should use a subdomain so the root domain remains available for a future landing page, documentation site, or marketing website.

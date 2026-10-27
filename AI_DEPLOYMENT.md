@@ -33,7 +33,7 @@ Do not apply a public VPS's firewall/SSH changes to an existing company server b
 
 1. Inspect OS, CPU architecture, available RAM/disk, existing containers/listeners, Git checkout and current configuration. Check ports 3001 and, for a proxy, 80/443 for conflicts. Do not start a second instance over existing data.
 2. Prefer the tested Ubuntu Server 24.04 LTS route with rootless Podman and a Compose provider. Other Linux distributions need their own package/service setup. For Windows/macOS use a suitable Linux host/VM; native deployment is not established by this guide.
-3. Install missing Git, Bash, curl, Podman and a Compose provider using the host's package manager. On Ubuntu the runtime packages are `podman podman-compose`; add `caddy` for the proxy routes. Verify `podman info` and `podman compose version` as the deployment user. Use the runbook for rootless prerequisites and service setup. Node/pnpm are installed **inside the image**; host Node/Vite development servers are unnecessary for deployment.
+3. Install missing Git, Bash, curl, Podman and a Compose provider using the host's package manager. On Ubuntu the runtime packages are `podman podman-compose`; add `caddy` for the proxy routes. Verify `podman --version`, `podman info` and `podman compose version` as the deployment user. On Podman 6, check for obsolete `slirp4netns` overrides and available `pasta`; follow [runtime recovery](project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings). Do not change a working older host or reset container storage. Use the runbook for rootless prerequisites and service setup. Node/pnpm are installed **inside the image**; host Node/Vite development servers are unnecessary for deployment.
 4. Clone into an operator-owned directory, or inspect and reuse an existing checkout:
 
    ```bash
@@ -42,6 +42,8 @@ Do not apply a public VPS's firewall/SSH changes to an existing company server b
    ./deploy.sh help
    ./deploy.sh version
    ```
+
+If a source update succeeds but its build fails, fix the cause and use `./deploy.sh rebuild`; unchanged-source `update` intentionally skips building. For HTTPS, compare the rejected peer with `podman inspect` and confirm the published port using `podman port` before choosing static proxy IPs or the opt-in self-NAT setting in the [HTTPS guide](project_docs/RnD_docs/HTTPS_DEPLOYMENT.md). Never copy placeholder text into the IP list or trust a whole subnet.
 
 Use one installation per deployment user with the current helper: container discovery uses the service label, and default service/volume names and ports are shared. For a rehearsal use a dedicated disposable host/user; do not run restore or backup against an ambiguous set of same-service containers.
 

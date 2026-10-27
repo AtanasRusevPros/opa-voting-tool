@@ -53,9 +53,9 @@ Existing non-local `http://` base URLs now fail startup with an explanation. Fix
 
 If startup logs say `app.trusted_proxy_ips must contain comma-separated literal proxy IP addresses`, edit the existing line to the valid baseline `trusted_proxy_ips = "127.0.0.1,::1"`, then restart. Never include the literal text `VERIFIED_PROXY_IP`, a hostname or an address with a port. The baseline restores startup but may still reject your actual TLS proxy.
 
-Request the HTTPS URL again and inspect the `[transport]` diagnostic. Verify its peer belongs to your proxy/NAT path before adding that literal address. Keep the HTTPS base URL. Do not disable TLS or trust arbitrary networks to recover.
+Request the HTTPS URL again and inspect the `[transport]` diagnostic. Compare the peer with `podman inspect --format '{{json .NetworkSettings.Networks}}' containers_planning-poker_1` and check `podman port containers_planning-poker_1` (substitute your container name if different). If it equals the container's own changing IP and publication is loopback-only, use the explicit `trust_local_container_proxy` option above; otherwise verify the stable proxy peer before adding a literal address. Keep the HTTPS base URL. Do not disable TLS or trust arbitrary networks to recover.
 
-The original HTTPS enforcement commit `ad35573` left the watchdog checking the root login page over HTTP, producing a false `frontend_unhealthy` incident. Use the follow-up readiness-endpoint fix before interpreting local web health or re-enabling a paused watchdog. After recovery, run both health commands; acknowledge the retained incident only once checks pass.
+The original HTTPS enforcement commit `ad35573` left the watchdog checking the root login page over HTTP, producing a false `frontend_unhealthy` incident. Use the follow-up readiness-endpoint fix before interpreting local web health or re-enabling a paused watchdog. After recovery, run both health commands. If the watchdog timer was paused, run `./deploy.sh startup:enable`, `./deploy.sh watchdog:run` and `./deploy.sh watchdog:status`; acknowledge the retained incident with `./deploy.sh incidents:ack` only once checks pass. “Watchdog enabled” in health output describes configuration and alone does not prove a manually paused timer is running. Repeated enable/ack commands are safe.
 
 ## What The App Enforces
 

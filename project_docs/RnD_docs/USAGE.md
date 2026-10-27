@@ -199,6 +199,8 @@ Keep-alive operator checks:
 
 ## Command Behavior Notes
 
+If an update downloads sources but fails during image building, correct the reported cause and run `./deploy.sh rebuild`; another update can skip unchanged sources. For Podman 6 rejecting `slirp4netns`, follow [runtime recovery](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings).
+
 - `./dev.sh deps`, build, `stack:up`, test, and simulator-start commands source nvm when it is available and run `nvm use` before continuing, so the pinned version from [`.nvmrc`](../../.nvmrc) is applied automatically.
 - If nvm is unavailable, those commands stop early unless the active local `node` executable is already Node 22. The workspace packages also declare `node >=22 <23`.
 - `./dev.sh stack:down` and `./dev.sh stack:verify` do not require local Node 22 because they only stop or inspect the packaged Podman workflow.

@@ -102,4 +102,4 @@ copies and a 21-day age limit while running. Follow the
 exceptions and operator notices. Policy wording changes update the signup terms
 version; existing acceptance records are preserved, not silently backdated.
 
-For the pending HTTPS enforcement update, existing HTTP LAN installations must configure TLS before upgrading; HTTPS container installations must verify the immediate proxy/NAT IP. See [HTTPS migration steps](HTTPS_DEPLOYMENT.md). These requirements are newer than the original 1.0.0 publication.
+For upgrades from the original 1.0.0 publication to the subsequent HTTPS enforcement commits, existing HTTP LAN installations must configure TLS before upgrading; HTTPS container installations must verify the immediate proxy/NAT path and configure literal proxy IPs or the documented self-NAT opt-in. Include recovery fix `175d734`, which also corrects the watchdog frontend readiness probe. See [HTTPS migration steps](HTTPS_DEPLOYMENT.md). These requirements are newer than the original 1.0.0 publication.

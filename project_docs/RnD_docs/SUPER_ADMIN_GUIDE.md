@@ -79,7 +79,7 @@ Deployment security note:
 - the current first-server runbook is tested on Ubuntu Server 24.04 LTS
 - the deployment architecture should remain portable to common Linux server distributions, with documented differences for package installation, firewall tooling, service management, and Podman/Compose packaging
 - production app content should be reachable through HTTPS only
-- plain HTTP should be used only for certificate automation and redirect at the reverse proxy
+- external plain HTTP should only redirect to HTTPS or support certificate automation; localhost testing and protected proxy-to-app traffic may use HTTP
 - the app's internal port should not be publicly reachable
 - routine deployed-server operations should use `./deploy.sh` from the VPS checkout, including `./deploy.sh update`, `./deploy.sh health`, `./deploy.sh public-health`, `./deploy.sh startup:status`, `./deploy.sh watchdog:status`, `./deploy.sh incidents`, `./deploy.sh diagnose`, `./deploy.sh diagnose:demo-counts`, and `./deploy.sh backup`
 
@@ -109,6 +109,8 @@ Deployment security note:
 ## Platform Settings Responsibilities
 
 HTTPS is enforced outside localhost testing: [transport policy, proxy trust and upgrade steps](HTTPS_DEPLOYMENT.md). Session cookies are Secure in HTTPS mode, and WebSocket upgrades enforce the same transport boundary.
+
+The host operator configures `app.trusted_proxy_ips` and, for a verified loopback-published Podman self-NAT setup, `app.trust_local_container_proxy` in `config/deployment.local.toml`, then restarts the app. These are not team settings or Platform UI toggles. Follow the linked guide rather than copying a changing container IP. For build failures on Podman 6, see [runtime recovery](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings).
 
 Open **Platform** from the chooser. Its tabs are:
 

@@ -196,6 +196,10 @@ Behavior choices:
 
 HTTPS is enforced outside localhost testing: [transport policy, proxy trust and upgrade steps](HTTPS_DEPLOYMENT.md). Session cookies are Secure in HTTPS mode, and WebSocket upgrades enforce the same transport boundary.
 
+The HTTP guard runs before body parsing and routes; WebSocket handshakes use the same transport policy. TLS terminates at the proxy. Forwarded HTTPS is accepted only from configured literal proxy IPs or, with explicit `app.trust_local_container_proxy = true`, when the TCP peer equals the socket's own local address. The latter handles verified rootless Podman self-NAT across container IP changes; it requires loopback-only host port publication and does not trust neighboring containers or subnets. Both proxy settings are operator-file settings loaded at startup and preserved by Platform saves.
+
+Local supervision reads `/health` for database/API readiness and `/health/web` for frontend-build readiness. The frontend probe reads the built HTML and returns readiness JSON (503 if missing/invalid), without serving the UI over HTTP. Public health separately checks the configured HTTPS origin. This separation prevents HTTPS enforcement from triggering false frontend watchdog recovery. These local probes remain available during proxy misconfiguration; ordinary non-local HTTP requests and WebSocket upgrades remain rejected.
+
 - The packaged stack is aligned to Podman-first operation for rootless-friendly local deployment.
 - `infra/containers/compose.yaml` is intended to be run through `podman-compose` or `podman compose`.
 - `deploy.sh` is the deployed/self-hosted server operator wrapper around the compose stack, Caddy reload/status commands, health checks, logs, diagnostics, backups, and release updates.

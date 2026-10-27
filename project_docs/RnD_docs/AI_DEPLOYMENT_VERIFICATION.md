@@ -33,6 +33,10 @@ The first restore rehearsal exposed an EXIT trap referencing a function-local te
 
 Initial browser rehearsal assertions used a transient success message and a reused team name; the final run used durable vote state and unique test identities. These were rehearsal corrections, not changes to application voting or onboarding behavior.
 
+## Owner-Reported Follow-Up — 2026-10-28
+
+The owner confirmed successful localhost use after resolving a Podman 6.1.1 host's obsolete `slirp4netns` override in favor of installed `pasta` and rebuilding. Separately, supplied VPS logs verified API/frontend/public HTTPS health, enabled systemd autostart/linger and repeated successful manual watchdog runs after the HTTPS proxy and readiness fixes. These are owner-reported results on existing installations, not a fresh-host or cross-agent certification. They do not establish reboot recovery, new certificate issuance, or a full browser voting regression on that VPS.
+
 ## Remaining Environment Checks
 
 Before claiming full support for an installation, verify its actual environment:

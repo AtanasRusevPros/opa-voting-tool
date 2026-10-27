@@ -52,7 +52,8 @@ Use this as the compact execution checklist for an open-source release pass.
 - Link deployment, usage, architecture, benchmark, security, contribution, and roadmap docs.
 - Document credential/domain setup before `./deploy.sh up`; link the AI deployment guide and its actual verification scope.
 - Document Podman as the default runtime and Docker only as a possible adaptation.
-- Document HTTPS-only expectations for public deployments.
+- Document HTTPS requirements for company LAN and public deployments, the localhost exception and verified proxy trust using the [HTTPS guide](HTTPS_DEPLOYMENT.md).
+- Keep [runtime compatibility guidance](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings) current; explain rebuilding after a failed source update without resetting data.
 - Document both no-SMTP/manual-share and SMTP onboarding modes.
 - Document versioning/release policy and expose `./dev.sh version` / `./deploy.sh version`.
 - Add or review repository topics, description, social preview, and public launch announcements outside the repo when the project becomes public.
@@ -67,6 +68,7 @@ Use this as the compact execution checklist for an open-source release pass.
 - Run nearest documentation/metadata checks.
 - Run technical checks only where the release pass changes executable behavior.
 - For docs-only patch releases, do not move old tags; create a new patch tag only when the changelog/release note value justifies it.
+- For transport changes, verify API/frontend local probes and public HTTPS health separately; document proxy recovery and restoring startup/watchdog supervision.
 - For deployed update guidance, verify that ignored local deployment config is preserved and that operator docs do not instruct users to overwrite `config/deployment.local.toml`.
 
 ## 5. Defer Explicitly

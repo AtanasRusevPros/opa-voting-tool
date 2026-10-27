@@ -30,7 +30,7 @@ Local dependency, build, packaged stack build, test, and simulator commands requ
 
 ## Container Workflow
 
-The repository is Podman-first for local stack commands because rootless operation is preferred.
+The repository is Podman-first for local stack commands because rootless operation is preferred. On Podman 6, migrate obsolete `slirp4netns` overrides to `pasta` using the [runtime troubleshooting steps](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#podman-6-and-existing-rootless-settings); do not delete persistent volumes to fix a build-network error.
 
 - start the packaged stack: `./dev.sh stack:up`
 - stop it: `./dev.sh stack:down`
