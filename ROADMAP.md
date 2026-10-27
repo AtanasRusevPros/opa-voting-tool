@@ -9,21 +9,20 @@ OpaVoting is an open-source multi-team realtime voting platform. Scrum estimatio
 
 The roadmap is intentionally conservative: it names the direction without pretending all future workflows already exist.
 
-## Current Focus
+## Available Today
 
-- Self-hosted alpha release readiness.
-- Clear AGPLv3/DCO open-source governance.
-- Easy Podman-first deployment and upgrade operations.
-- Low-latency realtime voting with benchmark evidence.
-- Team membership management and admin-friendly self-hosting.
+- Self-hosted v1.0.0 with Podman deployment, startup/watchdog, backups and restore.
+- Free hosted demo with workspace quotas; ordinary self-hosting has no demo quotas.
+- Team administration, persistent voting history, Jira import and scoped statistics.
+- Mobile board controls and responsive test coverage.
+- AI-assisted deployment instructions with explicit environment verification limits.
+- [Measured simulated-load results](project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md), [documentation](project_docs/README.md) and AGPLv3/DCO contribution guidance.
 
 ## Near-Term Direction
 
-- Cleaner first-run/self-host setup.
-- Better public documentation and release checklist.
-- Backup/restore rehearsal and stronger operator guidance.
-- Public benchmark summary with concise, sourced metrics.
-- Repository/publication cleanup before broad public launch.
+- Product screenshots and lightweight workflow animations for the repository, guides and landing page.
+- Continue deployed feedback and environment verification, including fresh-host AI deployment and network/TLS setup.
+- Keep guides concise, navigable and aligned with the implementation as features evolve.
 
 ## Future Product Direction
 
@@ -32,7 +31,7 @@ The roadmap is intentionally conservative: it names the direction without preten
 - Collaborative decision workflows.
 - Agile workshop and facilitation support.
 - Distributed team consensus workflows.
-- Optional hosted convenience later, while keeping the self-hosted AGPLv3 version complete and useful.
+- Evaluate further hosted convenience while keeping the self-hosted AGPLv3 version complete and useful; the current free hosted demo already exists.
 
 ## Discoverability Direction
 

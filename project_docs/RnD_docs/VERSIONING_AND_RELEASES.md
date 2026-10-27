@@ -5,11 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Versioning And Releases
 
-Status: Alpha release policy.
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Current Version](#current-version)
+- [Public Release Strategy](#public-release-strategy)
+- [Version Format](#version-format)
+- [Changelog And Release Notes](#changelog-and-release-notes)
+- [Deployment Updates](#deployment-updates)
+
+</details>
+
+Status: Stable version 1.0.0.
 
 ## Current Version
 
-The current project version is `0.1.0`.
+The current project version is `1.0.0`.
 
 The root `package.json` version is the source of truth for the repository. Workspace package versions should stay aligned unless a future package-publishing strategy intentionally changes that rule.
 
@@ -40,18 +53,20 @@ Use semantic versioning:
 MAJOR.MINOR.PATCH
 ```
 
-During alpha, use `0.x.y`:
+From 1.0.0 onward:
 
-- `0.MINOR.0` for meaningful alpha feature/release milestones.
-- `0.MINOR.PATCH` for bug fixes, documentation fixes, deployment fixes, and security fixes on that alpha line.
-- `1.0.0` only when the project has a stable public support policy and the maintainer is ready to treat behavior, deployment expectations, and upgrade notes as stable enough for normal users.
+- `MAJOR` for incompatible public behavior or deployment changes.
+- `MINOR` for compatible features.
+- `PATCH` for compatible bug, security, deployment and documentation fixes.
+
+Release notes must explain upgrade requirements. Version 1.0.0 does not change existing databases, local settings, hosted-trial limits or update channels, and does not imply certification or a support SLA. See [SECURITY.md](../../SECURITY.md) for security support scope.
 
 Git tags should use a `v` prefix, for example:
 
 ```text
-v0.1.0
-v0.1.1
-v0.2.0
+v1.0.0
+v1.0.1
+v1.1.0
 ```
 
 ## Changelog And Release Notes
@@ -75,7 +90,7 @@ Until that later policy exists:
 
 - Treat `./deploy.sh update` as an operator-controlled branch update, not an automatic release-channel manager.
 - Run it only after reviewing the current branch/changelog and taking the built-in backup seriously.
-- Do not move an existing public tag after it is pushed. If a docs-only or deployment fix is needed after `v0.1.0`, release it as a later patch version such as `v0.1.1` when it deserves a public tag.
+- Do not move an existing public tag after it is pushed. If a docs-only or deployment fix is needed after a release, publish a later patch version such as `v1.0.1` when it deserves a public tag.
 - Keep real deployment settings in ignored `config/deployment.local.toml`; release updates should not require operators to overwrite their local config.
 
 

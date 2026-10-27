@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # AI Deployment Verification
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
 [Deployment guide](../../AI_DEPLOYMENT.md) · [First VPS runbook](FIRST_VPS_DEPLOYMENT_RUNBOOK.md)
 
 ## Scope — 2026-10-27

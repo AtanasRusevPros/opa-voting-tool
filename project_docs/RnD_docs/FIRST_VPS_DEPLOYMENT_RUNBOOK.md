@@ -5,6 +5,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # First VPS Deployment Runbook
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Purpose](#purpose)
+- [Important Current Caveats](#important-current-caveats)
+- [1. First SSH Login](#1-first-ssh-login)
+- [2. Firewall](#2-firewall)
+- [3. SSH Hardening](#3-ssh-hardening)
+- [4. Basic Security Packages](#4-basic-security-packages)
+- [5. Install Runtime Tools](#5-install-runtime-tools)
+- [6. DNS](#6-dns)
+- [7. HTTPS Certificate](#7-https-certificate)
+- [8. Deploy The App](#8-deploy-the-app)
+- [9. First Manual Smoke Test](#9-first-manual-smoke-test)
+- [10. Operational Checks](#10-operational-checks)
+- [11. Final Transition To HTTPS-Only App Access](#11-final-transition-to-https-only-app-access)
+- [12. Operator Follow-Up Items](#12-operator-follow-up-items)
+- [Demo participant-count investigation](#demo-participant-count-investigation)
+- [Updating hosted-trial collaboration policy](#updating-hosted-trial-collaboration-policy)
+- [Configure login access requests and admin entry](#configure-login-access-requests-and-admin-entry)
+- [Hosted demo versus self-hosting](#hosted-demo-versus-self-hosting)
+- [Weekly app-managed backups and trial privacy](#weekly-app-managed-backups-and-trial-privacy)
+- [Statistics Upgrade And Acceptance](#statistics-upgrade-and-acceptance)
+
+</details>
+
 Created: 2026-05-11
 Example hostname: `vote.example.com`
 
@@ -18,7 +46,7 @@ Want to try it before deploying? **[Open the free live demo](https://app.opavoti
 
 The first VPS deployment path was tested on Ubuntu Server 24.04 LTS. The architecture is not Ubuntu-specific and should apply to common Linux server distributions such as Debian, AlmaLinux, Rocky Linux, and similar VPS images, with expected differences around package installation, firewall tooling, service management defaults, and Podman/Compose packaging.
 
-The goal is a safe alpha baseline:
+The goal is a safe deployment baseline:
 - SSH key access
 - firewall enabled
 - root SSH disabled
@@ -232,7 +260,20 @@ During the first test bring-up, keep the Caddy config simple. Do the stricter HT
 
 ### GitHub Access
 
-If the repository is private, the VPS needs read access before `git clone` can work. If the repository is already public, you can skip the deploy-key/token setup and clone it normally.
+The official repository is public: no GitHub account, token or deploy key is needed to clone it. As the deployment user, choose the installation directory:
+
+```bash
+sudo mkdir -p /opt/opa-voting-tool
+sudo chown deploy:deploy /opt/opa-voting-tool
+cd /opt/opa-voting-tool
+git clone https://github.com/AtanasRusevPros/opa-voting-tool.git app
+cd app
+```
+
+Replace `deploy` with your actual deployment user. Do not overwrite an existing checkout/configuration; use the update procedure for existing installations.
+
+<details>
+<summary>Only for a private company fork: GitHub deploy key or HTTPS token</summary>
 
 Recommended path: use a read-only GitHub deploy key dedicated to this server and this repository. GitHub documents deploy keys as SSH keys attached directly to one repository; they are read-only by default unless write access is explicitly enabled.
 
@@ -252,7 +293,7 @@ In GitHub:
 - open the repository
 - go to `Settings -> Deploy keys`
 - choose `Add deploy key`
-- title it `vote.example.com alpha VPS`
+- title it `vote.example.com VPS`
 - paste the public key from `~/.ssh/opavotingtool_deploy.pub`
 - do not enable write access
 - save the deploy key
@@ -292,7 +333,7 @@ GitHub recommends fine-grained personal access tokens over classic tokens when p
 - resource owner: the account or organization that owns the repo
 - repository access: only this repository
 - repository permissions: `Contents: Read-only`
-- expiration: short, for example `7` or `30` days during alpha setup
+- expiration: short, for example `7` or `30` days during initial setup
 
 Reference:
 - https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
@@ -303,27 +344,9 @@ When Git asks during HTTPS clone:
 
 Do not put the token directly into the clone URL, because that can leak into shell history and Git remote configuration.
 
-On the VPS:
+After granting read access, replace the public clone URL with your fork's SSH alias URL (`git@github-opavotingtool:OWNER/REPO.git`) or HTTPS URL. Never embed a token in the URL. Keep the rest of this runbook unchanged.
 
-```bash
-sudo mkdir -p /opt/opa-voting-tool
-sudo chown deploy:deploy /opt/opa-voting-tool
-cd /opt/opa-voting-tool
-git clone git@github-opavotingtool:YOUR_GITHUB_OWNER/YOUR_REPO_NAME.git app
-cd app
-```
-
-If using the HTTPS token fallback instead of the deploy key, replace the clone command with:
-
-```bash
-git clone https://github.com/YOUR_GITHUB_OWNER/YOUR_REPO_NAME.git app
-```
-
-If the repository is public, a normal HTTPS clone is enough:
-
-```bash
-git clone https://github.com/YOUR_GITHUB_OWNER/YOUR_REPO_NAME.git app
-```
+</details>
 
 Before building, create and edit the ignored deployment-local config:
 
@@ -518,7 +541,7 @@ Browser change after the backup:
 Restore the backup:
 
 ```bash
-./deploy.sh restore ../backups/<backup-file>.tar.gz
+./deploy.sh restore "../backups/REPLACE-WITH-ACTUAL-BACKUP.tar.gz"
 ./deploy.sh public-health
 ```
 
@@ -760,7 +783,6 @@ access_requests_enabled = false
 ```
 
 This is the application configuration, not `config/deploy.local.toml`. Omission defaults to `true` for compatibility. Run `./deploy.sh restart`, `./deploy.sh health` and `./deploy.sh public-health`. Check that Request access is absent and `/api/bootstrap` reports `accessRequestsEnabled: false`. New access-request submissions return HTTP 403 when disabled; existing pending requests remain available to admins. Trial signup, invitations and password recovery are independent. Test `/admin` sign-in and return to user sign-in; admin responses carry `X-Robots-Tag: noindex` and are not advertised in the public sitemap.
-
 
 
 ## Hosted demo versus self-hosting

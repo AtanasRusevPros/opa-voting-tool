@@ -5,6 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Trial privacy and app-managed backups
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Hosted demo versus self-hosting](#hosted-demo-versus-self-hosting)
+- [Public promises and their boundaries](#public-promises-and-their-boundaries)
+- [Configuration: weekly backups, three copies, three weeks](#configuration-weekly-backups-three-copies-three-weeks)
+- [Enable and verify on the VPS](#enable-and-verify-on-the-vps)
+- [Deployment archives are separate](#deployment-archives-are-separate)
+- [Restore an automatic snapshot](#restore-an-automatic-snapshot)
+- [Contact channels](#contact-channels)
+- [Lightweight operator procedure](#lightweight-operator-procedure)
+- [Implementation versus continuing operations](#implementation-versus-continuing-operations)
+- [First-Party Usage Statistics](#first-party-usage-statistics)
+
+</details>
+
 The hosted trial is a free FOSS evaluation service. Use synthetic or non-sensitive
 example data. Account emails, names and identifiable votes remain personal data.
 These safeguards support common privacy principles reflected in GDPR and US state

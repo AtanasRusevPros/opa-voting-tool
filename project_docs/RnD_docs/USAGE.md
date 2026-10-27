@@ -3,7 +3,38 @@ SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# USAGE
+# Usage And Operations
+
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Try It Online](#try-it-online)
+- [First Voting Session](#first-voting-session)
+- [Local Development](#local-development)
+- [Podman Stack Workflow](#podman-stack-workflow)
+- [Deployed VPS Operator Workflow](#deployed-vps-operator-workflow)
+- [Command Use Guide](#command-use-guide)
+- [Command Behavior Notes](#command-behavior-notes)
+- [Live Bot Simulator](#live-bot-simulator)
+- [Operator Guides](#operator-guides)
+- [Default Runtime Ports](#default-runtime-ports)
+- [Authentication Notes](#authentication-notes)
+- [Editable Deployment Files](#editable-deployment-files)
+- [Main Board Notes](#main-board-notes)
+- [Import And Export Notes](#import-and-export-notes)
+- [Jira Cloud Notes](#jira-cloud-notes)
+- [Verification Matrix](#verification-matrix)
+- [Hosted-trial collaboration and limits](#hosted-trial-collaboration-and-limits)
+- [Hosted demo versus self-hosting](#hosted-demo-versus-self-hosting)
+- [Weekly app-managed backups and trial privacy](#weekly-app-managed-backups-and-trial-privacy)
+- [Usage Statistics](#usage-statistics)
+- [Edit An Issue Title](#edit-an-issue-title)
+- [Responsive UI checks](#responsive-ui-checks)
+- [Workspace identity on a team](#workspace-identity-on-a-team)
+
+</details>
 
 Created: 2026-04-03 10:35 EEST
 
@@ -13,11 +44,19 @@ For an agent-led setup from scratch, start with the [AI-assisted deployment guid
 
 **[Try the free live demo](https://app.opavotingtool.eu)** — no installation needed. Enter your email, choose **Start free public trial**, and follow the email instructions to start voting with your team. The hosted demo has [usage limits](#hosted-trial-collaboration-and-limits); self-host for ongoing or company-wide use.
 
+## First Voting Session
+
+1. Sign in with your email/password or follow the invitation instructions. Without SMTP, get the generated password from your admin.
+2. Open a team you belong to, or create one if your deployment permits it. A visible team is not necessarily a joined team; request access when offered.
+3. Enter an issue title (at least five characters in the start/deal form), start voting, and choose your card. Participants see voting status until reveal.
+4. Reveal when ready; a team's minimum-participation rule may keep the round open. Results appear in history after successful reveal.
+5. Use History/Search for earlier results, Deal for a new issue, and Account for personal settings. See [phone controls](TEAM_ADMIN_GUIDE.md#phone-and-touch-use) and [team administration](TEAM_ADMIN_GUIDE.md).
+
 ## Local Development
 
 1. Use Node.js `22.22.2`. The pinned local version is in [`.nvmrc`](../../.nvmrc), so nvm users can run `source "$HOME/.nvm/nvm.sh" && nvm use`.
 2. Install dependencies with `./dev.sh deps`.
-3. Review [`config/allowed-domains.txt`](../../config/allowed-domains.txt).
+3. Run `./deploy.sh config:migrate`, set `[admin].username/password` in ignored `config/deployment.local.toml`, and review [`config/allowed-domains.txt`](../../config/allowed-domains.txt). Leave SMTP blank for manual onboarding.
 4. Start the API:
    `pnpm --filter @planning-poker/api dev`
 5. Start the web app:
@@ -95,7 +134,7 @@ Keep-alive defaults:
 - `./deploy.sh startup:disable` turns keep-alive off completely and persists that choice
 - `./deploy.sh startup:enable` turns the default keep-alive layer back on
 
-Use `./dev.sh version` locally or `./deploy.sh version` on a deployed checkout to print the project version and current Git commit. See [`VERSIONING_AND_RELEASES.md`](VERSIONING_AND_RELEASES.md) for the alpha release policy.
+Use `./dev.sh version` locally or `./deploy.sh version` on a deployed checkout to print the project version and current Git commit. See [`VERSIONING_AND_RELEASES.md`](VERSIONING_AND_RELEASES.md) for the release policy.
 
 New release/update flow on the VPS:
 1. SSH to the server as the deploy user.
@@ -111,7 +150,7 @@ New release/update flow on the VPS:
 
 Migration note for replacing or moving an existing deployment checkout:
 - take a backup before changing the checkout
-- preserve ignored deployment-local files such as `config/deployment.local.toml`, `config/deploy.local.toml`, `config/allowed-domains.txt`, and `config/managed-branding`
+- preserve ignored local overrides `config/deployment.local.toml` / `config/deploy.local.toml`, edits to tracked `config/allowed-domains.txt`, and uploaded `config/managed-branding` assets
 - do not copy historical untracked compose/config scratch folders into the replacement checkout
 
 Backup/restore rehearsal on a test deployment:
@@ -254,11 +293,10 @@ Production deployment note:
 - If SMTP or debug-code delivery is available, `Forgot password` sends the user into the code-based password reset flow.
 - If SMTP is not configured for that deployment, `Forgot password` tells the user to contact a team admin or the super-admin for a manually generated replacement password.
 - In development without SMTP configured, the API logs login codes to stdout.
-- The API returns `debugCode` only when `DEBUG_TOOLS_ENABLED=1`.
+- Code responses are enabled outside production or by `E2E_DEBUG_CODES=1` / `DEBUG_TOOLS_ENABLED=1`; see [debug authentication](DEVELOPMENT.md#debug-authentication). Keep these disabled in production.
 - Session expiry defaults to 90 days since last activity.
 - Override the TTL with `SESSION_TTL_DAYS`.
-- After sign-in, the app returns directly to the last opened team when possible.
-- Super-admins are always members of every team, but by default they stay on the chooser/platform-settings surface unless they explicitly open a team.
+- Super-admins are always members of every team, but by default they stay on the chooser/Platform surface unless they explicitly open a team.
 - Signed-in users can now change their password from the `Account settings` modal available from both the chooser and the board header profile area.
 - In **Account settings**, **Open my last team automatically after sign-in** is on by default. Turn it off to start at the chooser after sign-in or a fresh app entry. Saving does not move you away from the current board. A deliberate team URL still takes priority when accessible; unavailable teams fall back to the chooser. The setting is saved per account, across browsers, for both deployment modes. The dedicated super-admin entry retains its existing chooser-first default.
 - Team Admin / People stays live while open from either the board or chooser: membership and Onboard/Not online status refresh without reopening it. Merely viewing People from the chooser does not count as board participation or affect reveal thresholds.
@@ -311,13 +349,13 @@ Fallback public branding assets:
 
 Operational notes:
 1. super-admins can open `Platform` in the app to edit the tabbed platform surface:
-   `People`, `Branding`, `App settings`, `SMTP`, and `Super-admin`
+   `People`, `Stats`, `Branding`, `App settings`, `SMTP`, and `Super-admin`
 2. the `People` tab owns pending platform access requests, admitted platform users, and super-admin-only existing-user password reset
 3. the `Super-admin` tab owns admin credentials plus Jira Cloud client credentials, site connection, and disconnect/site-selection actions
 4. branding uploads from that UI are written into `config/managed-branding`
 5. the repo ships both a tracked safe template `config/deployment.toml` and an example `config/deployment.sample.toml`
 6. local packaged-stack and deployed runs use ignored `config/deployment.local.toml` when present, otherwise the tracked template
-7. the tracked templates intentionally leave SMTP blank so manual-share onboarding/reset can be tested without SMTP setup
+7. the tracked default leaves SMTP blank; the sample template contains illustrative SMTP values, so remove/replace those before use
 8. the tracked templates intentionally leave super-admin username/password blank for safety
 9. create `config/deployment.local.toml` with `./deploy.sh config:migrate` or by copying `config/deployment.sample.toml`, then set `[admin].username` and `[admin].password` before starting the app
 10. if credentials are missing, `./dev.sh stack:up`, `./deploy.sh up`, `./deploy.sh rebuild`, `./deploy.sh restart`, and `./deploy.sh update` stop with a clear setup message
@@ -356,7 +394,7 @@ Operational notes:
 - Avatar selection is stored in the database by avatar key, so users keep their chosen icon across reloads and sessions.
 - The bell panel keeps live pending actions separate from paginated action history. Super-admins see platform-wide admin/workflow history there; team-admins see team-scoped action history only.
 - The bottom status bar stays mounted during state changes so action feedback remains visible instead of blinking out between updates.
-- Phone boards use a compact top-right controls menu. History sits below in portrait and on the right in landscape; tap or drag its grip to show up to half the screen, or hide it completely. Voting controls and participant lists scroll independently of the header. See [phone operation](TEAM_ADMIN_GUIDE.md#phone-and-touch-use) and the [mobile test matrix](RESPONSIVE_TESTING.md); real-device acceptance remains separate from local emulation.
+- Phone boards use a compact top-right controls menu. History sits below in portrait and on the right in landscape; tap its grip to toggle, or hold briefly then drag to show up to half the screen, or hide it completely. Voting controls and participant lists scroll independently of the header. See [phone operation](TEAM_ADMIN_GUIDE.md#phone-and-touch-use) and the [mobile test matrix](RESPONSIVE_TESTING.md); real-device acceptance remains separate from local emulation.
 
 ## Import And Export Notes
 
@@ -424,85 +462,15 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 
 ## Hosted-trial collaboration and limits
 
+The [hosted demo](https://app.opavotingtool.eu) defaults to two workspaces per person; each workspace allows two teams, ten people and 80 revealed rounds per UTC calendar month, shared across its teams. Re-vote reveals count again. At the cap, new rounds/votes/reveals are blocked; history remains readable. Ordinary self-hosted workspaces have no demo quotas.
+
 ### Joining another hosted-demo workspace
 
-1. Ask an admin of a team in that workspace to add you from **Team admin** using
-   your complete account email. Selecting a search suggestion is optional for an
-   exact email. Workspace membership is obtained through a team invitation/addition;
-   there is no separate public workspace directory to browse.
-2. Existing users keep their current login and do not need a new signup or SMTP
-   delivery to be added. New trial users need the email invitation/onboarding flow;
-   follow the delivered sign-in instructions.
-3. Sign in and select the team's card in the chooser. **Account → Workspaces**
-   shows your joined workspaces and joined teams; membership in a workspace does
-   not automatically add you to every team in it.
-4. Each normal user may belong to two trial workspaces in total, including their
-   owned workspace. To make room for another, a collaborator uses **Account →
-   Workspaces → Leave workspace**. Leaving one team does not free a workspace slot.
-   Owners use account deletion to purge their owned trial workspaces; review that
-   destructive action carefully.
+Ask a team admin in that workspace to add your complete email. An existing account retains its login; a new trial account needs email onboarding. See the [complete join/leave/rename instructions](TEAM_ADMIN_GUIDE.md#hosted-trial-collaboration-and-limits). Leaving a team does not free a workspace slot. Owner account deletion purges owned workspaces; review its preview.
 
-Each hosted-demo workspace defaults to two teams, ten users across the workspace
-and 80 revealed rounds shared by all its teams per UTC calendar month. Invitations
-do not reset usage. These allowances do not apply to ordinary self-hosted workspaces.
+Team cards show workspace identity, role and usage; Account → Workspaces shows joined teams and reset dates. Owners rename there; long board/directory labels can expand. Names are not unique IDs and renaming changes neither access nor usage. This workspace-management UI is specific to hosted-trial mode.
 
-
-
-The hosted demo supports two public-trial workspace memberships per normal user.
-Existing users can be invited to a second workspace; a third invitation explains
-how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
-all teams in that workspace while retaining their account and saved shared history.
-Owners cannot leave: Account settings explains account deletion and permanent purge
-of all their owned trial workspaces. The existing signup flow does not create
-additional owned workspaces for accounts already in a trial workspace.
-
-Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
-calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
-separately. Invitations and workspace membership changes do not reset it. At the cap,
-new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the retired explicit 40-round allowance to 80 on startup and persist it; other custom limits and disabled-trial deployments are unchanged.
-
-Removing a team member revokes their board socket and returns their browser to the
-team chooser. Adding an already registered user does not require SMTP; inviting a
-new trial user still requires email delivery. Workspace member capacity still applies.
-
-OpaVoting is free, open-source software designed for efficient realtime workloads,
-with recorded simulated-load coverage of 400 concurrent users across multiple teams.
-The personally funded hosted demo is limited to keep its small server available.
-Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
-Source, deployment documentation and the GitHub star link are shown in the trial UI.
-
-The trial front page includes an attributed project welcome with self-hosting,
-documentation, source and GitHub-star links. This appears whenever public-trial mode
-is enabled, including deployments with closed signup; signup availability is still
-controlled separately. Normal self-hosted sign-in remains unchanged.
-
-Hosted-trial search discovery: the API serves canonical and social-sharing metadata, `/robots.txt`, and a one-page `/sitemap.xml` when `public_trial.enabled = true`. Set `[app].base_url` in deployment configuration to the real public HTTPS origin; canonical/sitemap URLs use this setting, never request headers. Check these endpoints after deployment and optionally submit `/sitemap.xml` in Google Search Console after verifying domain ownership. Search discovery adds no tracking, crawler-specific rendering or frontend dependencies; built-in first-party usage statistics are described separately. Self-hosted instances do not receive these trial discovery endpoints (operator-provided static robots/sitemap files remain supported).
-
-Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
-
-If adding someone would exceed their two-workspace allowance, the invitation form keeps their email and displays the server explanation until retry. They can leave a collaborator workspace from Account → Workspaces; deleting an owner account purges its owned trial workspaces and is destructive. Leaving only a team does not release a workspace slot.
-
-The chooser keeps Create/Import above team lists and shows only compact workspace identity/usage on each joined team. Use **Account → Workspaces** for owner rename, collaborator leave, joined-team details and reset date. The existing Delete account section remains the source of deletion warnings and confirmation. **About**, beside Account, contains project and deployment links, benchmark evidence and (in hosted-trial mode) demo funding/limits. The footer retains a small GitHub-star link and Under Development attribution.
-
-In **Team Admin**, the pencil beside the title opens inline team rename with Save/Cancel and validation feedback. It is available only to authorized admins for active teams; archived teams remain read-only.
-
-Developer verification: `apps/web/tests/e2e/trial-chooser.spec.ts` requires a fresh,
-isolated API with hosted trial open-signup and debug codes enabled, serving built
-web assets. Run it with `PLAYWRIGHT_TRIAL=1` and `PLAYWRIGHT_BASE_URL` pointing to
-that disposable API. It intentionally skips on ordinary self-hosted test stacks.
-It creates a real trial account; repeated runs can hit signup/workspace rate limits,
-so use fresh test data rather than weakening production limits. The test covers
-Account/About, keyboard dismissal/focus return, rename and diagnostic checks at
-1440, 768, 390 and 320px widths.
-
-
-Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
-
-In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.
-
-
+Use `./deploy.sh config:edit` to change `[public_trial].max_revealed_rounds_per_workspace_per_month` or `[app].base_url`; [restart and verify](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#updating-hosted-trial-collaboration-policy). Enabled trial deployments upgrade the legacy 40-round allowance to 80 without resetting usage. Other custom quotas and disabled-trial configurations are preserved.
 
 ## Hosted demo versus self-hosting
 
@@ -537,34 +505,11 @@ apply; configuration freedom is not a promise of unlimited hardware capacity.
 
 ## Weekly app-managed backups and trial privacy
 
-Opt in using ignored `config/deployment.local.toml`, then `./deploy.sh restart`:
+Backups are optional. Set `[backups] enabled = true`, `interval_hours = 168`, `max_age_days = 21` in ignored deployment config (as TOML key/value lines under one table), then restart. Database snapshots keep at most three completed copies and expire after 21 days while enabled/running; startup catches overdue work. There is no external scheduler. They exclude config/branding and remain on the same disk.
 
-```toml
-[backups]
-enabled = true
-interval_hours = 168
-max_age_days = 21
-```
+`./deploy.sh backup` separately archives the live database plus config/branding, excludes snapshot history and prunes to three archives after successful creation. Archive age is operator-managed. Neither backup policy expires the live database or statistics.
 
-The app takes consistent database snapshots weekly, keeps at most three completed
-copies, and checks three-week expiry every minute while enabled/running. It takes
-an initial or overdue snapshot on startup. There is no separate cron/systemd job
-and no automatic daily backup. Check `./deploy.sh backup:auto:list`. Snapshots
-persist in the existing data volume; they exclude config/branding. Separate
-`deploy.sh backup` archives include config/branding, exclude snapshot history and
-prune to three after successful creation; they have no automatic age expiry.
-
-Owner account deletion purges owned trial workspace content from the live database.
-Shared history elsewhere remains identifiable as `Name (Deactivated)`; backups,
-operational records and downloaded exports have separate retention. No sale or
-advertising use is promised; necessary hosting/email processing and restricted
-operator access are disclosed. Publish actual `[privacy]` operator/contact/provider
-details before public signup. These measures support common GDPR/US privacy
-principles; they are not certification or a blanket legal compliance claim.
-
-See [privacy, backup setup, restore and operator procedures](PRIVACY_AND_BACKUPS.md)
-for precise scope, downtime/disabled-feature exceptions, server commands and
-manual rights handling. Public copies of private planning evidence are not required.
+See [configuration and verification](PRIVACY_AND_BACKUPS.md#configuration-weekly-backups-three-copies-three-weeks), [restore procedures](PRIVACY_AND_BACKUPS.md#restore-an-automatic-snapshot) and deletion/retention boundaries. Set actual `[privacy]` operator/contact/provider details before hosted signup. Do not promise that no personal data is stored.
 
 ## Usage Statistics
 
@@ -586,11 +531,9 @@ Statistics are built in and enabled in both deployment modes, with no automatic 
 
 Unfiltered **Platform → Stats** also shows permanently retained completed-round and vote counts. These global counters survive workspace deletion without attached identifiers or content; filtered workspace/team reports do not include them. They start with surviving statistics at upgrade and do not reconstruct already deleted/expired usage. Detailed account statistics and shared history follow the separate deletion rules in the privacy notice.
 
-### Edit An Issue Title
+## Edit An Issue Title
 
-Team admins (and the platform super-admin) can click the current board title or a saved title in **Issues List → History/Search** to correct it. A small transparent pencil appears on hover or keyboard focus. The editor keeps the displayed title's outer size; longer text scrolls inside it without extending beyond the rounded edges. Press **Enter** or click outside to save; **Escape** cancels. Titles are trimmed and must contain 1–255 characters. The member who started the current round can also edit its board title, including after reveal and when starting a re-vote. Other ordinary members cannot edit it; saved History/Search titles remain admin-only. The server records the proposer, preserves it through timer restarts/reload, and clears the link on account deletion. Legacy rounds without a recorded proposer remain admin-editable. Archived teams and former members remain read-only.
-
-Saving changes only the local issue title: votes, timer, result timestamp, completed-round statistics and monthly quota usage stay unchanged. A re-vote and its saved history item share the correction. A failed save keeps the draft and shows an error; conflicting edits are rejected rather than silently overwriting another person's correction. Changes appear for connected viewers and persist after reload. This does not rename the source issue in Jira.
+See [inline title editing](TEAM_ADMIN_GUIDE.md#edit-an-issue-title) for admin/proposer permissions, Enter/blur save, Escape cancellation and conflicts. Editing does not change votes, timers, quota or round totals; it does not rename the source Jira issue.
 
 ## Responsive UI checks
 
@@ -603,6 +546,6 @@ Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite c
 - Phone board controls fit their contents and close with the top-right X. Blue outlines indicate enabled actions; ordinary status chips retain neutral borders.
 
 
-### Workspace identity on a team
+## Workspace identity on a team
 
-In hosted workspaces, the board and Team Admin/People show **Workspace: name** beneath the team title. On phones it appears inside board controls, keeping the compact header clear. Long names are shortened on one line; hover to read the tooltip, or tap/click the line (Enter on a keyboard) to expand the full name. Workspace renames update connected boards and open People panels. Ordinary self-hosted teams omit this label; workspace renaming stays in **Account → Workspaces**.
+See [workspace labels and long-name expansion](TEAM_ADMIN_GUIDE.md#workspace-identity-on-a-team). Default self-hosted teams omit this label; hosted workspace renaming is in Account → Workspaces.

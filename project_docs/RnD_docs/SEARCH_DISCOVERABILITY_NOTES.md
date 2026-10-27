@@ -5,6 +5,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Search Discoverability Notes
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Main Search Intents](#main-search-intents)
+- [Repository-Level Actions](#repository-level-actions)
+- [Content Actions](#content-actions)
+- [External Foundability Actions](#external-foundability-actions)
+- [Current Public Wording Baseline](#current-public-wording-baseline)
+- [Hosted-trial welcome and machine-readable discovery](#hosted-trial-welcome-and-machine-readable-discovery)
+- [Privacy and backup retention](#privacy-and-backup-retention)
+- [AI deployment discovery](#ai-deployment-discovery)
+
+</details>
+
 Status: public-release planning note
 
 Purpose: make OpaVoting easier to find without turning the README or docs into keyword-stuffed marketing copy.
@@ -38,7 +54,7 @@ Current status:
 - Keep the benchmark summary linked from the README so performance claims are evidence-backed.
 - Add screenshots/GIFs later with generic demo data and descriptive alt text.
 - Consider a short public announcement post explaining the two angles: `open-source realtime voting platform` and `Scrum planning poker as the first use case`.
-- If a public demo/test server is added later, publish a clear demo page with terms, privacy notes, and safe example data.
+- The [public demo](https://app.opavotingtool.eu) is available with terms/privacy links. Keep its URL prominent in the README and relevant entry guides; use synthetic examples in promotion.
 
 ## External Foundability Actions
 
@@ -46,7 +62,7 @@ Search ranking will depend heavily on links, usage, and trust signals outside th
 
 - Post the public release to relevant communities such as GitHub, Hacker News, Reddit communities for self-hosted software/agile/Scrum, and open-source directories where appropriate.
 - Ask early users to star the repository and link to it from real blog posts, docs, or team tool lists if they find it useful.
-- Create a concise project page later if the GitHub README becomes too dense.
+- Keep the hosted welcome and README concise; route detailed instructions through the [documentation index](../README.md).
 - Use the same product name, tagline, and core keywords consistently across GitHub, package metadata, docs, and announcement posts.
 - Avoid buying low-quality backlinks or producing thin SEO pages; search engines increasingly reward useful, trustworthy, people-first content.
 
@@ -94,15 +110,8 @@ The brief trial welcome uses the same four-step copy in initial HTML and React, 
 
 ## Privacy and backup retention
 
-The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
-Owner account deletion purges owned trial workspaces from the live database;
-archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
-attribution. Downloaded exports and operational records require separate handling.
-Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
-copies, and expire after 21 days while enabled/running; restart checks missed work.
-Deployment archives are separately capped at three after successful creation and
-have operator-managed age expiry. There is no external scheduler or daily job.
-The public notice reflects configured backup values and `[privacy]` contact/provider
-details. No-sale/no-advertising and restricted-access promises do not mean “no
-providers process data”. Manual privacy requests and actual operator practices
-remain necessary; no blanket GDPR/California/US compliance claim is made.
+Keep promotional claims consistent with the [privacy and backup guide](PRIVACY_AND_BACKUPS.md). Do not promise zero personal-data storage, immediate erasure of every backup/export, or blanket legal compliance. Separate the hosted demo's policies from self-hosters' responsibilities.
+
+## AI deployment discovery
+
+The README links [AI_DEPLOYMENT.md](../../AI_DEPLOYMENT.md), with repository agent instructions and a portable skill pointing to the same workflow. The [documentation index](../README.md) routes by role/task. These aids improve navigation; they do not guarantee crawler indexing or unattended deployment in every agent/environment.

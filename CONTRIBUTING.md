@@ -36,6 +36,8 @@ This adds a `Signed-off-by` line certifying that you have the right to submit th
 
 ## Local Setup
 
+Start with the [documentation index](project_docs/README.md) and [development/verification guide](project_docs/RnD_docs/DEVELOPMENT.md). Configure local admin credentials before starting the app; see the [README quick start](README.md#quick-start).
+
 Use Node.js `22.22.2` from `.nvmrc`, then install dependencies:
 
 ```bash
@@ -81,4 +83,3 @@ PRs should include:
 ## Security
 
 Do not open public issues for security vulnerabilities. Follow `SECURITY.md`.
-

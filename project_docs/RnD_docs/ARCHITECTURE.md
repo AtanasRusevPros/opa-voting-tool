@@ -5,6 +5,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # ARCHITECTURE
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [System Shape](#system-shape)
+- [Code Structure](#code-structure)
+- [Core Runtime Flow](#core-runtime-flow)
+- [Login Destination And Directory Presence](#login-destination-and-directory-presence)
+- [Account Deletion Flow](#account-deletion-flow)
+- [SMTP-Free Onboarding Flow](#smtp-free-onboarding-flow)
+- [SMTP-Free Password Recovery Flow](#smtp-free-password-recovery-flow)
+- [Team Permalink Flow](#team-permalink-flow)
+- [Simulator Runtime Flow](#simulator-runtime-flow)
+- [Demo Mode Runtime Flow](#demo-mode-runtime-flow)
+- [Persistence Model](#persistence-model)
+- [Branding And Config](#branding-and-config)
+- [Runtime And Container Decisions](#runtime-and-container-decisions)
+- [Performance Notes](#performance-notes)
+- [Login entry and access-request policy](#login-entry-and-access-request-policy)
+- [Privacy and backup retention](#privacy-and-backup-retention)
+- [Scoped Usage Statistics](#scoped-usage-statistics)
+- [Inline Issue Title Corrections](#inline-issue-title-corrections)
+- [Responsive UI checks](#responsive-ui-checks)
+
+</details>
+
 Created: 2026-04-03 10:35 EEST
 
 ## System Shape
@@ -48,7 +75,7 @@ The system is a structured full-stack repository with:
 19. Super-admins can edit deployment, branding, SMTP, demo-mode, and Jira Cloud connection settings from the in-app `Platform` surface backed by the deployment TOML file; the People list supports paged search plus recent/oldest and A-Z/Z-A sorting.
 20. Team-admins and super-admins can save a team Jira source (`Project key + optional JQL`) from the team `Import/export` tab, import Jira issues into a team-scoped pending queue, and load a pending Jira issue into a round using both the issue key and title.
 21. Minimum participation is evaluated against the current live board participants at reveal/re-evaluation time rather than all team members, so offline members do not block active-room decisions.
-22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; reveal still computes the real average, but when the enabled threshold is not met, the live board and history store a gated result with voted vs not-voted counts instead of exposing the final average.
+22. Team-admins and super-admins can also save a minimum-vote-percentage rule per team; a blocked reveal keeps the round active with voted/not-voted metadata and writes no history entry. Later votes, presence changes or a lower threshold can satisfy the rule and reveal the same round once.
 
 ## Login Destination And Directory Presence
 
@@ -161,8 +188,8 @@ Behavior choices:
 - The in-app `Platform` surface edits admin, SMTP, branding, palette, footer, and demo-mode settings against that deployment config.
 - The same deployment config now also stores Jira Cloud OAuth client credentials plus the currently connected site/token metadata for the single global Jira Cloud binding.
 - SVG is preferred for crisp scaling; PNG is supported for raster replacements.
-- Production email uses generic SMTP settings from the deployment config when present, and otherwise falls back to development logging.
-- Simulator mode is still controlled separately by `SIMULATOR_MODE_ENABLED` for dev-only seeded simulator users and must remain disabled in production unless intentionally needed for local simulator workflows.
+- Production onboarding/recovery uses configured SMTP or explicit admin-delivered passwords. Development code logging is not a production delivery mechanism; debug-code responses depend on environment flags.
+- Simulator mode is still controlled separately by `SIMULATOR_MODE_ENABLED` for dev-only seeded simulator users and must remain disabled in production; local simulator workflows use disposable development deployments.
 - The shipped compose/deployment defaults keep `SIMULATOR_MODE_ENABLED=0`; this does not affect the separate super-admin demo mode, which is implemented server-side through `DemoModeManager`.
 
 ## Runtime And Container Decisions
@@ -173,6 +200,7 @@ Behavior choices:
 - The same deployed helper now also owns automatic startup/watchdog installation, bounded incident evidence, and keep-alive status reporting while intentionally staying outside the in-app product UI.
 - Local dependency, build, packaged stack build, test, and simulator commands require Node.js `22.22.2`, pinned in [`.nvmrc`](../../.nvmrc), on both Linux and macOS. Workspace packages declare the supported range as `node >=22 <23`.
 - `dev.sh` sources nvm when available and runs `nvm use` before dependency, build, `stack:up`, test, and simulator commands, then verifies that the resulting active local Node runtime is Node 22 before continuing.
+- `.containerignore` excludes local config overrides, data and generated artifacts from image builds; runtime config remains bind-mounted. `deploy.sh restore` scopes extraction cleanup to its operation so successful restore returns zero and failures retain nonzero status.
 - The packaged container image is based on the Node 22 Alpine line so local and container runtime expectations stay aligned.
 - V1 keeps Node's built-in SQLite runtime to avoid native dependency builds in the bootstrap phase; this is the main reason the local Node floor is Node 22.
 
@@ -221,7 +249,7 @@ The authenticated `PATCH /api/workspaces/:workspaceId` route accepts a trimmed
 1–80-character name only when trial mode is enabled. The repository update requires
 a public-trial workspace whose creator is the requesting user; team-admin privileges
 and collaborator membership do not grant rename access. The update changes only name
-and updated-at fields and triggers chooser refresh. Account → Workspaces provides owner-only
+and updated-at fields and refreshes the chooser, affected boards and open directories. Account → Workspaces provides owner-only
 Save/Cancel and feedback; self-hosted mode does not expose this management UI.
 
 ## Login entry and access-request policy

@@ -456,12 +456,14 @@ for command in "${deploy_commands[@]}"; do
 done
 
 dev_version_output="$(./dev.sh version)"
-assert_contains "$dev_version_output" "OpaVoting 0.1.0" "dev.sh version"
+assert_contains "$dev_version_output" "OpaVoting 1.0.0" "dev.sh version"
 assert_contains "$dev_version_output" "Git commit:" "dev.sh version"
 
 deploy_version_output="$(./deploy.sh version)"
-assert_contains "$deploy_version_output" "OpaVoting 0.1.0" "deploy.sh version"
+assert_contains "$deploy_version_output" "OpaVoting 1.0.0" "deploy.sh version"
 assert_contains "$deploy_version_output" "Git commit:" "deploy.sh version"
+assert_contains "$dev_version_output" "Release status: stable / public v1.0.0" "dev.sh release status"
+assert_contains "$deploy_version_output" "Release status: stable / public v1.0.0" "deploy.sh release status"
 
 if dev_unknown_output="$(./dev.sh __missing_command__ 2>&1)"; then
   echo "dev.sh accepted an unknown command." >&2

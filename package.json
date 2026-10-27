@@ -1,7 +1,7 @@
 {
   "name": "opa-voting-tool",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
   "description": "Open-source realtime voting tool and Scrum planning poker app for self-hosted agile estimation, team polling, and collaborative decisions.",
   "keywords": [

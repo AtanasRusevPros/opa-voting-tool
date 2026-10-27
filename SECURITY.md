@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Supported Versions
 
-Until the first tagged stable release, only the current `main` branch is supported for security fixes.
+Security fixes are provided on the current `main` branch, now version 1.0.0. Operators should keep their deployment current; separate maintenance branches are not currently provided.
 
-Older commits, forks, and unmaintained deployments are not supported by this project. After stable releases begin, this policy may define supported release lines.
+Older commits, forks, and unmaintained deployments are not supported by this project.
 
 ## Reporting A Vulnerability
 

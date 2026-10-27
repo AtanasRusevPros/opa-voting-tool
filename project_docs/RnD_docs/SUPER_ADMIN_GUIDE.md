@@ -5,8 +5,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Super-Admin Guide
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Purpose](#purpose)
+- [What The Super-Admin Owns](#what-the-super-admin-owns)
+- [Important Files](#important-files)
+- [Super-Admin Account](#super-admin-account)
+- [Default Local Testing Configuration](#default-local-testing-configuration)
+- [Platform Settings Responsibilities](#platform-settings-responsibilities)
+- [Team And Membership Responsibilities](#team-and-membership-responsibilities)
+- [Archived Teams](#archived-teams)
+- [SMTP Operating Modes](#smtp-operating-modes)
+- [Current Admin Surfaces](#current-admin-surfaces)
+- [Jira Cloud Setup And Operations](#jira-cloud-setup-and-operations)
+- [Personal Sign-In Destination And Live People](#personal-sign-in-destination-and-live-people)
+- [Account Deletion](#account-deletion)
+- [Simulator Visibility Note](#simulator-visibility-note)
+- [Manual Credential Delivery](#manual-credential-delivery)
+- [Demo Mode](#demo-mode)
+- [After-Change Verification Discipline](#after-change-verification-discipline)
+- [Local SMTP Verification Options](#local-smtp-verification-options)
+- [Team Permalink Behavior](#team-permalink-behavior)
+- [History Portability And Search](#history-portability-and-search)
+- [Whole-Database Snapshot Reminder](#whole-database-snapshot-reminder)
+- [Hosted-trial collaboration and limits](#hosted-trial-collaboration-and-limits)
+- [Privacy and backup retention](#privacy-and-backup-retention)
+- [Platform Statistics](#platform-statistics)
+
+</details>
+
 Status: Public operator guide
-Updated: 2026-04-26 00:30 EEST
+Reviewed: 2026-10-27
 
 ## Purpose
 
@@ -32,7 +64,7 @@ The separate team-admin guide now lives at:
 
 ## Important Files
 
-- First VPS deployment runbook: [`FIRST_VPS_DEPLOYMENT_RUNBOOK.md`](../../project_docs/RnD_docs/FIRST_VPS_DEPLOYMENT_RUNBOOK.md)
+- First VPS deployment runbook: [`FIRST_VPS_DEPLOYMENT_RUNBOOK.md`](FIRST_VPS_DEPLOYMENT_RUNBOOK.md)
 - Deployed VPS operator helper: [`deploy.sh`](../../deploy.sh)
 - Deployment config override: `config/deployment.local.toml`
 - Keep-alive override: `config/deploy.local.toml`
@@ -76,63 +108,28 @@ Deployment security note:
 
 ## Platform Settings Responsibilities
 
-The in-app `Platform` surface currently controls:
+Open **Platform** from the chooser. Its tabs are:
 
-- `People`:
-  - pending platform access requests at the top
-  - existing platform users below
-  - super-admin-only admit/deny for platform access requests
-  - super-admin-only generated replacement password for existing users
-  - super-admin-only account deletion with an impact preview and exact-email confirmation
-- `Branding`:
-  - branding uploads for:
-  - login logo
-  - login background
-  - team logo
-  - team background
-- footer creator/company text
-- global background opacity
-- semantic palette colors
-- `App settings`:
-  - base URL
-  - demo-mode enable/disable
-- `SMTP`:
-  - SMTP host, port, username, password, and from-address
-- `Super-admin`:
-  - admin username/display name/password
-  - Jira Cloud client id/client secret plus connect/disconnect/site selection
-  - whole-database snapshot export/import
+| Tab | Controls |
+| --- | --- |
+| People | Pending platform access requests; admit/deny; existing users, password reset and account deletion with preview/confirmation. |
+| Stats | Read-only installation/workspace/team usage reports and JSON export; no settings save on this tab. |
+| Branding | Login/team logos and backgrounds, footer text, opacity and palette. |
+| App settings | Base URL and Demo mode. |
+| SMTP | Host, port, username, password and from-address. |
+| Super-admin | Admin credentials, Jira Cloud connection/site selection and whole-database snapshot import/export. |
 
-Secrets use masked placeholder behavior:
-
-- current values are not shown in plain text by default
-- the eye button reveals them explicitly
-- unchanged masked values stay unchanged on save
-- typing a new value replaces the stored secret
+Secret fields are masked. Use the eye button for an explicit reveal; leaving the masked value unchanged preserves the secret, while entering a new value replaces it. See [configuration files and precedence](USAGE.md#editable-deployment-files).
 
 ## Team And Membership Responsibilities
 
-### What team-admins can do
+Team admins manage their own members, join requests, promotions, archive state and voting settings. They can reset other current-team members' passwords, including peer admins, but not while the target is live on that board. They cannot demote another admin or change global settings. See the [team guide](TEAM_ADMIN_GUIDE.md) for exact controls.
 
-- admit or deny join requests
-- add existing users to their team
-- invite allowlisted new users to their team
-- reset passwords for other users who already belong to that current team, including peer team-admins
-  - the team-admin reset control is disabled while the target user is currently live on that team's board
-- promote members to team-admin
-- remove members from the team
-- archive or unarchive their own team
-- configure the team-level minimum participation rule for reveal gating
-
-### What only the super-admin can do
-
-- demote a team-admin to regular member
-- control global branding, SMTP, and demo mode
-- manage the dedicated platform-level configuration
+The super-admin can demote team admins, manage platform access and operate global configuration. A team's last ordinary admin cannot leave; your implicit membership does not replace that admin.
 
 ## Archived Teams
 
-- Archived teams remain visible to everyone.
+- Archived teams remain visible within the viewer's permitted team scope.
 - They appear with an `Archived` marker and disabled join/request behavior.
 - Existing members can still open them in read-only mode and inspect board/history.
 - Team-admin membership actions are disabled while archived.
@@ -140,69 +137,15 @@ Secrets use masked placeholder behavior:
 
 ## SMTP Operating Modes
 
-The platform must support two valid operational modes.
-
 ### Mode 1: Customer SMTP enabled
 
-Use this when the customer is willing to provide an SMTP relay or mail service.
-
-Typical sources:
-
-- internal/company SMTP relay
-- Microsoft 365 SMTP
-- Google Workspace SMTP
-- other SMTP-capable providers such as Zoho Mail, Amazon SES SMTP, SendGrid SMTP, Mailgun SMTP, SMTP2GO
-
-Practical operator checklist:
-
-- collect SMTP host
-- collect port
-- confirm whether STARTTLS/TLS is required
-- collect username/password or service-account credentials
-- set a valid from-address owned by the customer
-- verify the first live test against an internal mailbox before relying on invite/reset delivery
-
-Current alpha validation:
-
-- SMTP-backed account delivery has been smoke-tested through a real transactional mail provider, including external Gmail inbox checks.
-- Disallowed-domain requests remained blocked as expected.
-- Repeat a small SMTP smoke test after any SMTP provider, sender, DNS, or credential change.
-
-Common provider notes:
-
-- Internal/company relay:
-  - usually the easiest enterprise deployment path
-  - best when the customer wants no extra vendor approval
-- Microsoft 365 SMTP:
-  - common when the customer already runs M365 mail
-  - confirm authenticated SMTP/service-account policy with the mail administrator
-- Google Workspace SMTP:
-  - common when the customer already runs Google Workspace mail
-  - confirm app-password or relay policy with the mail administrator
-- Third-party SMTP services:
-  - useful when the customer prefers a dedicated app-mail channel
-  - common choices include Amazon SES SMTP, SendGrid SMTP, Mailgun SMTP, SMTP2GO, and Zoho Mail SMTP
+Configure host, port, credentials and from-address in **Platform → SMTP**, using the mail administrator's approved relay settings. Check TLS/relay requirements with that administrator. Send an invitation/reset to a controlled mailbox before relying on delivery; repeat after provider, sender or credential changes. Prior alpha SMTP testing does not verify a new customer's mail service.
 
 ### Mode 2: SMTP intentionally not used
 
-Use this when the customer wants the product to work without mail integration.
+Ordinary self-hosted deployments remain usable without SMTP. Team admins can invite allowlisted users; platform admins can admit requests when access requests are enabled. Generated initial passwords are shown for manual delivery. Password recovery generates a replacement through **Platform → People** or **Team admin → People**. Team-admin resets are disabled while the target is live on that board.
 
-Current supported behavior:
-
-- team-admins can add/invite an allowlisted user without SMTP
-- end users without credentials can use `Request access` when enabled so the super-admin can admit the account later
-- set `[auth].access_requests_enabled = false` in ignored `config/deployment.local.toml` and restart to hide Request access and reject new requests (default true); existing pending requests remain, and trial signup/invitations are unaffected
-- the app generates an initial password automatically
-- the generated password is shown once to the team-admin for manual delivery
-- the UI reminds the admin to save that password somewhere secure before closing
-- existing-user replacement password generation is available to the super-admin from `Platform -> People`, and to team-admins for other current-team members from `Team admin -> People`
-- team-admin replacement password generation is intentionally disabled for people currently live on that team's board; wait until the user leaves the board, or use an agreed operational recovery path
-- super-admin replacement passwords appear in the Platform People reveal overlay, while team-admin replacement passwords appear inline under the specific member row; in both cases the replacement password is shown once and must be delivered manually
-
-Operational expectation:
-
-- the admin is responsible for delivering those credentials through a secure outside channel such as Slack, Teams, corporate email, ticketing system, or phone
-- the admin should keep the revealed credential only as long as needed to deliver it securely and should follow the on-screen reminder to save it somewhere secure before closing
+The login page directs users to an admin for recovery when delivery is unavailable. Copy each displayed password before closing, deliver it privately and retain it only as needed. Disabling `[auth].access_requests_enabled` removes Request access and rejects new submissions; existing requests and invitations are independent. New hosted-trial users still require SMTP.
 
 ## Current Admin Surfaces
 
@@ -213,7 +156,6 @@ Operational expectation:
 - The notification bell now separates live pending actions from a paginated action history.
 - Super-admin action history is platform-wide across all teams.
 - Team-admin action history is limited to actions relevant to the current team.
-- Automated packaged verification uses isolated test data, so repeated e2e/simulator runs should no longer leave old test teams in the normal local stack.
 - `Platform -> Super-admin` now also exposes whole-database SQLite snapshot export/import for maintenance and recovery use.
 - Team member management now supports JSON team-history export/import, with comments included by default and imported comments preserved as immutable historical records.
 
@@ -253,6 +195,10 @@ Operational expectations:
 - the sample deployment TOML includes example Jira fields so operators know what to fill in
 - disconnecting Jira removes the active platform-wide Jira Cloud binding and stops team imports until reconnected
 
+Team admins then use **Team admin → Import/export** to save a project key/optional JQL and import issues. Refresh deduplicates pending items; loading keeps the item queued until the round is revealed. No Jira write-back is implemented. See [team Jira workflow](TEAM_ADMIN_GUIDE.md#jira-cloud-team-workflow).
+
+Protocol references: [Atlassian OAuth 3LO](https://developer.atlassian.com/cloud/oauth/getting-started/implementing-oauth-3lo/), [app setup](https://developer.atlassian.com/cloud/oauth/getting-started/enabling-oauth-3lo/), [Jira issue search](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/).
+
 ## Personal Sign-In Destination And Live People
 
 Account settings includes **Open my last team automatically after sign-in**, enabled by default. Normal users can turn it off to start in the team chooser; deliberate accessible team links take priority. The dedicated super-admin sign-in keeps its existing chooser-first default. This is an account preference in both deployment modes, not an operator setting or permission change.
@@ -276,62 +222,9 @@ After deleting an account, verify `./deploy.sh health`, `./deploy.sh public-heal
 - If the simulator sidecar stops heartbeating, those seeded sim rooms disappear from the normal chooser instead of lingering as broken stale teams.
 - When the sidecar comes back and resumes heartbeating, the same sim rooms reappear without a manual database reset.
 
-Team-level Jira workflow after global connection:
-
-- open a team's `People` modal
-- save the Jira project key
-- optionally save a JQL filter
-- use `Import / refresh issues`
-- confirm the pending queue shows both issue key and issue title
-- load an issue into the board only when the team is ready to estimate it
-
-Behavioral rules:
-
-- importing Jira issues is additive and deduplicated
-- refresh updates existing pending Jira items instead of duplicating them
-- loading a Jira issue into the board does not remove it from the queue immediately
-- the pending Jira issue is removed only when the round created from it is fully revealed
-- later write-back into Jira is not part of the current phase
-
-Official Atlassian references:
-
-- OAuth 3LO implementation guide:
-  - https://developer.atlassian.com/cloud/oauth/getting-started/implementing-oauth-3lo/
-- Enabling OAuth 3LO in the Atlassian developer console:
-  - https://developer.atlassian.com/cloud/oauth/getting-started/enabling-oauth-3lo/
-- Jira Cloud 3LO overview and security expectations:
-  - https://developer.atlassian.com/cloud/jira/platform/three-legged-oauth/
-- Jira issue search REST APIs:
-  - https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/
-
-Important verification note:
-
-- Atlassian provides the protocol and API documentation for this integration, but does not publish a ready-made automated test checklist for an app like this one.
-- The project therefore verifies the Jira Cloud integration by testing the documented behaviors directly:
-  - OAuth start/callback and code exchange shape
-  - accessible-site selection
-  - connect/disconnect behavior
-  - team Jira source settings
-  - Jira issue search/import
-  - pending queue behavior
-  - preserving both issue key and issue title in the queue and board
-
 ## Manual Credential Delivery
 
-Current production-safe rule:
-
-- if SMTP is not configured, the product must still remain usable
-- onboarding should not be blocked by missing mail infrastructure
-- whenever the UI shows a generated password, the admin should copy it immediately into the customer’s approved secure communication/workflow
-
-Current manual-delivery cases:
-
-- onboarding a brand-new user when SMTP is not configured
-- resetting an existing team member password when SMTP is not configured
-
-Operational note:
-
-- the login screen now tells end users to contact a team-admin or the super-admin for password reset when SMTP-based reset delivery is unavailable
+See [SMTP operating modes](#smtp-operating-modes). The same secure manual-delivery procedure applies to new-user invitations and password resets; do not copy credentials into issue reports or public logs.
 
 ## Demo Mode
 
@@ -344,55 +237,21 @@ Operational note:
 
 ## After-Change Verification Discipline
 
-After any visible configuration or branding change, check:
+After changes, verify the relevant flow:
 
-- the browser UI still loads correctly
-- the browser console has no unexpected errors
-- the login screen still renders correctly
-- the chooser still renders correctly
-- the board still opens correctly
-- the branding looks correct in both login and board contexts
+| Change | Check |
+| --- | --- |
+| Configuration/branding | Save, reload login/chooser/board, inspect appearance and unexpected console errors. |
+| SMTP | Admit/invite/reset a controlled account; verify actual delivery or the intended manual fallback. |
+| Demo | Hidden when off; visible only to super-admin when on; wait for save completion. |
+| Jira | Correct site; save team source in Import/export; refresh a safe query, load an issue, reveal and confirm queue removal. |
+| Database restore | Reauthenticate; check users, teams and history; verify external configuration separately. |
 
-After SMTP-related changes, also verify:
-
-- the settings save correctly
-- a safe test delivery path behaves as expected
-- platform admission delivers a working generated password when SMTP is configured
-- if SMTP is intentionally disabled, manual-share onboarding still works
-- if SMTP is intentionally disabled, manual-share reset for an existing user still works
-- if SMTP is enabled, a test password-reset or invite reaches the intended mailbox
-
-After demo-mode changes, also verify:
-
-- demo teams are hidden when disabled
-- demo teams appear only for the super-admin when enabled
-
-After Jira Cloud changes, also verify:
-
-- the Jira connection status shows the intended site name/url
-- the team `People` modal accepts the project key and optional JQL
-- `Import / refresh issues` succeeds for a known-safe project/query
-- the pending queue shows both Jira issue key and title
-- loading a pending Jira issue places both key and title into the round title
-- revealing that Jira-backed round removes only the completed pending issue from the queue
-- if a broader regression sweep is needed, rerun the repo's packaged browser and backend integration lanes because those are the project's substitute for a non-existent Atlassian-provided integration checklist
+For source changes, use [development verification](DEVELOPMENT.md#choosing-verification); routine operator changes do not require every simulator suite.
 
 ## Local SMTP Verification Options
 
-The automated project test lane now verifies SMTP-capable behavior through mocked nodemailer transport, so CI/local automation does not require a real mail server.
-
-For manual operator verification, recommended local capture tools are:
-
-- Mailpit
-- MailHog
-
-Suggested local verification flow:
-
-1. point the deployment SMTP host/port to the local Mailpit or MailHog instance
-2. save the SMTP settings from `Platform`
-3. trigger a safe password-reset or invite test
-4. confirm the message appears in the local capture UI
-5. disable or replace the local capture settings before real deployment handoff
+Automated tests mock mail transport; they do not establish delivery through your provider. For local capture, use a test SMTP inbox such as Mailpit/MailHog, point the app to it and inspect invite/reset messages. Replace the test settings before production handoff. Never use real user credentials in captures.
 
 ## Team Permalink Behavior
 
@@ -431,69 +290,23 @@ Legacy demo-account duplicates can be removed with the dry-run-first `cleanup-le
 
 ## Hosted-trial collaboration and limits
 
-The hosted demo supports two public-trial workspace memberships per normal user.
-Existing users can be invited to a second workspace; a third invitation explains
-how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
-all teams in that workspace while retaining their account and saved shared history.
-Owners cannot leave: Account settings explains account deletion and permanent purge
-of all their owned trial workspaces. The existing signup flow does not create
-additional owned workspaces for accounts already in a trial workspace.
+See the [hosted-workspace rules](TEAM_ADMIN_GUIDE.md#hosted-trial-collaboration-and-limits) for the two-workspace membership limit, two-team/ten-user defaults and shared 80-reveal UTC monthly allowance. Team removal does not release a workspace slot; owner deletion is destructive.
 
-Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
-calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
-separately. Invitations and workspace membership changes do not reset it. At the cap,
-new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
+Use `./deploy.sh config:edit` for `[public_trial].max_revealed_rounds_per_workspace_per_month` and `[app].base_url`; [restart and verify](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#updating-hosted-trial-collaboration-policy). Enabled hosted-trial deployments migrate the legacy 40-round allowance to 80 without resetting usage; other custom limits and disabled-trial configurations are preserved.
 
-Removing a team member revokes their board socket and returns their browser to the
-team chooser. Adding an already registered user does not require SMTP; inviting a
-new trial user still requires email delivery. Workspace member capacity still applies.
+Workspace names default to the owner's display name. Legacy `My First Workspace` names migrate once; custom/non-trial names are preserved. Owner-only rename accepts 1–80 characters. IDs, not names, identify workspaces; renaming does not reset quota or grant access. Platform/team admin rights do not grant another owner's rename endpoint permission.
 
-OpaVoting is free, open-source software designed for efficient realtime workloads,
-with recorded simulated-load coverage of 400 concurrent users across multiple teams.
-The personally funded hosted demo is limited to keep its small server available.
-Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
-Source, deployment documentation and the GitHub star link are shown in the trial UI.
-
-For deployed settings, use `./deploy.sh config:edit` from the app directory. The monthly allowance is `[public_trial].max_revealed_rounds_per_workspace_per_month`; the public origin for email/canonical/sitemap URLs is `[app].base_url`. See the [deployment settings procedure](FIRST_VPS_DEPLOYMENT_RUNBOOK.md#updating-hosted-trial-collaboration-policy) for restart and verification steps.
-
-
-Hosted-trial workspace names now default to the owner's display name. On upgrade,
-legacy `My First Workspace` trial names migrate once; custom names and non-trial
-workspaces are preserved. Owners rename from Account → Workspaces using 1–80 characters.
-This is owner-only: platform/team administration does not grant permission through
-that endpoint to rename another owner's workspace. Names are not unique identifiers
-and renaming does not reset usage or alter access. Use the workspace ID in operator
-reports to distinguish identically named workspaces.
-
-
-A sole team admin cannot leave their team. Your implicit super-admin membership does not count as a replacement. The team admin can archive the team, or another ordinary team admin can be assigned before departure. This restriction is enforced by the leave API as well as the chooser and board controls.
-
+For fresh company hosting, leave trial mode disabled. Disabling it does not convert existing trial workspace records. See [self-hosting policy](USAGE.md#hosted-demo-versus-self-hosting).
 
 ## Privacy and backup retention
 
-The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
-Owner account deletion purges owned trial workspaces from the live database;
-archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
-attribution. Downloaded exports and operational records require separate handling.
-Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
-copies, and expire after 21 days while enabled/running; restart checks missed work.
-Deployment archives are separately capped at three after successful creation and
-have operator-managed age expiry. There is no external scheduler or daily job.
-The public notice reflects configured backup values and `[privacy]` contact/provider
-details. No-sale/no-advertising and restricted-access promises do not mean “no
-providers process data”. Manual privacy requests and actual operator practices
-remain necessary; no blanket GDPR/California/US compliance claim is made.
+Use the [privacy and backup guide](PRIVACY_AND_BACKUPS.md) for deletion scope, operator requests and restore procedures. Owner deletion purges owned trial workspaces; shared history, exports and backups have separate boundaries. Archiving is not erasure.
 
-For company installations, see [hosted demo versus self-hosting](USAGE.md#hosted-demo-versus-self-hosting).
-Trial quotas and the demo's chosen backup/privacy settings are optional deployment
-policy, not restrictions on the FOSS app. A new ordinary deployment uses disabled
-trial mode; changing that flag does not migrate existing trial workspace records.
+Opt-in database snapshots default to weekly, three copies and 21-day expiry while enabled/running. Deployment archives are separate, retaining three after successful creation with operator-managed age handling. Publish accurate operator/contact/provider details for hosted signup. These controls do not establish legal certification.
 
 ## Platform Statistics
 
-Use **Platform → Stats** for installation-wide usage, workspace filtering and team breakdowns. The menu is renamed from Platform settings; existing configuration tabs remain. Stats is read-only and Save settings is disabled on that tab. JSON export uses the displayed aggregate snapshot and selected scope. No public endpoint exposes usage totals.
+Use **Platform → Stats** for installation-wide usage, workspace filtering and team breakdowns. Stats is read-only and Save settings is disabled on that tab. JSON export uses the displayed aggregate snapshot and selected scope. No public endpoint exposes usage totals.
 
 See [Platform statistics and every count](STATISTICS_GUIDE.md#platform-admin), including the difference between rolling reports and permanent totals.
 

@@ -5,13 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Open Source Release Checklist
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [1. Sanitize](#1-sanitize)
+- [2. Package](#2-package)
+- [3. Document](#3-document)
+- [4. Verify](#4-verify)
+- [5. Defer Explicitly](#5-defer-explicitly)
+
+</details>
+
 Status: Reusable release-readiness checklist
 
 Use this as the compact execution checklist for an open-source release pass.
 
 ## 1. Sanitize
 
-- Search for private/proprietary references recorded in the Phase 19 questionnaire, including employer/customer names, private domains, and old private issue-key examples.
+- Search for private/proprietary references, including employer/customer names, private domains, and old private issue-key examples.
 - Replace public examples with generic values such as `ISSUE-12345`, `vote.example.com`, and `example-company.com`.
 - Inspect logs, generated files, screenshots, SQLite files, simulator outputs, and local deployment artifacts.
 - Keep local research/checkout folders untracked unless explicitly adopted.
@@ -37,7 +50,7 @@ Use this as the compact execution checklist for an open-source release pass.
 - Make the README discoverable for both major search intents: open-source/self-hosted realtime voting tool and Scrum planning poker/agile estimation tool.
 - Keep SEO wording people-first and accurate; do not keyword-stuff or promise features that do not exist.
 - Link deployment, usage, architecture, benchmark, security, contribution, and roadmap docs.
-- Document `./deploy.sh up` as the recommended self-host command.
+- Document credential/domain setup before `./deploy.sh up`; link the AI deployment guide and its actual verification scope.
 - Document Podman as the default runtime and Docker only as a possible adaptation.
 - Document HTTPS-only expectations for public deployments.
 - Document both no-SMTP/manual-share and SMTP onboarding modes.
@@ -58,8 +71,8 @@ Use this as the compact execution checklist for an open-source release pass.
 
 ## 5. Defer Explicitly
 
-- Public demo/test server access belongs to the future public-test-server workstream.
-- Screenshots/GIFs are deferred to Phase 19.1/20 until demo data/media rules and launch branding are ready.
+- The hosted demo is live; verify its entry links and deployment-specific notices before promotion.
+- Screenshots and lightweight workflow animations remain a separate media task; use synthetic data, accessible static alternatives and accurate captions.
 - Repo/package renaming needs a dedicated technical pass.
 - Backup/restore has been smoke-tested with `./deploy.sh backup`, `./deploy.sh backup:list`, and `./deploy.sh restore <file>`; re-run the rehearsal before a release if backup behavior changes.
 - The first public tag is `v0.1.0`; future release tags should follow the documented versioning policy.

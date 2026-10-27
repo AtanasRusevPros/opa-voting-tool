@@ -2,6 +2,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # Responsive UI verification
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Run](#run)
+- [Viewport matrix](#viewport-matrix)
+- [Layout rules](#layout-rules)
+- [Mobile functional and performance coverage](#mobile-functional-and-performance-coverage)
+- [Device acceptance](#device-acceptance)
+- [Additional regression checkpoint — 2026-10-20](#additional-regression-checkpoint--2026-10-20)
+- [Workspace identity coverage](#workspace-identity-coverage)
+
+</details>
+
 Use this opt-in suite when changing UI, CSS, dialogs or pointer interactions. It is separate from regular browser tests, `test:full` and simulator suites.
 
 ## Run
@@ -45,6 +60,8 @@ The dense-board cases use one rendered touch browser and 19/39 authenticated API
 The keyboard test reduces the viewport while editing; headless Chromium does not provide a real Android/iOS software keyboard. Console/page errors, menu geometry and screenshots complement functional checks. Desktop/tablet cases remain in the same opt-in suite to catch regressions.
 
 ## Device acceptance
+
+**2026-10-27 owner acceptance:** the owner tested mobile and accepted the current solution as good enough for now. This closes the current mobile milestone; it does not claim separate physical iOS/WebKit testing. Dated checkpoints below retain their original verification scope.
 
 Emulation is not a physical phone. On the Galaxy S23 Ultra, check portrait/landscape, browser bars expanded/collapsed, keyboard open, enlarged text, menu scrolling, continuous history dragging and header refresh. On iOS, repeat with the actual browser. Record device findings separately from local test passes. See [Playwright emulation](https://playwright.dev/docs/emulation) and [pointer gesture handling](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action).
 

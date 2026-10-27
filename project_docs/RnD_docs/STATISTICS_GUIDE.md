@@ -5,6 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Statistics guide
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Team admin](#team-admin)
+- [Workspace owner](#workspace-owner)
+- [Platform admin](#platform-admin)
+- [Count definitions](#count-definitions)
+- [Exports and retention](#exports-and-retention)
+- [People And Operator Reports](#people-and-operator-reports)
+
+</details>
+
 [Team](#team-admin) · [Workspace](#workspace-owner) · [Platform](#platform-admin) · [Count definitions](#count-definitions) · [Exports and retention](#exports-and-retention)
 
 ## Team admin

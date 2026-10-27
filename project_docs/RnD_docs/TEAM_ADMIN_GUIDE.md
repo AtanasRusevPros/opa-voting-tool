@@ -5,12 +5,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Team-Admin Guide
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
+<details>
+<summary>Contents</summary>
+
+- [Purpose](#purpose)
+- [What A Team-Admin Can Do](#what-a-team-admin-can-do)
+- [Live People Status](#live-people-status)
+- [What A Team-Admin Cannot Do](#what-a-team-admin-cannot-do)
+- [Team Member Management](#team-member-management)
+- [Archived Teams](#archived-teams)
+- [Minimum Participation Rule](#minimum-participation-rule)
+- [Team Default Time Popup](#team-default-time-popup)
+- [SMTP And Manual Credential Sharing](#smtp-and-manual-credential-sharing)
+- [Team History Export And Import](#team-history-export-and-import)
+- [Jira Cloud Team Workflow](#jira-cloud-team-workflow)
+- [Imported Historical Comments](#imported-historical-comments)
+- [Team Permalinks](#team-permalinks)
+- [Good Operating Checklist](#good-operating-checklist)
+- [Escalate To The Super-Admin When](#escalate-to-the-super-admin-when)
+- [Hosted-trial collaboration and limits](#hosted-trial-collaboration-and-limits)
+- [Helping users sign in](#helping-users-sign-in)
+- [Privacy and backup retention](#privacy-and-backup-retention)
+- [Team Statistics](#team-statistics)
+- [Edit An Issue Title](#edit-an-issue-title)
+- [Phone and touch use](#phone-and-touch-use)
+- [Workspace identity on a team](#workspace-identity-on-a-team)
+
+</details>
+
 Status: Public operator guide
-Updated: 2026-04-26 00:30 EEST
+Reviewed: 2026-10-27
 
 ## Purpose
 
-This guide describes what a team-admin can do inside a team, what is intentionally outside team-admin scope, and how team-scoped user, history, and Jira workflows should be operated safely.
+Manage your team from **Team admin**, available on its board and chooser card. The panel has **People**, **Stats** and **Import/export** tabs. The title pencil opens team rename. Use the board settings pencil for voting/time-popup settings. On phones, open board controls first. Platform-wide settings belong to the [super-admin](SUPER_ADMIN_GUIDE.md).
 
 ## What A Team-Admin Can Do
 
@@ -51,35 +81,17 @@ Each person can use **Account settings → Open my last team automatically after
 
 ## Team Member Management
 
-Open the team `People` modal from the board or chooser.
+Open **Team admin → People** from the board or chooser.
 
-Admin-capable entry buttons now say `Team admin`, but the modal and supporting text stay descriptive rather than renaming every people-related surface.
+| Action | Behavior |
+| --- | --- |
+| Add to team | Enter a complete email to add/re-add an eligible user directly. For a name or partial email, type at least two characters and select a suggestion. Selection is optional for an exact email. New-user invitations follow the SMTP/manual rules below. |
+| Reset password | Available for other current-team members, including peer team admins. Disabled while that person is live on the board. Without SMTP, copy the replacement password shown once below their row and deliver it securely. |
+| Admit / Deny | Resolve a pending join request for this team. |
+| Promote | Give a regular member team-admin rights. Only the super-admin can demote an admin. |
+| Remove | Revoke a regular member's team access; an open board immediately returns to the chooser. Their platform account and history elsewhere are not deleted. |
 
-Current actions:
-
-- `Add to team`
-  - use the existing-user lookup first by typing at least `2` characters
-  - matching existing platform users are shown as explicit candidates and the add action stays disabled until one is chosen
-  - if the user already exists and is selected, they are added to the team
-  - if the user is new and SMTP is not configured, a one-time generated password is revealed for manual sharing
-  - if SMTP is configured, the same password can also be delivered by email
-  - the dedicated super-admin account is intentionally excluded from these candidate/member surfaces
-- `Reset password`
-  - available only for other users who already belong to the current team
-  - team-admins may reset peer team-admins in the same team, but not themselves
-  - disabled for members who are currently live on the board, so an active participant is not surprised by a password change during a session
-  - if SMTP is not configured, the replacement password is revealed once for manual sharing directly under that member's row
-- `Admit` / `Deny`
-  - for pending join requests to this team only
-- `Promote`
-  - makes a regular member a team-admin
-- `Remove`
-  - removes that member from the team
-  - does not delete the person's platform account or their history elsewhere
-
-Important limitation:
-
-- a team-admin cannot demote another team-admin; that remains super-admin-only
+The configured super-admin is hidden from ordinary member/search lists. A sole ordinary team admin cannot leave: archive the team or assign another team admin first. The platform super-admin's implicit membership does not count as a replacement. Leaving a team does not release a hosted-workspace membership slot.
 
 ## Archived Teams
 
@@ -92,7 +104,7 @@ Important limitation:
 - The team settings pencil menu now includes `Minimum participation`.
 - The rule is off by default.
 - When enabled, the team-admin sets an integer threshold percent such as `75`.
-- Reveal still computes the real average from numeric votes, but if the threshold is not met, the board and history show a gated result with voted vs not-voted counts instead of exposing the final average.
+- If the threshold is not met, the round remains active and shows voted/not-voted counts; no new history entry or final average is published until the threshold is satisfied.
 - The threshold denominator is the set of people currently live on the board at reveal/re-evaluation time. Someone who leaves mid-vote stops counting against the threshold, and someone who reconnects or joins before reveal counts again.
 - If a blocked round later satisfies the threshold because more active participants vote, presence changes, or the team-admin lowers the threshold, the server reveals the existing round without writing an earlier blocked history entry.
 
@@ -108,31 +120,13 @@ Important limitation:
 
 ## SMTP And Manual Credential Sharing
 
-Normal self-hosted teams support both SMTP delivery and manual-share fallback.
+For ordinary self-hosted teams, SMTP is optional. With SMTP configured, invitations/resets use email; verify the recipient and repeat a small delivery check after mail settings change. Without SMTP, copy the one-time displayed generated password before closing, deliver it through your approved secure channel, and ask the user to change it in **Account settings**.
 
-### If SMTP is configured
-
-- the app can send invitation/reset mail through the configured SMTP service
-- the team-admin should still verify the right email was used before sending
-- SMTP-backed account delivery has been smoke-tested through a real transactional mail provider
-- repeat a small invite/reset smoke test after changing SMTP provider, sender, DNS, or credentials
-
-### If SMTP is not configured
-
-- the app still supports onboarding into the team
-- the generated initial password is shown once to the team-admin
-- the UI reminds the team-admin to save it somewhere secure before closing
-- the team-admin must deliver that password through the approved company channel
-
-Recommended practice:
-
-- copy the generated password immediately
-- send it through the customer's approved secure channel
-- tell the user to save it somewhere secure and change it later from `Account settings`
+Existing users can join another team using their current credentials. New hosted-trial users require email delivery; the manual fallback is for ordinary self-hosted onboarding.
 
 ## Team History Export And Import
 
-The team `People` modal now includes `History import and export`.
+Open **Team admin → Import/export → History import and export**.
 
 ### Export
 
@@ -171,17 +165,7 @@ Important behavior:
 - the Jira-backed queue item is removed only when that round is fully revealed
 - importing again updates existing queue items instead of duplicating the same Jira issue
 
-Official references and expectations:
-
-- Jira Cloud setup and OAuth are documented by Atlassian, but controlled by the super-admin rather than the team-admin:
-  - OAuth 3LO implementation:
-    - https://developer.atlassian.com/cloud/oauth/getting-started/implementing-oauth-3lo/
-  - Jira Cloud 3LO overview:
-    - https://developer.atlassian.com/cloud/jira/platform/three-legged-oauth/
-  - Jira issue search API:
-    - https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/
-- Atlassian does not publish a team-admin-specific test checklist for this workflow.
-- In this product, the expected behavior is protected instead by the app's own automated tests covering queue visibility, issue key/title rendering, and `Load for voting`.
+The super-admin must first connect Jira Cloud; see [platform Jira setup](SUPER_ADMIN_GUIDE.md#jira-cloud-setup-and-operations). This integration imports issues read-only; voting and local title corrections do not write back to Jira.
 
 ## Imported Historical Comments
 
@@ -249,31 +233,7 @@ and 80 revealed rounds shared by all its teams per UTC calendar month. Invitatio
 do not reset usage. These allowances do not apply to ordinary self-hosted workspaces.
 
 
-
-The hosted demo supports two public-trial workspace memberships per normal user.
-Existing users can be invited to a second workspace; a third invitation explains
-how to free a slot. Team removal or leaving a team does not remove workspace
-membership. Collaborators can use **Leave workspace** in **Account → Workspaces** to leave
-all teams in that workspace while retaining their account and saved shared history.
-Owners cannot leave: Account settings explains account deletion and permanent purge
-of all their owned trial workspaces. The existing signup flow does not create
-additional owned workspaces for accounts already in a trial workspace.
-
-Defaults are two teams, ten users and **80 revealed rounds per workspace per UTC
-calendar month**. All teams share that allowance; repeat Vote AGAIN reveals count
-separately. Invitations and workspace membership changes do not reset it. At the cap,
-new rounds, votes, and reveals are blocked with an explanatory message; history stays
-available. Team cards show compact workspace identity, role and usage. Account → Workspaces contains joined-team details and the reset date. Enabled hosted-trial deployments upgrade the legacy 40-round allowance to 80 on startup and persist it. Other custom limits and disabled-trial deployments remain unchanged.
-
-Removing a team member revokes their board socket and returns their browser to the
-team chooser. Adding an already registered user does not require SMTP; inviting a
-new trial user still requires email delivery. Workspace member capacity still applies.
-
-OpaVoting is free, open-source software designed for efficient realtime workloads,
-with recorded simulated-load coverage of 400 concurrent users across multiple teams.
-The personally funded hosted demo is limited to keep its small server available.
-Self-hosting removes hosted-demo quotas; practical capacity depends on your server.
-Source, deployment documentation and the GitHub star link are shown in the trial UI.
+Re-vote reveals consume another round. At the cap, new rounds/votes/reveals are blocked with an explanation; history remains available. Account → Workspaces shows joined teams and the reset date. Workspace capacity still applies when adding existing users. The signup flow does not create another owned workspace for an account already in a trial workspace.
 
 Hosted-trial workspaces start with the owner's display name, for example **John Doe's Workspace**. The owner can choose **Rename workspace** in **Account → Workspaces**, enter a trimmed name of 1–80 characters, and Save or Cancel. Collaborators and team admins cannot rename another person's workspace. Names need not be unique; workspace IDs, memberships, history and monthly usage do not change. Later profile-name changes do not automatically rename the workspace. This management UI is available only in hosted-trial mode.
 
@@ -284,25 +244,9 @@ If adding someone would exceed their two-workspace allowance, the invitation for
 Normal team members and team admins use `/`. Enter a valid-looking email to enable Forgot password or, when offered, Start free public trial. Request access is optional per installation; if it is absent, contact an administrator for admission or use the available trial signup. Platform super-admins use the separate `/admin` address with their configured admin credentials.
 
 
-Team membership safeguards: a team's only team admin cannot leave, even if the platform super-admin also has access. Archive the team from **Team admin**, or arrange for another team admin before leaving. The chooser and board explain this restriction, and the server enforces it. With another team admin remaining, leaving works normally. Team departure does not release a trial workspace slot.
-
-In **Team admin**, enter a complete email to add or re-add an eligible existing user directly; selecting a search suggestion is optional. Name-only searches require selecting a result. Normal invitation permissions and workspace limits still apply. The rename pencil uses the same icon and button styling as the board.
-
-
 ## Privacy and backup retention
 
-The [privacy and backup guide](PRIVACY_AND_BACKUPS.md) defines the current policy.
-Owner account deletion purges owned trial workspaces from the live database;
-archiving is not erasure. Shared history elsewhere keeps identifiable deactivated
-attribution. Downloaded exports and operational records require separate handling.
-Opt-in in-app snapshots run weekly (168 hours), retain at most three completed
-copies, and expire after 21 days while enabled/running; restart checks missed work.
-Deployment archives are separately capped at three after successful creation and
-have operator-managed age expiry. There is no external scheduler or daily job.
-The public notice reflects configured backup values and `[privacy]` contact/provider
-details. No-sale/no-advertising and restricted-access promises do not mean “no
-providers process data”. Manual privacy requests and actual operator practices
-remain necessary; no blanket GDPR/California/US compliance claim is made.
+Account deletion and team removal are different. Deleting an owner account purges its owned trial workspaces; archiving does not erase data. Shared history elsewhere can retain identifiable deactivated attribution, and backups/downloaded exports have separate handling. Review the confirmation preview and [privacy and backup guide](PRIVACY_AND_BACKUPS.md) before destructive actions.
 
 ## Team Statistics
 
@@ -311,7 +255,7 @@ Open **Team Admin → Stats**, between People and Import/export, for your team's
 Counts start with statistics collection, exclude synthetic/demo and super-admin activity, and have no automatic expiry in either deployment mode. The selected reporting period only filters the view; explicit account/team/workspace deletion still applies. See [definitions, coverage and deletion behavior](USAGE.md#usage-statistics). Workspace owners have **Account → Workspaces → Workspace stats** for their own workspace. Platform reports remain super-admin-only. See the [count glossary](STATISTICS_GUIDE.md#count-definitions) and [workspace owner guide](STATISTICS_GUIDE.md#workspace-owner).
 
 
-### Edit An Issue Title
+## Edit An Issue Title
 
 Team admins (and the platform super-admin) can click the current board title or a saved title in **Issues List → History/Search** to correct it. A small transparent pencil appears on hover or keyboard focus. The editor keeps the displayed title's outer size; longer text scrolls inside it without extending beyond the rounded edges. Press **Enter** or click outside to save; **Escape** cancels. Titles are trimmed and must contain 1–255 characters. The member who started the current round can also edit its board title, including after reveal and when starting a re-vote. Other ordinary members cannot edit it; saved History/Search titles remain admin-only. The server records the proposer, preserves it through timer restarts/reload, and clears the link on account deletion. Legacy rounds without a recorded proposer remain admin-editable. Archived teams and former members remain read-only.
 
@@ -330,6 +274,6 @@ On desktop and tablet, the small circular arrow at the history edge hides or res
 Phone board controls open as a compact panel; the X at its top right closes it. Submenus have a distinct border and lightly blur the controls behind them. Thin blue borders identify enabled actions; neutral status chips such as the board timer are informational. A disabled timer-settings control is unavailable to regular members.
 
 
-### Workspace identity on a team
+## Workspace identity on a team
 
 In hosted workspaces, the board and Team Admin/People show **Workspace: name** beneath the team title. On phones it appears inside board controls, keeping the compact header clear. Long names are shortened on one line; hover to read the tooltip, or tap/click the line (Enter on a keyboard) to expand the full name. Workspace renames update connected boards and open People panels. Ordinary self-hosted teams omit this label; workspace renaming stays in **Account → Workspaces**.

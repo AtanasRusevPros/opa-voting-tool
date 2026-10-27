@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Deploy OpaVoting With An AI Assistant
 
+[Documentation index](project_docs/README.md) · [Project home](README.md)
+
 Use this guide to deploy the complete self-hosted app for your company, without the hosted demo's quotas. A coding/operations agent with terminal access can perform the setup and checks. A chat-only assistant can explain the steps but needs connected execution tools to run them.
 
 Give your assistant this prompt (replace the target):

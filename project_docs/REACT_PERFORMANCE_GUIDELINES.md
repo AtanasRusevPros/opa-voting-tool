@@ -7,13 +7,15 @@ Created: 2026-04-02 10:20 EEST
 
 # React Performance Guidelines
 
-Dedicated React/frontend performance guide for future agents adding or extending web modules in Kids Games Platform.
+React/frontend guidance for OpaVoting: preserve responsive voting, history and administration without adding unnecessary layout or state machinery.
+
+[Documentation index](README.md) · [Architecture](RnD_docs/ARCHITECTURE.md) · [Responsive matrix](RnD_docs/RESPONSIVE_TESTING.md)
 
 Use this document when:
 1. adding a new browser route or module
 2. changing an existing React interaction flow
 3. reviewing a suspected frontend hotspot
-4. doing the upfront or closeout performance review required by `docs/add-game-guide.md`
+4. reviewing a voting/history/admin change against the existing performance and responsive suites
 
 Use it as the default React/web implementation guide for future agents, not only when a task is already known to be performance-heavy.
 
@@ -26,13 +28,13 @@ Use it as the default React/web implementation guide for future agents, not only
 
 ## What agents must review before implementation
 
-For every new React-heavy module or game, identify:
+For each substantial React surface change, identify:
 1. likely hot routes
 2. likely rerender-heavy components
 3. likely hover, tap, motion, canvas, or drag interactions
 4. likely expensive derived values
 5. likely network-driven loading states
-6. whether the route is browser-local or backend-backed
+6. which API/WebSocket state and permissions the surface depends on
 
 ## What agents must review after implementation
 
@@ -105,22 +107,15 @@ Avoid or remove memoization when:
 1. Prefer CSS transforms and opacity for lightweight interactive feedback.
 2. Be careful with JS-driven motion on dense interactive grids or frequently hovered elements.
 3. Use broad `transition-all` only when the UI genuinely needs it.
-4. For browser-local games, canvas or DOM animation paths should avoid unnecessary React rerenders.
+4. For board interactions, keep high-frequency pointer/animation work out of broad React rerender paths.
 5. If motion is decorative rather than functional, it should be the first thing to simplify when a route feels janky.
-
-## Canvas and game-loop rules
-
-1. Keep frame-by-frame simulation and rendering out of normal React state when practical.
-2. Use refs for active run state that must update every frame.
-3. Use React state for route UI and user-facing summaries, not for every animation tick.
-4. If the canvas route is already healthy, avoid speculative rewrites.
 
 ## Data-fetching rules
 
-1. The repo currently uses React Router plus a custom fetch client.
-2. TanStack Query is not a default requirement.
-3. Consider TanStack Query only if measured duplication, invalidation pain, or shared caching needs justify it.
-4. Do not add WebSockets for browser-local games or simple request/response routes without a real-time requirement.
+1. OpaVoting uses its App shell, URL/team selection, a custom API client and scoped WebSocket subscriptions; it does not use React Router.
+2. Preserve authoritative state reconciliation and permission checks. Avoid refetching entire board/history state after every vote when the existing delta path suffices.
+3. Use bounded/coalesced reads for directory and statistics observers; observers must not count toward board presence/quorum.
+4. Add a caching/state library only for a measured need that the current helpers cannot reasonably handle.
 
 ## Global state rules
 
@@ -128,28 +123,16 @@ Avoid or remove memoization when:
 2. Prefer local state, refs, and narrow shared helpers.
 3. Only consider global state expansion when repeated cross-route synchronization becomes a measured problem.
 
-## Route-specific heuristics for this repo
+## Surface-specific checks
 
-### Tic-Tac-Toe style routes
+| Surface | Watch for |
+| --- | --- |
+| Board and participant cards | Vote attribution, optimistic/server reconciliation, unnecessary full-roster rerenders and dense 20/40-person layouts. |
+| History and title editing | Stable IDs, paginated/search results, contained editors, touch capture and tap/hold-drag behavior. |
+| Account, Team Admin and Platform | Form containment, long names, reachable actions, focus return and permissions on every entry path. |
+| Statistics and directories | Coalesced invalidations, stale-response protection, bounded queries and no false board participation. |
 
-Watch for:
-1. hover/tap animation overhead on many small cells
-2. rerenders caused by status panels or parent wrappers
-3. repeated creation of small presentation props or sets
-
-### Snake style routes
-
-Watch for:
-1. repeated state writes during pointer or touch movement
-2. React state being used for frame-by-frame loop updates
-3. unnecessary layout work around the canvas shell
-
-### Flashcards style routes
-
-Watch for:
-1. fetch-driven state churn
-2. excessive rerenders from progress updates
-3. avoidable loading-state complexity
+Use `apps/web/src/app/boardViewport.ts` and the shared responsive test matrix for phone layout decisions. Available visual-viewport geometry is published through CSS variables; do not add a second global resize context without evidence. Preserve desktop/tablet behavior when reorganizing mobile controls.
 
 ## Keep / Fix Now / Defer framework
 
@@ -166,9 +149,11 @@ Use `defer` when:
 ## Required references
 
 Pair this guide with:
-1. `project_docs/RnD_docs/ARCHITECTURE.md`
-2. `project_docs/RnD_docs/USAGE.md`
-3. `project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md`
+1. [Architecture](RnD_docs/ARCHITECTURE.md)
+2. [Usage](RnD_docs/USAGE.md)
+3. [Benchmark evidence](RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md)
 4. Historical benchmark and performance evidence when available
 
 For any future significant frontend optimization pass, keep guidance concise and use measured historical evidence to validate improvements.
+
+Run the nearest web tests/typecheck and the separate responsive suite for UI changes; use frontend performance tests for render-cost changes. Simulator-backed suites share resources and run serially. See [development verification](RnD_docs/DEVELOPMENT.md#choosing-verification).

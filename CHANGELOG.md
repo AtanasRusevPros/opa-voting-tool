@@ -7,11 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 All notable public-facing changes should be summarized here.
 
-This project is still in alpha. The first public alpha tag is `v0.1.0`.
+The current version is `1.0.0`. The first public alpha tag was `v0.1.0`.
 
 Until a fuller release-note process exists, use this changelog together with GitHub releases and repository history for detailed change tracking.
 
 ## Unreleased
+
+## 1.0.0 - 2026-10-28
+
+- Promote the project and all workspace packages to 1.0.0; version commands now report stable status. Existing local configuration, databases and branch-based updates remain unchanged.
+
+- Restructure the README and public guides around roles/tasks, with a documentation index, linked contents and preserved README anchors. Consolidate developer instructions and correct stale onboarding, debug, statistics, participation and deployment guidance without changing application behavior.
 
 - Fix deployment restore cleanup reporting an unbound temporary-directory variable after a successful restore; retain cleanup and nonzero status on failures.
 
@@ -85,7 +91,6 @@ Until a fuller release-note process exists, use this changelog together with Git
 - Added optional, default-disabled public-trial workspaces with SMTP-backed signup, workspace isolation, configurable hosted limits, public policy pages, and operator usage/export reports.
 - Hardened timer/reconnect behavior and repeated large-demo voting counts with new regression coverage.
 - Added deployed backup pruning and portable packaged-stack test fallback behavior.
-- Future public README polish should improve wording, length, section links, and links into sub-documents without turning the README into an overloaded manual.
 
 ## 0.1.0 - 2026-05-24
 

@@ -5,14 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Public Benchmark Summary
 
+[Documentation index](../README.md) · [Project home](../../README.md)
+
 Status: Public alpha benchmark summary
 
-The latest saved capacity validation shows low-latency application-level request handling and realtime broadcast slices under simulated load. Public claims should link to the raw artifacts and avoid overstating the broader scripted end-to-end request latency.
+The latest saved capacity validation shows low-latency application-level request handling and realtime broadcast slices under simulated load. Application processing and broadcast timings are distinct from end-to-end client request latency; the latter includes network and load-generator overhead.
 
 Source artifact:
 
-- `project_docs/RnD_docs/perf_runs/PHASE3_CAPACITY_VALIDATION_LATEST.md`
-- `project_docs/RnD_docs/perf_runs/phase3-capacity-validation.latest.json`
+- [Full capacity report](perf_runs/PHASE3_CAPACITY_VALIDATION_LATEST.md)
+- [Machine-readable results](perf_runs/phase3-capacity-validation.latest.json)
 
 ## Headline
 
