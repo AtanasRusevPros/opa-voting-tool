@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Use the existing OpaVoting login SVG as the browser-tab icon for the app and admin entry, retaining the established artwork and asset filename.
+
 - Include quiet default author, GitHub, documentation and AGPL license credits on self-hosted user/admin sign-in and team selection, separate from company attribution.
 
 - Improve self-hosted sign-in layout with a compact header, aligned primary/recovery/access actions and clear manual-recovery guidance. Keep hosted-demo promotion off self-hosted sign-in/team selection while preserving company branding and About resources; add focused browser coverage.

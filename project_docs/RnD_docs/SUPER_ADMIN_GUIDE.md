@@ -75,6 +75,8 @@ The separate team-admin guide now lives at:
 - Managed branding uploads: [`config/managed-branding`](../../config/managed-branding)
 - Fallback branding assets: [`apps/web/public/branding`](../../apps/web/public/branding)
 
+The browser-tab icon uses the shipped `/branding/login-logo.svg` artwork. Managed login-logo uploads change the sign-in image independently; they do not change this static favicon.
+
 Deployment security note:
 - the current first-server runbook is tested on Ubuntu Server 24.04 LTS
 - the deployment architecture should remain portable to common Linux server distributions, with documented differences for package installation, firewall tooling, service management, and Podman/Compose packaging
