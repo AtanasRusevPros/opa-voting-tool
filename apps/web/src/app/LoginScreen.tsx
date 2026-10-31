@@ -5,7 +5,7 @@ import { HostedTrialNotice } from "./HostedTrialNotice";
 import type { CSSProperties } from "react";
 import { AVATAR_COLOR_KEYS, AVATAR_COLOR_SWATCHES, BRANDING_MANIFEST, type BrandingManifest } from "@planning-poker/shared";
 import type { AuthStep } from "./types";
-import { BrandFooter } from "./shared";
+import { BrandFooter, ProjectCredit } from "./shared";
 import { getAvatarUrl } from "./utils";
 
 export function LoginScreen(props: {
@@ -48,6 +48,8 @@ export function LoginScreen(props: {
   info: string | null;
 }) {
   const branding = props.branding ?? BRANDING_MANIFEST;
+  const trialEnabled = props.trialModeEnabled ?? props.publicTrialOpenSignup;
+  const showTrialWelcome = props.authStep !== "admin" && trialEnabled;
   const canSubmitEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(props.email.trim());
   const canSubmitPassword = props.email.trim().length > 0 && props.password.trim().length >= 8;
   const canSubmitAdmin = props.adminUsername.trim().length >= 2 && props.password.trim().length >= 8;
@@ -59,7 +61,7 @@ export function LoginScreen(props: {
     (!props.isPublicTrialCodeStep || props.trialTermsAccepted);
 
   return (
-    <div className={`login-shell${(props.authStep !== "admin" && (props.trialModeEnabled ?? props.publicTrialOpenSignup)) ? " trial-login-shell" : ""}`}>
+    <div className={`login-shell${showTrialWelcome ? " trial-login-shell" : " compact-login-shell"}`}>
       <div
         className="login-backdrop"
         style={
@@ -70,7 +72,7 @@ export function LoginScreen(props: {
           } as CSSProperties
         }
       />
-      {(props.authStep !== "admin" && (props.trialModeEnabled ?? props.publicTrialOpenSignup)) ? <HostedTrialNotice prominent monthlyLimit={props.trialLimits?.maxRevealedRoundsPerWorkspacePerMonth} /> : null}
+      {showTrialWelcome ? <HostedTrialNotice prominent monthlyLimit={props.trialLimits?.maxRevealedRoundsPerWorkspacePerMonth} /> : null}
       <form
         className="login-panel"
         onSubmit={(event) => {
@@ -109,9 +111,13 @@ export function LoginScreen(props: {
           }
         }}
       >
-        <img className="brand-logo" src={branding.loginLogo} alt="OPA Voting Tool logo" />
-        {(props.authStep !== "admin" && (props.trialModeEnabled ?? props.publicTrialOpenSignup)) ? <h2>Welcome to OpaVoting</h2> : <h1>OPA Voting Tool</h1>}
-        <p>Realtime collaborative voting with team history, live reveal, and configurable decks.</p>
+        <header className="login-heading">
+          <img className="brand-logo" src={branding.loginLogo} alt="OPA Voting Tool logo" />
+          <div>
+            {showTrialWelcome ? <h2>Welcome to OpaVoting</h2> : <h1>OPA Voting Tool</h1>}
+            <p>{props.authStep === "admin" ? "Platform administration" : props.authStep === "code" ? "Complete your account setup or password reset." : "Sign in to vote with your team."}</p>
+          </div>
+        </header>
         <p className="login-note">This browser is remembered automatically for 3 months of activity.</p>
 
         <div className="field-stack">
@@ -315,7 +321,7 @@ export function LoginScreen(props: {
                 Sign in
               </button>
             </div>
-            <p className="field-hint">Enter a valid email to reset your password{props.publicTrialOpenSignup ? " or start a trial" : ""}.</p>
+            <p className="field-hint login-email-hint">{props.canUseEmailCode ? `Enter your email for password recovery${props.publicTrialOpenSignup ? " or a free trial" : ""}${props.accessRequestsEnabled ? ", or to request access" : ""}.` : "Need a new password? Ask your team admin or platform admin."}</p>
             <div className="button-row login-assistance-actions">
               <button className="secondary-button" type="button" disabled={!canSubmitEmail} onClick={() => void props.onForgotPassword()}>
                 Forgot password
@@ -325,12 +331,10 @@ export function LoginScreen(props: {
                   Start free public trial
                 </button>
               ) : null}
-            </div>
-            {props.accessRequestsEnabled ? <div className="button-row login-access-actions">
-              <button className="secondary-button" type="button" disabled={!canSubmitEmail} onClick={() => void props.onRequestAccess()}>
+              {props.accessRequestsEnabled ? <button className="secondary-button" type="button" disabled={!canSubmitEmail} onClick={() => void props.onRequestAccess()}>
                 Request access
-              </button>
-            </div> : null}
+              </button> : null}
+            </div>
             {props.publicTrialOpenSignup ? (
               <div className="field-hint">
                 Hosted demo: up to two workspace memberships, {props.trialLimits?.maxTeamsPerWorkspace ?? 2} teams and {props.trialLimits?.maxUsersPerWorkspace ?? 10} users per workspace, and {props.trialLimits?.maxRevealedRoundsPerWorkspacePerMonth ?? 80} revealed rounds per workspace per calendar month (UTC). Signup creates your own starter workspace; existing users can accept an invitation to a second workspace.
@@ -338,7 +342,8 @@ export function LoginScreen(props: {
             ) : null}
           </div>
         ) : null}
-        <BrandFooter branding={branding} underDevelopment />
+        <BrandFooter branding={branding} underDevelopment={trialEnabled} />
+        {!trialEnabled ? <ProjectCredit /> : null}
       </form>
     </div>
   );

@@ -14,6 +14,7 @@
 - [Device acceptance](#device-acceptance)
 - [Additional regression checkpoint — 2026-10-20](#additional-regression-checkpoint--2026-10-20)
 - [Workspace identity coverage](#workspace-identity-coverage)
+- [Self-hosted entry and mode differences](#self-hosted-entry-and-mode-differences)
 
 </details>
 
@@ -104,3 +105,15 @@ The earlier failing runs are retained in the work history; the notification corr
 ## Workspace identity coverage
 
 `workspace-context.spec.ts` covers the full phone portrait/landscape matrix, the 640×900 transition, tablets and desktop (26 sizes). Each uses short, medium, long multiword and unbroken 80-character workspace names, with collapsed/expanded board and Team Admin labels, touch/click and keyboard disclosure, rename controls and starting a vote. Additional cases cover absent labels in ordinary self-hosting and collaborator workspace switching/live renames. The disposable trial fixture raises signup rate limits to permit isolated accounts per viewport; production limits are unchanged.
+
+## Self-hosted entry and mode differences
+
+`self-hosted.spec.ts` covers the built self-hosted login at 320×568, 360×800, 390×844, 412×915, 800×360, 768×1024, 1280×800 and 1920×1080. It checks aligned actions with access requests on/off and email/manual onboarding, real admin and password sign-in, account/workspace separation, About, reset/setup inputs and long configured company attribution. Delivery variants mock bootstrap/reset responses explicitly; no real SMTP delivery is claimed. Existing full-suite journeys cover the remaining chooser, board/history, Team Admin and Platform screens, plus trial-mode regressions. Tests use temporary local data, not an operator's installation.
+
+Trial mode is a deployment setting, not a hostname test: an ordinary company deployment receives the same compact entry on localhost or HTTPS. Trial branding, signup, consent and workspace controls remain specific to trial configuration.
+
+2026-10-28 local checkpoint: full responsive run passed 158 cases; the additional long-company-attribution case passed separately, as did two regular trial login/chooser regressions. Frontend tests (94), workspace typechecks and the production build passed. Representative login, chooser, Account, board and administration screenshots were inspected. Physical-device and external SMTP verification remain separate.
+
+The self-hosted entry suite also verifies the default author/repository/documentation/license credit on both `/` and `/admin` across its eight entry sizes, including keyboard focus, 44px link targets and overflow. Configured company attribution coexists with project credit.
+
+2026-10-31 attribution follow-up: all 12 focused self-hosted Chromium tests, 94 frontend tests, frontend typecheck and production build passed. Phone and desktop credit layouts were visually inspected. The full matrix above was not repeated for this small footer-only change.

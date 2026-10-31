@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { BrandingManifest } from "@planning-poker/shared";
+import { TRIAL_WELCOME, type BrandingManifest } from "@planning-poker/shared";
 import type { PopupPosition } from "./types";
 import { getHistoryTooltipRows } from "./utils";
 
@@ -25,6 +25,18 @@ export function BrandFooter(props: {
       {props.underDevelopment ? <>{creator || company ? <span aria-hidden="true">•</span> : null}<span>Under Development</span></> : null}
     </div>
   );
+}
+
+/** Quiet default attribution for company installations, separate from company branding. */
+export function ProjectCredit() {
+  return <footer className="project-credit">
+    <p className="trial-welcome-credit">OpaVoting · Created by <strong>{TRIAL_WELCOME.author}</strong></p>
+    <nav className="trial-welcome-links" aria-label="OpaVoting project resources">
+      <a href={TRIAL_WELCOME.repositoryUrl} target="_blank" rel="noreferrer">GitHub</a>
+      <a href={TRIAL_WELCOME.docsUrl} target="_blank" rel="noreferrer">Documentation</a>
+      <a href={TRIAL_WELCOME.licenseUrl} target="_blank" rel="noreferrer">AGPL-3.0-or-later</a>
+    </nav>
+  </footer>;
 }
 
 export function HistoryTimestamp(props: { heading: string; tooltipRows: Array<{ label: string; value: string }>; enabled?: boolean }) {

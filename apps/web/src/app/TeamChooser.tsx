@@ -8,7 +8,7 @@ import { AboutDialog } from "./AboutDialog";
 import { TRIAL_WELCOME } from "@planning-poker/shared";
 import { LogoutIcon } from "./icons";
 import { NotificationBell } from "./NotificationBell";
-import { BrandFooter } from "./shared";
+import { BrandFooter, ProjectCredit } from "./shared";
 import type { NotificationFeedResponse, PlatformAccessRequestActionResponse, PlatformAccessRequestSummary } from "./types";
 
 export function TeamChooser(props: {
@@ -371,10 +371,10 @@ export function TeamChooser(props: {
             })}
           </section>
         </div>
-        <footer className="chooser-project-footer">
-          <BrandFooter branding={branding} underDevelopment />
-          <a href={TRIAL_WELCOME.repositoryUrl}>{TRIAL_WELCOME.invitation}</a>
-        </footer>
+        <div className="chooser-project-footer">
+          <BrandFooter branding={branding} underDevelopment={props.trialModeEnabled} />
+          {props.trialModeEnabled ? <a href={TRIAL_WELCOME.repositoryUrl}>{TRIAL_WELCOME.invitation}</a> : <ProjectCredit />}
+        </div>
         <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} branding={branding} trialModeEnabled={Boolean(props.trialModeEnabled)} />
       </div>
     </div>

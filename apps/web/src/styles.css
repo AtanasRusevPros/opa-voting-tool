@@ -116,10 +116,8 @@ button {
 }
 
 .login-actions-stack {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   margin-top: 24px;
 }
@@ -3237,7 +3235,7 @@ textarea {
 }
 .trial-welcome-eyebrow { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.16em; color: #295887; }
 .trial-welcome-lead { font-size: 1.2rem; font-weight: 700; line-height: 1.5; }
-.trial-welcome a { color: #185797; text-underline-offset: 3px; }
+.trial-welcome a, .project-credit a { color: #185797; text-underline-offset: 3px; }
 .trial-welcome-steps { padding-left: 1.5rem; margin: 20px 0; }
 .trial-welcome-steps li { padding-left: 6px; margin: 12px 0; }
 .trial-welcome-steps li::marker { color: #295887; font-weight: 800; }
@@ -3248,7 +3246,7 @@ textarea {
 .trial-welcome-links a { display: inline-flex; align-items: center; min-height: 44px; }
 .trial-welcome-credit { font-size: 0.9rem; overflow-wrap: anywhere; }
 .trial-welcome-star { font-size: 0.9rem; }
-.trial-welcome a:focus-visible { outline: 3px solid #185797; outline-offset: 4px; }
+.trial-welcome a:focus-visible, .project-credit a:focus-visible { outline: 3px solid #185797; outline-offset: 4px; }
 @media (max-width: 960px) {
   .trial-login-shell { grid-template-columns: minmax(0, 1fr); padding: 24px 16px; }
   .trial-login-shell .login-panel { max-width: 680px; }
@@ -3286,9 +3284,21 @@ textarea {
 }
 
 .login-signin-actions > .primary-button { width: 100%; }
-.login-assistance-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.login-assistance-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .login-assistance-actions > button { white-space: normal; min-height: 44px; }
-.login-access-actions { padding-top: 6px; }
+.login-email-hint { margin: 0; }
+.login-heading h1, .login-heading h2 { margin: 0 0 8px; }
+.login-heading p { margin: 0; line-height: 1.5; }
+.login-heading { display: grid; gap: 16px; }
+.compact-login-shell .login-panel { max-width: 520px; }
+.compact-login-shell .login-heading { grid-template-columns: 56px minmax(0, 1fr); align-items: center; }
+.compact-login-shell .brand-logo { width: 56px; height: 56px; }
+.compact-login-shell .login-heading h1 { font-size: clamp(1.3rem, 4vw, 1.75rem); }
+.login-panel .login-note { font-size: 0.875rem; line-height: 1.5; margin: 20px 0; }
+.login-panel .brand-footer { flex-wrap: wrap; overflow-wrap: anywhere; }
+.login-primary-actions > button { width: 100%; }
+.login-secondary-actions > button { flex: 1; }
+
 @media (max-width: 360px) { .login-assistance-actions { grid-template-columns: minmax(0, 1fr); } }
 
 
@@ -3520,3 +3530,8 @@ textarea {
   .team-directory-modal .modal-header { flex-wrap: wrap; }
   .team-directory-modal .modal-header > div:first-child { flex-basis: 100%; }
 }
+
+/* Default project credit stays distinct from optional company attribution. */
+.project-credit { margin-top: 20px; padding-top: 12px; border-top: 1px solid #c5d8eb; color: #24344c; text-align: center; line-height: 1.65; }
+.project-credit .trial-welcome-credit { margin: 0; }
+.project-credit .trial-welcome-links { justify-content: center; margin: 4px 0 0; gap: 4px 16px; font-size: 0.9rem; }

@@ -13,6 +13,10 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Include quiet default author, GitHub, documentation and AGPL license credits on self-hosted user/admin sign-in and team selection, separate from company attribution.
+
+- Improve self-hosted sign-in layout with a compact header, aligned primary/recovery/access actions and clear manual-recovery guidance. Keep hosted-demo promotion off self-hosted sign-in/team selection while preserving company branding and About resources; add focused browser coverage.
+
 - Clarify Podman 6 rootless-network migration, rebuild recovery after a failed update, HTTPS self-NAT diagnosis and watchdog re-enablement in operator and AI deployment instructions.
 
 - Add default-off `app.trust_local_container_proxy` for verified loopback-published Podman deployments where the host TLS proxy appears as the app container's own changing IP. Match the actual socket peer/local address instead of trusting a subnet or requiring edits after recreation.

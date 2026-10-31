@@ -280,6 +280,8 @@ Production deployment note:
 
 ## Authentication Notes
 
+Self-hosted installations with trial mode disabled use a compact sign-in card: email/password, Sign in, then password recovery and optional Request access. Without email delivery, the page explains manual admin provisioning/recovery. Company logos and configured footer text remain available; hosted-demo promotion and the development badge are omitted from sign-in and the team chooser. A compact default credit on user/admin sign-in and the team chooser names Atanas G. Rusev and links to GitHub, Documentation and AGPL-3.0-or-later. Company attribution is separate; project links also remain in About. This depends on trial configuration, not whether the URL is localhost.
+
 - Normal users can open `Account settings -> Delete account` to review and confirm account deletion.
 - Deleting a non-owner account removes access, sessions, memberships, and the original email while preserving shared voting/comment history as `Name (Deactivated)`.
 - The deletion preview explains the destructive impact before the action is confirmed.

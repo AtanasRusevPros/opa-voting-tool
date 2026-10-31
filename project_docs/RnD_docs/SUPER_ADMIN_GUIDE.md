@@ -118,7 +118,7 @@ Open **Platform** from the chooser. Its tabs are:
 | --- | --- |
 | People | Pending platform access requests; admit/deny; existing users, password reset and account deletion with preview/confirmation. |
 | Stats | Read-only installation/workspace/team usage reports and JSON export; no settings save on this tab. |
-| Branding | Login/team logos and backgrounds, footer text, opacity and palette. |
+| Branding | Login/team logos and backgrounds, company footer text, opacity and palette. The default self-hosted project credit (author, GitHub, documentation and license) is separate from these editable company fields. |
 | App settings | Base URL and Demo mode. |
 | SMTP | Host, port, username, password and from-address. |
 | Super-admin | Admin credentials, Jira Cloud connection/site selection and whole-database snapshot import/export. |
