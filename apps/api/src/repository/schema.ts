@@ -19,6 +19,7 @@ export function runBaseSchema(db: DatabaseSync): void {
         terms_accepted_at TEXT,
         history_timezone_popup_enabled INTEGER NOT NULL DEFAULT 1,
         history_timezone_keys_json TEXT,
+        theme_id TEXT,
         deleted_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -276,6 +277,7 @@ export function runBaseSchema(db: DatabaseSync): void {
   ensureColumn(db, "users", "board_shortcuts_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_popup_enabled", "INTEGER NOT NULL DEFAULT 1");
   ensureColumn(db, "users", "history_timezone_keys_json", "TEXT");
+  ensureColumn(db, "users", "theme_id", "TEXT");
   ensureColumn(db, "users", "deleted_at", "TEXT");
   db.exec(`CREATE TRIGGER IF NOT EXISTS rounds_proposer_deletion AFTER UPDATE OF deleted_at ON users
     WHEN NEW.deleted_at IS NOT NULL BEGIN UPDATE rounds SET proposed_by = NULL WHERE proposed_by = NEW.id; END;`);

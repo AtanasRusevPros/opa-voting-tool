@@ -15,6 +15,8 @@ import {
   BRANDING_MANIFEST,
   DECKS,
   DEFAULT_HISTORY_TIME_ZONE_KEYS,
+  DEFAULT_THEME_ID,
+  isThemeId,
   FIBONACCI_RANGE_END_OPTIONS,
   FIBONACCI_RANGE_START_OPTIONS,
   HISTORY_TIME_ZONE_OPTIONS,
@@ -49,12 +51,14 @@ import {
   type TeamRoundVoteUpdatePayload,
   type TeamStateResponse,
   type TeamUserRole,
+  type ThemeId,
   type UserSummary
 } from "@planning-poker/shared";
 import { DEBUG_LAYOUT_GUIDES_ENABLED, DEBUG_LAYOUT_GUIDES_KEY } from "./debugFlags";
 import { TrialWorkspaceSettings } from "./app/TrialWorkspaceSettings";
 import { AccountSettingsModal } from "./app/AccountSettingsModal";
 import { AdminSettingsModal } from "./app/AdminSettingsModal";
+import { createThemeController } from "./app/themeController";
 import { HistoryRail } from "./app/HistoryRail";
 import { BellIcon, ChevronDownIcon, ChevronRightIcon, EditPencilIcon, EyeIcon, LogoutIcon, MenuIcon, ShareNodesIcon, StopwatchIcon } from "./app/icons";
 import { LoginScreen } from "./app/LoginScreen";
@@ -158,7 +162,7 @@ type AdminConfigView = {
   };
   branding: Pick<
     BrandingManifest,
-    "loginLogo" | "loginBackground" | "teamLogo" | "teamBackground" | "backgroundOpacity" | "footerCreatorText" | "footerCompanyText" | "palette"
+    "loginLogo" | "loginBackground" | "teamLogo" | "teamBackground" | "backgroundOpacity" | "footerCreatorText" | "footerCompanyText" | "palette" | "defaultThemeId"
   >;
   demo: {
     enabled: boolean;
@@ -654,7 +658,7 @@ function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
   const routeTeamId = params.get("teamId");
   const routeView = params.get("view");
-  const storedTeamId = window.localStorage.getItem(SELECTED_TEAM_KEY);
+  const storedTeamId = readBrowserPreference(SELECTED_TEAM_KEY);
 
   return {
     selectedTeamId: routeTeamId ?? storedTeamId,
@@ -718,8 +722,19 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
+function readBrowserPreference(key: string): string | null {
+  try { return window.localStorage.getItem(key); } catch { return null; }
+}
+
+function writeBrowserPreference(key: string, value: string | null) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch { /* Cookie sessions and preferences still work when storage is disabled. */ }
+}
+
 function debugReveal(...args: unknown[]) {
-  if (typeof window !== "undefined" && revealDebugEnabled && window.localStorage.getItem(DEBUG_REVEAL_KEY) === "1") {
+  if (typeof window !== "undefined" && revealDebugEnabled && readBrowserPreference(DEBUG_REVEAL_KEY) === "1") {
     console.debug("[reveal-debug]", ...args);
   }
 }
@@ -728,7 +743,7 @@ function readStoredSessionToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return window.localStorage.getItem(SESSION_TOKEN_KEY);
+  return readBrowserPreference(SESSION_TOKEN_KEY);
 }
 
 function storeSessionToken(token: string | null) {
@@ -736,12 +751,7 @@ function storeSessionToken(token: string | null) {
     return;
   }
 
-  if (token) {
-    window.localStorage.setItem(SESSION_TOKEN_KEY, token);
-    return;
-  }
-
-  window.localStorage.removeItem(SESSION_TOKEN_KEY);
+  writeBrowserPreference(SESSION_TOKEN_KEY, token);
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -803,6 +813,7 @@ function mergeBrandingManifest(branding: Partial<BrandingManifest> | undefined):
   return {
     ...BRANDING_MANIFEST,
     ...branding,
+    defaultThemeId: isThemeId(branding?.defaultThemeId) ? branding.defaultThemeId : DEFAULT_THEME_ID,
     palette: {
       ...BRANDING_MANIFEST.palette,
       ...branding?.palette
@@ -949,6 +960,7 @@ function sameCurrentUserSummary(left: CurrentUserSummary, right: CurrentUserSumm
     left.isSuperAdmin === right.isSuperAdmin &&
     left.loginName === right.loginName &&
     left.openLastTeamOnLogin === right.openLastTeamOnLogin &&
+    (left.themeId ?? null) === (right.themeId ?? null) &&
     left.boardShortcutsEnabled === right.boardShortcutsEnabled &&
     left.historyTimezonePopupEnabled === right.historyTimezonePopupEnabled &&
     sameHistoryTimeZoneKeys(left.historyTimezoneKeys ?? [], right.historyTimezoneKeys ?? [])
@@ -3718,7 +3730,7 @@ export const TeamBoard = memo(function TeamBoard(props: {
   }, []);
 
   useEffect(() => {
-    if (!revealDebugEnabled || typeof window === "undefined" || window.localStorage.getItem(DEBUG_REVEAL_KEY) !== "1") {
+    if (!revealDebugEnabled || typeof window === "undefined" || readBrowserPreference(DEBUG_REVEAL_KEY) !== "1") {
       return;
     }
 
@@ -4400,7 +4412,32 @@ export default function App() {
   useViewportHeight();
   const initialRoute = readRouteState();
   const [session, setSession] = useState<SessionResponse | null>(null);
-  const [branding, setBranding] = useState<BrandingManifest>(() => mergeBrandingManifest(BRANDING_MANIFEST));
+  const [branding, setBranding] = useState<BrandingManifest>(() => mergeBrandingManifest({
+    ...BRANDING_MANIFEST,
+    defaultThemeId: isThemeId(document.documentElement.dataset.themeDefault) ? document.documentElement.dataset.themeDefault : DEFAULT_THEME_ID
+  }));
+  const [themeController] = useState(() => {
+    let storage: Storage | undefined;
+    try { storage = window.localStorage; } catch { /* Optional preference hints. */ }
+    return createThemeController(document.documentElement, storage);
+  });
+  const sessionGenerationRef = useRef(0);
+  const sessionRequestRef = useRef(0);
+  const appliedSessionRequestRef = useRef(0);
+  const brandingRevisionRef = useRef(0);
+  const bootstrapInFlightRef = useRef<Promise<void> | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
+  const applyBranding = useCallback((next: Partial<BrandingManifest> | undefined) => {
+    ++brandingRevisionRef.current;
+    const normalized = mergeBrandingManifest(next);
+    themeController.setBranding(normalized);
+    setBranding(current => JSON.stringify(current) === JSON.stringify(normalized) ? current : normalized);
+  }, [themeController]);
+  const clearPersonalAppearance = useCallback(() => {
+    ++sessionGenerationRef.current;
+    sessionUserIdRef.current = null;
+    themeController.setUser(null);
+  }, [themeController]);
   const [teamState, setTeamState] = useState<TeamStateResponse | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialRoute.selectedTeamId);
   const [pendingTargetTeamId, setPendingTargetTeamId] = useState<string | null>(initialRoute.selectedTeamId);
@@ -4464,14 +4501,6 @@ export default function App() {
   const pendingPresenceRef = useRef<PendingPresenceState | null>(null);
   const chooserVisible = Boolean(session?.user.id) && (showTeamChooser || !selectedTeamId || !teamState);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--brand-primary-action", branding.palette.primaryAction);
-    root.style.setProperty("--brand-accent-highlight", branding.palette.accentHighlight);
-    root.style.setProperty("--brand-surface-tint", branding.palette.surfaceTint);
-    root.style.setProperty("--brand-text-emphasis", branding.palette.textEmphasis);
-    root.style.setProperty("--brand-background-opacity", String(branding.backgroundOpacity));
-  }, [branding]);
 
   useEffect(() => {
     teamStateRef.current = teamState;
@@ -4611,8 +4640,14 @@ export default function App() {
   const [sessionRetrying, setSessionRetrying] = useState(false);
   const loginDestinationResolvedRef = useRef<string | null>(null);
   const loadSession = useCallback(async () => {
+    const generation = sessionGenerationRef.current;
+    const requestId = ++sessionRequestRef.current;
     try {
       const response = await api<SessionResponse>("/api/auth/session");
+      if (generation !== sessionGenerationRef.current || requestId < appliedSessionRequestRef.current) return;
+      appliedSessionRequestRef.current = requestId;
+      sessionUserIdRef.current = response.user.id;
+      themeController.setUser(response.user);
       storeSessionToken(response.token ?? null);
       setSessionRetrying(false);
       setStatus((current) => current.text === SESSION_RETRY_MESSAGE ? { tone: "neutral", text: "Ready." } : current);
@@ -4645,14 +4680,14 @@ export default function App() {
       }
 
       if (!response.memberships.length) {
-        localStorage.removeItem(SELECTED_TEAM_KEY);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null);
         setSelectedTeamId(null);
         setPendingTargetTeamId(null);
         return;
       }
 
       if (response.user.isSuperAdmin && !selectedTeamId) {
-        localStorage.removeItem(SELECTED_TEAM_KEY);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null);
         setPendingTargetTeamId(null);
         setSelectedTeamId(null);
         return;
@@ -4661,6 +4696,8 @@ export default function App() {
       setPendingTargetTeamId(null);
       setSelectedTeamId(response.memberships[0].id);
     } catch (error) {
+      if (generation !== sessionGenerationRef.current || requestId < appliedSessionRequestRef.current) return;
+      appliedSessionRequestRef.current = requestId;
       // Network failures and server errors are not evidence of an invalid login.
       // Retry without discarding drafts/UI, including initial session restoration.
       if (!(error instanceof ApiResponseError) || error.status !== 401) {
@@ -4669,6 +4706,7 @@ export default function App() {
         return;
       }
       setSessionRetrying(false);
+      clearPersonalAppearance();
       storeSessionToken(null);
       loginDestinationResolvedRef.current = null;
       setSession(null);
@@ -4685,7 +4723,7 @@ export default function App() {
       setTrialTermsAccepted(false);
       setTrialTermsVersion(null);
     }
-  }, [selectedTeamId]);
+  }, [selectedTeamId, clearPersonalAppearance, themeController]);
 
   useEffect(() => {
     if (!sessionRetrying) return;
@@ -4798,8 +4836,9 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({ currentPassword, confirmation, impactToken })
       });
+      clearPersonalAppearance();
       storeSessionToken(null);
-      localStorage.removeItem(SELECTED_TEAM_KEY);
+      writeBrowserPreference(SELECTED_TEAM_KEY, null);
       setAccountSettingsOpen(false);
       setAdminSettingsOpen(false);
       setSelectedTeamId(null);
@@ -4827,7 +4866,7 @@ export default function App() {
     } finally {
       setIsBusy(false);
     }
-  }, [setSuccessStatus]);
+  }, [setSuccessStatus, clearPersonalAppearance]);
 
   const loadPlatformUserDeletionPreview = useCallback(async (userId: string) => {
     return api<AccountDeletionPreview>(`/api/admin/users/${userId}/deletion-preview`);
@@ -4913,6 +4952,7 @@ export default function App() {
         body: bytes
       });
       const result = (await response.json()) as { ok: boolean; token?: string };
+      clearPersonalAppearance();
       storeSessionToken(result.token ?? null);
       await loadSession();
       setAdminPeopleRefreshTick((current) => current + 1);
@@ -4926,7 +4966,7 @@ export default function App() {
     } finally {
       setIsBusy(false);
     }
-  }, [loadSession, setBusyStatus, setErrorStatus, setSuccessStatus]);
+  }, [loadSession, setBusyStatus, setErrorStatus, setSuccessStatus, clearPersonalAppearance]);
 
   const exportTeamHistory = useCallback(async (teamId: string, includeComments: boolean) => {
     try {
@@ -4949,9 +4989,10 @@ export default function App() {
   }, [setBusyStatus, setErrorStatus, setSuccessStatus]);
 
   const handleAdminConfigApplied = useCallback(async (result: AdminConfigSaveResult) => {
-    setBranding(mergeBrandingManifest(result.config.branding));
-    await loadSession().catch(() => undefined);
-  }, [loadSession]);
+    applyBranding(result.config.branding);
+    // Other platform fields can change the signed-in administrator's profile.
+    if (result.appliedFields.some(field => !field.startsWith("branding."))) await loadSession();
+  }, [applyBranding, loadSession]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -5211,7 +5252,7 @@ export default function App() {
           }
           const nextSession = {
             ...current,
-            user: normalizedResponse.currentUser,
+            user: { ...normalizedResponse.currentUser, themeId: current.user.themeId },
             memberships: normalizedResponse.memberships,
             availableTeams: normalizedResponse.availableTeams
           };
@@ -5231,7 +5272,7 @@ export default function App() {
         return;
       }
       if (message === "Team not found") {
-        localStorage.removeItem(SELECTED_TEAM_KEY);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null);
         if (pendingTargetTeamId === teamId) {
           setPendingTargetTeamId(null);
         }
@@ -5252,7 +5293,7 @@ export default function App() {
         return;
       }
       if (message === "Forbidden" && selectedTeamId === teamId) {
-        localStorage.removeItem(SELECTED_TEAM_KEY);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null);
         setSelectedTeamId(null);
         setTeamState(null);
         setShowTeamChooser(true);
@@ -5268,8 +5309,10 @@ export default function App() {
     }
   }, [loadSession, pendingTargetTeamId, selectedTeamId, setErrorStatus]);
 
-  useEffect(() => {
-    void (async () => {
+  const loadBootstrap = useCallback(() => {
+    if (bootstrapInFlightRef.current) return bootstrapInFlightRef.current;
+    const revision = brandingRevisionRef.current;
+    const request = (async () => {
       try {
         const response = await api<BootstrapResponse>("/api/bootstrap");
         revealDebugEnabled = response.debugToolsEnabled;
@@ -5291,31 +5334,41 @@ export default function App() {
             maxLoginAttemptsPerEmailPerHour: 10
           }
         );
-        setBranding(mergeBrandingManifest(response.branding));
+        if (revision === brandingRevisionRef.current) applyBranding(response.branding);
       } catch {
-        revealDebugEnabled = false;
-        setDebugToolsEnabled(false);
-        setSmtpConfigured(false);
-        setPublicTrial({
-          enabled: false,
-          mode: "disabled",
-          maxTeamsPerWorkspace: 2,
-          maxUsersPerWorkspace: 10,
-          maxRevealedRoundsPerWorkspacePerMonth: 80,
-          maxSignupRequestsPerIpPerHour: 3,
-          maxCodeRequestsPerEmailPerDay: 5,
-          maxInvitesPerWorkspacePerDay: 10,
-          maxWorkspaceCreationsPerIpPerDay: 2,
-          maxLoginAttemptsPerEmailPerHour: 10
-        });
-        setBranding(mergeBrandingManifest(BRANDING_MANIFEST));
+        // A temporary refresh failure must retain the known platform appearance and setup.
       }
-    })();
-  }, []);
+    })().finally(() => { bootstrapInFlightRef.current = null; });
+    bootstrapInFlightRef.current = request;
+    return request;
+  }, [applyBranding]);
+
+  useEffect(() => { void loadBootstrap(); }, [loadBootstrap]);
 
   useEffect(() => {
     void loadSession();
   }, []);
+
+  useEffect(() => {
+    const refreshAppearance = () => {
+      void loadBootstrap();
+      void loadSession();
+    };
+    const handleVisibility = () => { if (document.visibilityState === "visible") refreshAppearance(); };
+    const handleStorage = (event: StorageEvent) => { if (themeController.shouldRefresh(event)) void loadSession(); };
+    window.addEventListener("focus", refreshAppearance);
+    window.addEventListener("pageshow", refreshAppearance);
+    window.addEventListener("online", refreshAppearance);
+    window.addEventListener("storage", handleStorage);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", refreshAppearance);
+      window.removeEventListener("pageshow", refreshAppearance);
+      window.removeEventListener("online", refreshAppearance);
+      window.removeEventListener("storage", handleStorage);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [loadBootstrap, loadSession, themeController]);
 
   useEffect(() => {
     if (!session?.user.id) {
@@ -5387,7 +5440,7 @@ export default function App() {
     if (!session?.user.id || !selectedTeamId) {
       return;
     }
-    localStorage.setItem(SELECTED_TEAM_KEY, selectedTeamId);
+    writeBrowserPreference(SELECTED_TEAM_KEY, selectedTeamId);
     roundStateLockRef.current = null;
     void loadTeamState(selectedTeamId);
   }, [loadTeamState, selectedTeamId, session?.user.id]);
@@ -5438,18 +5491,7 @@ export default function App() {
       void loadSession();
     }, CHOOSER_REFRESH_INTERVAL_MS);
 
-    const refreshSession = () => {
-      void loadSession();
-    };
-
-    window.addEventListener("focus", refreshSession);
-    window.addEventListener("pageshow", refreshSession);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", refreshSession);
-      window.removeEventListener("pageshow", refreshSession);
-    };
+    return () => { window.clearInterval(intervalId); };
   }, [chooserVisible, loadSession]);
 
   useEffect(() => {
@@ -5539,6 +5581,7 @@ export default function App() {
       }
 
       ws = new WebSocket(getChooserSocketUrl());
+      ws.onopen = () => { void loadBootstrap(); };
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data) as { type: string; payload?: Partial<BrandingManifest> };
         if (message.type === "chooser:update") {
@@ -5547,7 +5590,7 @@ export default function App() {
           return;
         }
         if (message.type === "platform:branding") {
-          setBranding(mergeBrandingManifest(message.payload));
+          applyBranding(message.payload);
         }
       };
       ws.onclose = () => {
@@ -5567,7 +5610,7 @@ export default function App() {
       clearReconnectTimeout();
       if (ws) closeSocket(ws);
     };
-  }, [chooserVisible, loadSession]);
+  }, [chooserVisible, loadSession, loadBootstrap, applyBranding]);
 
   useEffect(() => {
     if (!selectedTeamId || !session?.user.id || showTeamChooser) {
@@ -5600,6 +5643,8 @@ export default function App() {
     };
     debugReveal("ws:open:start", { teamId: selectedTeamId });
     ws.onopen = () => {
+      void loadBootstrap();
+      void loadSession();
       debugReveal("ws:open:connected", { teamId: selectedTeamId });
       refreshHistorySearchRef.current();
       clearRoomEntryResyncTimeout();
@@ -5642,7 +5687,7 @@ export default function App() {
       }
 
       if (message.type === "platform:branding") {
-        setBranding(mergeBrandingManifest(message.payload));
+        applyBranding(message.payload);
         return;
       }
       if (message.type === "team:presence") {
@@ -5909,7 +5954,7 @@ export default function App() {
       if (!closedByCleanup && event.code === 1008) {
         latestLoadRef.current += 1;
         setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
-        localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null); setShowTeamChooser(true);
         void loadSession();
         setErrorStatus("You were removed from this team. Choose one of your remaining teams.");
         return;
@@ -5928,7 +5973,7 @@ export default function App() {
       }
       closeSocket(ws);
     };
-  }, [loadTeamState, selectedTeamId, session?.user.id, showTeamChooser]);
+  }, [loadTeamState, selectedTeamId, session?.user.id, showTeamChooser, loadBootstrap, applyBranding, loadSession]);
 
   useEffect(() => {
     if (!selectedTeamId || !session?.user.id || showTeamChooser) {
@@ -6103,6 +6148,7 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({ email, password })
       });
+      ++sessionGenerationRef.current;
       await loadSession();
       setPassword("");
       setConfirmPassword("");
@@ -6121,6 +6167,7 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({ username: adminUsername, password })
       });
+      ++sessionGenerationRef.current;
       await loadSession();
       setConfirmPassword("");
       setInfo("Super-admin session opened.");
@@ -6153,6 +6200,8 @@ export default function App() {
           body: JSON.stringify({ email, code, displayName, password, ...avatarSelection })
         });
       }
+      // Signup, account setup and password-reset verification establish a new login.
+      ++sessionGenerationRef.current;
       await loadSession();
       setPassword("");
       setConfirmPassword("");
@@ -6213,8 +6262,9 @@ export default function App() {
       setBusyStatus("Signing out...");
       setIsBusy(true);
       await api("/api/auth/signout", { method: "POST" });
+      clearPersonalAppearance();
       storeSessionToken(null);
-      localStorage.removeItem(SELECTED_TEAM_KEY);
+      writeBrowserPreference(SELECTED_TEAM_KEY, null);
       loginDestinationResolvedRef.current = null;
       setSession(null);
       setTeamState(null);
@@ -6239,7 +6289,7 @@ export default function App() {
     } finally {
       setIsBusy(false);
     }
-  }, [setBusyStatus, setErrorStatus, setSuccessStatus]);
+  }, [setBusyStatus, setErrorStatus, setSuccessStatus, clearPersonalAppearance]);
 
   const handleShareTeamLink = useCallback(async () => {
     if (!selectedTeamId) {
@@ -6687,14 +6737,41 @@ export default function App() {
     }
   }, [loadSession, loadTeamState, selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus]);
 
+  const handleSaveThemePreference = useCallback(async (themeId: ThemeId | null) => {
+    const userId = sessionUserIdRef.current;
+    const generation = sessionGenerationRef.current;
+    if (!userId) throw new Error("Sign in again before saving appearance.");
+    let response: { user: CurrentUserSummary };
+    try {
+      response = await api<{ user: CurrentUserSummary }>("/api/auth/preferences", {
+        method: "PATCH", body: JSON.stringify({ themeId })
+      });
+    } catch (error) {
+      if (generation === sessionGenerationRef.current && sessionUserIdRef.current === userId && error instanceof ApiResponseError && error.status === 401) {
+        clearPersonalAppearance();
+        void loadSession();
+      }
+      throw error;
+    }
+    if (generation !== sessionGenerationRef.current || sessionUserIdRef.current !== userId || response.user.id !== userId) throw new Error("Your session changed. Open Account settings again.");
+    ++sessionGenerationRef.current;
+    themeController.publishPreference(response.user);
+    const savedThemeId = isThemeId(response.user.themeId) ? response.user.themeId : null;
+    setSession(current => current?.user.id === userId ? { ...current, user: { ...current.user, themeId: savedThemeId } } : current);
+    setTeamState(current => current?.currentUser.id === userId ? { ...current, currentUser: { ...current.currentUser, themeId: savedThemeId } } : current);
+  }, [themeController, clearPersonalAppearance, loadSession]);
+
   const handleSaveLoginDestinationPreference = useCallback(async (openLastTeamOnLogin: boolean) => {
+    const userId = sessionUserIdRef.current;
+    const generation = sessionGenerationRef.current;
     try {
       setIsBusy(true);
       const response = await api<{ user: CurrentUserSummary }>("/api/auth/preferences", {
         method: "PATCH", body: JSON.stringify({ openLastTeamOnLogin })
       });
-      setSession(current => current ? { ...current, user: response.user } : current);
-      setTeamState(current => current ? { ...current, currentUser: response.user } : current);
+      if (generation !== sessionGenerationRef.current || sessionUserIdRef.current !== userId || response.user.id !== userId) return;
+      setSession(current => current?.user.id === userId ? { ...current, user: { ...current.user, openLastTeamOnLogin: response.user.openLastTeamOnLogin } } : current);
+      setTeamState(current => current?.currentUser.id === userId ? { ...current, currentUser: { ...current.currentUser, openLastTeamOnLogin: response.user.openLastTeamOnLogin } } : current);
       setSuccessStatus("Sign-in destination saved. It will apply the next time you sign in.");
     } catch (error) { setErrorStatus((error as Error).message); }
     finally { setIsBusy(false); }
@@ -7224,12 +7301,18 @@ export default function App() {
   }, [loadMemberDirectory, loadNotifications, loadSession, loadTeamState, memberDirectory?.team.id, selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus]);
 
   const handleLeaveTeam = useCallback(async (teamId: string) => {
+    const generation = sessionGenerationRef.current;
+    const userId = sessionUserIdRef.current;
     try {
       setBusyStatus("Leaving the selected team...");
       setIsBusy(true);
       await api(`/api/teams/${teamId}/leave`, { method: "POST" });
       const response = await api<SessionResponse>("/api/auth/session");
+      if (generation !== sessionGenerationRef.current || sessionUserIdRef.current !== userId) return;
+      ++sessionGenerationRef.current;
       storeSessionToken(response.token ?? null);
+      sessionUserIdRef.current = response.user.id;
+      themeController.setUser(response.user);
       setSession(response);
       const nextSelectedTeamId = response.memberships[0]?.id ?? null;
       setSelectedTeamId((current) => (current === teamId ? nextSelectedTeamId : current));
@@ -7246,7 +7329,7 @@ export default function App() {
     } finally {
       setIsBusy(false);
     }
-  }, [selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus]);
+  }, [selectedTeamId, setBusyStatus, setErrorStatus, setSuccessStatus, themeController]);
 
   const handleSelectTeamFromChooser = useCallback((teamId: string) => {
     setPendingTargetTeamId(null);
@@ -7329,7 +7412,7 @@ export default function App() {
       onLeaveWorkspace={async (workspaceId) => {
         await api(`/api/workspaces/${workspaceId}/leave`, { method: "POST" });
         setTeamState(null); setSelectedTeamId(null); setPendingTargetTeamId(null);
-        localStorage.removeItem(SELECTED_TEAM_KEY); setShowTeamChooser(true);
+        writeBrowserPreference(SELECTED_TEAM_KEY, null); setShowTeamChooser(true);
         await loadSession();
       }}
     />
@@ -7371,6 +7454,8 @@ export default function App() {
           open={accountSettingsOpen}
           workspaceSettings={trialWorkspaceSettings}
           user={getAccountUserForTeam(session, selectedTeamId)}
+          branding={branding}
+          onSaveThemePreference={handleSaveThemePreference}
           historyTimezoneDefaultKeys={getAccountTimezoneDefaultKeys(session, selectedTeamId)}
           isBusy={isBusy}
           onClose={() => setAccountSettingsOpen(false)}
@@ -7488,7 +7573,9 @@ export default function App() {
       <AccountSettingsModal
         open={accountSettingsOpen}
           workspaceSettings={trialWorkspaceSettings}
-        user={renderedTeamState.currentUser}
+        user={{ ...renderedTeamState.currentUser, themeId: session.user.themeId }}
+        branding={branding}
+        onSaveThemePreference={handleSaveThemePreference}
         historyTimezoneDefaultKeys={renderedTeamState.team.historyTimezoneKeys}
         isBusy={isBusy}
         onClose={() => setAccountSettingsOpen(false)}

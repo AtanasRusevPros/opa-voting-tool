@@ -35,6 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [Privacy and backup retention](#privacy-and-backup-retention)
 - [Platform Statistics](#platform-statistics)
 
+- [Appearance Defaults](#appearance-defaults)
+
 </details>
 
 Status: Public operator guide
@@ -320,3 +322,7 @@ Statistics are enabled for both deployment modes with no automatic statistics ex
 
 
 Team admins and the super-admin can correct board and saved history titles inline. A member who proposed the current round can also edit its board title. See [editing issue titles](TEAM_ADMIN_GUIDE.md#edit-an-issue-title) for controls, validation and read-only boundaries.
+
+## Appearance Defaults
+
+Use **Platform → Branding → Platform default theme**, inspect the preview and press **Save settings**. The default applies to sign-in and users following it; each user, including you, can override it in **Account → Appearance**. Existing palette fields customize OpaVoting Light only. File-based setup uses `[branding].default_theme_id` in the ignored deployment override and requires restart. See [Themes](THEMING.md) for IDs, precedence, storage and verification.

@@ -16,6 +16,8 @@
 - [Workspace identity coverage](#workspace-identity-coverage)
 - [Self-hosted entry and mode differences](#self-hosted-entry-and-mode-differences)
 
+- [Theme Coverage](#theme-coverage)
+
 </details>
 
 Use this opt-in suite when changing UI, CSS, dialogs or pointer interactions. It is separate from regular browser tests, `test:full` and simulator suites.
@@ -117,3 +119,15 @@ Trial mode is a deployment setting, not a hostname test: an ordinary company dep
 The self-hosted entry suite also verifies the default author/repository/documentation/license credit on both `/` and `/admin` across its eight entry sizes, including keyboard focus, 44px link targets and overflow. Configured company attribution coexists with project credit.
 
 2026-10-31 attribution follow-up: all 12 focused self-hosted Chromium tests, 94 frontend tests, frontend typecheck and production build passed. Phone and desktop credit layouts were visually inspected. The full matrix above was not repeated for this small footer-only change.
+
+## Theme Coverage
+
+Run `./dev.sh test:e2e:themes` separately for colour and appearance changes. It builds once and starts disposable self-hosted/trial servers on ports 3147/3148. All 18 themes exercise desktop 1440 × 900 and phone 360 × 800, with phone board/history rotation to 800 × 360. Light, Nord and Midnight Ember additionally cover administration at 320 × 568, 412 × 915, 915 × 412, 768 × 1024 and desktop sizes.
+
+The suite checks real voting, history, account/team/platform settings, overflow, browser diagnostics, initial HTML, native controls and rendered text contrast. Every palette also gets 390px internal Account/preview sizing and control-state checks. The three representatives cover 200% text, reduced motion, print and forced colors. Browser diagnostics are checked with narrowly scoped exceptions for deliberate failure tests.
+
+The default HTML report in `apps/web/playwright-report/themes` retains screenshots and contrast/performance attachments; failure traces use `apps/web/test-results/themes`. A custom `--reporter` overrides the default reporters. To inspect another installed engine without repeating the complete matrix, run `THEME_BROWSER=webkit pnpm --filter @planning-poker/web test:e2e:themes --grep 'native controls'` after building. Pre-JavaScript compositor capture and CPU throttling specifically use Chromium.
+
+This complements the full geometry/input matrix above; changing a palette does not require repeating every existing workflow 18 times. See [Themes](THEMING.md).
+
+2026-11-04 theme checkpoint: all 160 existing responsive Chromium cases passed, including the 20/40-participant mobile workflows with 4× CPU slowdown. All 96 distinct theme cases have passing evidence from the complete matrix plus focused corrective reruns; three representative WebKit journeys and the all-palette native-control check also pass. Physical-device acceptance and Firefox remain separate.

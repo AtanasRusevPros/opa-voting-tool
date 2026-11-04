@@ -82,7 +82,7 @@ export type AdminConfigView = {
   };
   branding: Pick<
     BrandingManifest,
-    "loginLogo" | "loginBackground" | "teamLogo" | "teamBackground" | "backgroundOpacity" | "footerCreatorText" | "footerCompanyText" | "palette"
+    "loginLogo" | "loginBackground" | "teamLogo" | "teamBackground" | "backgroundOpacity" | "footerCreatorText" | "footerCompanyText" | "palette" | "defaultThemeId"
   >;
   demo: {
     enabled: boolean;

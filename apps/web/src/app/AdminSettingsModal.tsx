@@ -8,10 +8,16 @@ import type { AccountDeletionPreview, AdminConfigSaveResult, AdminConfigView, Ad
 import { EyeIcon } from "./icons";
 import { formatHistoryDisplay } from "./utils";
 import { AccountDeletionDialog } from "./AccountDeletionDialog";
+import { DEFAULT_THEME_ID, isThemeId } from "@planning-poker/shared";
+import { ThemePicker } from "./ThemePicker";
 
 function normalizeAdminConfigView(config: AdminConfigView): AdminConfigView {
   return {
     ...config,
+    branding: {
+      ...config.branding,
+      defaultThemeId: isThemeId(config.branding.defaultThemeId) ? config.branding.defaultThemeId : DEFAULT_THEME_ID
+    },
     jira: {
       clientId: config.jira?.clientId ?? "",
       clientSecretConfigured: config.jira?.clientSecretConfigured ?? false,
@@ -444,6 +450,7 @@ export function AdminSettingsModal(props: {
           ...(jiraClientSecretDirty ? { clientSecret: jiraClientSecretValue } : {})
         },
         branding: {
+          defaultThemeId: draft.branding.defaultThemeId,
           backgroundOpacity: draft.branding.backgroundOpacity,
           footerCreatorText: draft.branding.footerCreatorText,
           footerCompanyText: draft.branding.footerCompanyText,
@@ -648,6 +655,12 @@ export function AdminSettingsModal(props: {
             {activeTab === "branding" ? (
               <section className="admin-settings-section admin-settings-section-wide">
                 <h3>Branding</h3>
+                <h4>Appearance</h4>
+                <p>Used on the sign-in page and by people who have not chosen their own theme.</p>
+                <ThemePicker label="Platform default theme" value={draft.branding.defaultThemeId ?? DEFAULT_THEME_ID} palette={draft.branding.palette} disabled={saving} onChange={id => {
+                  if (id) updateDraft(current => ({ ...current, branding: { ...current.branding, defaultThemeId: id } }));
+                }} />
+                <p className="field-hint">This preview shows the platform default. Your personal choice in Account settings continues to control your own appearance.</p>
                 <div className="branding-upload-grid">
                   {([
                     ["loginLogo", "Login logo"],
@@ -719,6 +732,7 @@ export function AdminSettingsModal(props: {
                     }
                   />
                 </label>
+                <p className="field-hint">These custom brand colors apply only to OpaVoting Light. Other themes use coordinated palettes; returning to OpaVoting Light restores your saved colors.</p>
                 <div className="palette-grid">
                   <label>
                     Primary action

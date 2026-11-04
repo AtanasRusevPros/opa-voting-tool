@@ -13,6 +13,10 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Add 18 coordinated light, moderate and dark themes, a platform default in Branding and saved personal appearance in Account. Apply themes before first paint, preserve logos/avatar identities and keep voting updates independent of theme work. Add focused persistence, validation, contrast and browser coverage.
+
+- Prevent Account controls and appearance previews from clipping on narrow screens or with enlarged text; keep long team rows and timezone controls within their panels.
+
 - Use the existing OpaVoting login SVG as the browser-tab icon for the app and admin entry, retaining the established artwork and asset filename.
 
 - Include quiet default author, GitHub, documentation and AGPL license credits on self-hosted user/admin sign-in and team selection, separate from company attribution.

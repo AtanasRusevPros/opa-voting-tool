@@ -30,6 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [Inline Issue Title Corrections](#inline-issue-title-corrections)
 - [Responsive UI checks](#responsive-ui-checks)
 
+- [Theme Architecture](#theme-architecture)
+
 </details>
 
 Created: 2026-04-03 10:35 EEST
@@ -323,3 +325,11 @@ Mobile controls use a content-sized, viewport-bounded fixed panel with an access
 ### Team workspace context
 
 Authorized board/directory team summaries include optional hosted workspace ID/name, read alongside the team through a scalar subquery; ordinary default-workspace teams omit it. The UI uses one native disclosure component for the board and directory, inside mobile controls on phones. Workspace renaming invalidates and broadcasts affected team state and directory observers as well as the chooser; client directory equality checks include workspace identity. The label adds no polling, new permissions or per-vote writes.
+
+## Theme Architecture
+
+The [shared theme registry](../../packages/shared/src/themes.ts) defines 18 coordinated palettes and semantic CSS tokens, resolved once and cached. A single document-level controller applies variables to `<html>` when appearance changes; components, portals and native controls inherit them without per-component providers or voting-time colour computation.
+
+`[branding].default_theme_id` supplies the platform default. Nullable `users.theme_id` supplies an account-wide override through the existing preference endpoint. Theme-only saves avoid team-state broadcasts. Bootstrap/live config events and focus/reconnect refresh reconcile defaults; account-scoped storage hints refresh other tabs without making browser storage authoritative.
+
+Application HTML receives validated theme attributes from a read-only lookup of an existing session cookie before paint and is served `private, no-store`; absent or invalid cookies select the platform default. React retains this appearance until session/bootstrap resolution; logout, expired sessions and account deletion clear personal appearance. Public policy and Jira result HTML use the platform default. Legacy branding colours are safely normalized and apply only to OpaVoting Light; uploaded artwork and avatar identities are preserved. See [Themes](THEMING.md).

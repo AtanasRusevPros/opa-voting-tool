@@ -399,6 +399,7 @@ dev_commands=(
   "test:web:perf"
   "test:e2e"
   "test:e2e:responsive"
+  "test:e2e:themes"
   "test:e2e:perf"
   "test:e2e:sim"
   "test:e2e:sim:matrix21"

@@ -18,6 +18,7 @@ import {
   calculateAverage,
   normalizeFibonacciRange,
   normalizeHistoryTimeZoneKeys,
+  isThemeId,
   resolveAvatarSelection,
   type AverageValue,
   type CurrentUserSummary,
@@ -44,6 +45,7 @@ import {
   type TeamSummary,
   type TeamUserRole,
   type UserSummary,
+  type ThemeId,
   type VoteRecord
 } from "@planning-poker/shared";
 import {
@@ -576,6 +578,15 @@ export class Repository {
   }
 
   getSessionUser(token: string | undefined): SessionUser | null {
+    return this.readSessionUser(token, true);
+  }
+
+  // HTML appearance must not renew expiry, prune sessions or record activity.
+  peekSessionUser(token: string | undefined): SessionUser | null {
+    return this.readSessionUser(token, false);
+  }
+
+  private readSessionUser(token: string | undefined, touch: boolean): SessionUser | null {
     if (!token) {
       return null;
     }
@@ -597,10 +608,11 @@ export class Repository {
           u.open_last_team_on_login,
           u.board_shortcuts_enabled,
           u.history_timezone_popup_enabled,
-          u.history_timezone_keys_json
+          u.history_timezone_keys_json,
+          u.theme_id
         FROM sessions s
         JOIN users u ON u.id = s.user_id
-        WHERE s.token = ?
+        WHERE s.token = ? AND u.deleted_at IS NULL
       `
       )
       .get(token) as
@@ -619,22 +631,25 @@ export class Repository {
           board_shortcuts_enabled: number;
           history_timezone_popup_enabled: number;
           history_timezone_keys_json: string | null;
+          theme_id: string | null;
         }
       | undefined;
 
-    if (!row || row.expires_at < nowIso()) {
-      if (row) {
+    if (!row || !Number.isFinite(Date.parse(row.expires_at)) || Date.parse(row.expires_at) <= Date.now()) {
+      if (row && touch) {
         this.db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
       }
       return null;
     }
 
-    const expiresAt = plusDays(this.config.sessionTtlDays);
-    const currentTime = nowIso();
-    this.db
-      .prepare("UPDATE sessions SET expires_at = ?, last_active_at = ? WHERE token = ?")
-      .run(expiresAt, currentTime, token);
-    this.touchUser(row.id);
+    if (touch) {
+      const expiresAt = plusDays(this.config.sessionTtlDays);
+      const currentTime = nowIso();
+      this.db
+        .prepare("UPDATE sessions SET expires_at = ?, last_active_at = ? WHERE token = ?")
+        .run(expiresAt, currentTime, token);
+      this.touchUser(row.id);
+    }
 
     const avatarSelection = resolveAvatarSelection({
       avatarIconKey: row.avatar_icon_key,
@@ -651,6 +666,7 @@ export class Repository {
       sessionToken: row.token,
       isSuperAdmin: row.is_super_admin === 1,
       loginName: row.login_name,
+      themeId: isThemeId(row.theme_id) ? row.theme_id : null,
       openLastTeamOnLogin: row.open_last_team_on_login !== 0,
       boardShortcutsEnabled: row.board_shortcuts_enabled !== 0,
       historyTimezonePopupEnabled: row.history_timezone_popup_enabled !== 0,
@@ -714,6 +730,7 @@ export class Repository {
   updateUserPreferences(
     userId: string,
     preferences: {
+      themeId?: ThemeId | null;
       teamId?: string | null;
       openLastTeamOnLogin?: boolean;
       boardShortcutsEnabled?: boolean;
@@ -726,7 +743,24 @@ export class Repository {
       throw new Error("User not found");
     }
 
+    if (preferences.themeId !== undefined && preferences.themeId !== null && !isThemeId(preferences.themeId)) {
+      throw new Error("Unknown theme ID");
+    }
+    // Account saves can include both appearance and team-scoped settings.
+    // Reject invalid scope before persisting any part of the form.
+    const hasTeamScopedTimezonePreference =
+      preferences.historyTimezonePopupEnabled !== undefined || preferences.historyTimezoneKeys !== undefined;
+    const teamId = preferences.teamId?.trim();
+    if (hasTeamScopedTimezonePreference) {
+      if (!teamId || !this.getTeam(teamId)) throw new Error("Team is required for history time zone preferences.");
+      if (this.getTeamUserRole(userId, teamId) === "none" && !this.isSuperAdmin(userId)) throw new Error("Forbidden");
+    }
+
     const updatedAt = nowIso();
+    if (preferences.themeId !== undefined) {
+      this.db.prepare("UPDATE users SET theme_id = ?, updated_at = ? WHERE id = ?")
+        .run(preferences.themeId, updatedAt, userId);
+    }
     if (preferences.openLastTeamOnLogin !== undefined) {
       this.db.prepare("UPDATE users SET open_last_team_on_login = ?, updated_at = ? WHERE id = ?")
         .run(preferences.openLastTeamOnLogin ? 1 : 0, updatedAt, userId);
@@ -739,16 +773,7 @@ export class Repository {
       this.touchUser(userId);
     }
 
-    const hasTeamScopedTimezonePreference =
-      preferences.historyTimezonePopupEnabled !== undefined || preferences.historyTimezoneKeys !== undefined;
-    if (hasTeamScopedTimezonePreference) {
-      const teamId = preferences.teamId?.trim();
-      if (!teamId) {
-        throw new Error("Team is required for history time zone preferences.");
-      }
-      if (this.getTeamUserRole(userId, teamId) === "none" && !this.isSuperAdmin(userId)) {
-        throw new Error("Forbidden");
-      }
+    if (hasTeamScopedTimezonePreference && teamId) {
       const existing = this.getUserTeamHistoryTimezonePreference(userId, teamId);
       const nextPopupEnabled = preferences.historyTimezonePopupEnabled ?? existing?.historyTimezonePopupEnabled ?? true;
       const nextKeysJson =
@@ -863,7 +888,7 @@ export class Repository {
   getCurrentUser(userId: string): CurrentUserSummary | null {
     const row = this.db
       .prepare(
-        "SELECT id, email, login_name, is_super_admin, display_name, avatar_key, avatar_icon_key, avatar_color_key, open_last_team_on_login, board_shortcuts_enabled, history_timezone_popup_enabled, history_timezone_keys_json FROM users WHERE id = ?"
+        "SELECT id, email, login_name, is_super_admin, display_name, avatar_key, avatar_icon_key, avatar_color_key, open_last_team_on_login, board_shortcuts_enabled, history_timezone_popup_enabled, history_timezone_keys_json, theme_id FROM users WHERE id = ?"
       )
       .get(userId) as
       | {
@@ -879,6 +904,7 @@ export class Repository {
           board_shortcuts_enabled: number;
           history_timezone_popup_enabled: number;
           history_timezone_keys_json: string | null;
+          theme_id: string | null;
         }
       | undefined;
 
@@ -900,6 +926,7 @@ export class Repository {
       avatarColorKey: avatarSelection.avatarColorKey,
       isSuperAdmin: row.is_super_admin === 1,
       loginName: row.login_name,
+      themeId: isThemeId(row.theme_id) ? row.theme_id : null,
       openLastTeamOnLogin: row.open_last_team_on_login !== 0,
       boardShortcutsEnabled: row.board_shortcuts_enabled !== 0,
       historyTimezonePopupEnabled: row.history_timezone_popup_enabled !== 0,
@@ -3438,6 +3465,7 @@ export class Repository {
               password_hash = NULL,
               terms_version = NULL,
               terms_accepted_at = NULL,
+              theme_id = NULL,
               deleted_at = ?,
               updated_at = ?,
               last_active_at = ?

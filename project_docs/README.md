@@ -24,6 +24,8 @@ Choose your role or task. Guides describe the current app; planned product direc
 | Review measured capacity | [Benchmark summary](RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md) | [Raw report](RnD_docs/perf_runs/PHASE3_CAPACITY_VALIDATION_LATEST.md) |
 | Contribute or release | [Contributing](../CONTRIBUTING.md) | [Versioning](RnD_docs/VERSIONING_AND_RELEASES.md), [release checklist](RnD_docs/OPEN_SOURCE_RELEASE_CHECKLIST.md), [changelog](../CHANGELOG.md) |
 
+Choose a light, moderate or dark appearance: [Themes and personal preferences](RnD_docs/THEMING.md).
+
 ## Project And Maintainer References
 
 - [Security reporting](../SECURITY.md), [Code of Conduct](../CODE_OF_CONDUCT.md), [license](../LICENSE) and [branding](../BRANDING.md).

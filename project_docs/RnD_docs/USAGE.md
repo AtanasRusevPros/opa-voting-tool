@@ -34,6 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [Responsive UI checks](#responsive-ui-checks)
 - [Workspace identity on a team](#workspace-identity-on-a-team)
 
+- [Appearance](#appearance)
+
 </details>
 
 Created: 2026-04-03 10:35 EEST
@@ -557,3 +559,7 @@ Run `./dev.sh test:e2e:responsive` after UI changes. This separate local suite c
 See [workspace labels and long-name expansion](TEAM_ADMIN_GUIDE.md#workspace-identity-on-a-team). Default self-hosted teams omit this label; hosted workspace renaming is in Account → Workspaces.
 
 Local health supervision uses `/health` for API/database readiness and `/health/web` for frontend-build readiness, preserving HTTPS-only browser access. See [proxy configuration recovery](HTTPS_DEPLOYMENT.md#recover-from-invalid-proxy-configuration) if startup fails after editing trusted proxy IPs.
+
+## Appearance
+
+Open **Account → Appearance**, choose one of 18 light, moderate or dark themes and press **Save appearance**. Your saved choice follows your account across teams and devices. **Use platform default** follows the super-admin’s choice. This is available in both self-hosted and hosted-trial deployments. See [Themes](THEMING.md) for the palette list and branding rules.

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ThemeId } from "./themes.js";
+export * from "./themes.js";
+
 export type DeckKey =
   | "fibonacci"
   | "fibonacci-21"
@@ -350,6 +353,8 @@ export type NotificationKind =
   | "team_unarchived";
 
 export interface CurrentUserSummary extends UserSummary {
+  /** Null/missing inherits the installation's default appearance. */
+  themeId?: ThemeId | null;
   isSuperAdmin: boolean;
   loginName: string | null;
   openLastTeamOnLogin?: boolean;
@@ -593,6 +598,7 @@ export interface TeamRoundVoteUpdatePayload {
 }
 
 export interface BrandingManifest {
+  defaultThemeId?: ThemeId;
   loginLogo: string;
   loginBackground: string;
   teamLogo: string;
@@ -992,6 +998,7 @@ export function resolveAvatarSelection(input: {
 }
 
 export const BRANDING_MANIFEST: BrandingManifest = {
+  defaultThemeId: "opa-light",
   loginLogo: "/branding/login-logo.svg",
   loginBackground: "/branding/login-background.svg",
   teamLogo: "/branding/team-logo.svg",

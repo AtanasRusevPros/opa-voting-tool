@@ -7,23 +7,29 @@ import {
   AVATAR_COLOR_SWATCHES,
   BRANDING_MANIFEST,
   HISTORY_TIME_ZONE_OPTIONS,
+  isThemeId,
+  type BrandingManifest,
   type CurrentUserSummary,
-  type HistoryTimeZoneKey
+  type HistoryTimeZoneKey,
+  type ThemeId
 } from "@planning-poker/shared";
 import { CheckIcon, EditPencilIcon, EyeIcon, XIcon } from "./icons";
 import { AccountDeletionDialog } from "./AccountDeletionDialog";
 import type { AccountDeletionPreview } from "./types";
 import { formatTimeZoneOffsetLabel, getAvatarUrl } from "./utils";
+import { ThemePicker } from "./ThemePicker";
 
 export function AccountSettingsModal(props: {
   open: boolean;
   workspaceSettings?: ReactNode;
   user: CurrentUserSummary;
+  branding?: BrandingManifest;
   historyTimezoneDefaultKeys: readonly HistoryTimeZoneKey[];
   isBusy: boolean;
   onClose: () => void;
   onSaveProfile: (displayName: string, avatarIconKey: string, avatarColorKey: string) => Promise<void>;
   onSaveLoginDestinationPreference?: (enabled: boolean) => Promise<void>;
+  onSaveThemePreference?: (id: ThemeId | null) => Promise<void>;
   onSaveBoardShortcutsPreference: (enabled: boolean) => Promise<void>;
   onSaveHistoryTimezonePreference: (enabled: boolean, keys?: readonly HistoryTimeZoneKey[] | null) => Promise<void>;
   onChangePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>;
@@ -48,6 +54,18 @@ export function AccountSettingsModal(props: {
   const [deletionPassword, setDeletionPassword] = useState("");
   const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [themeId, setThemeId] = useState<ThemeId | null>(isThemeId(props.user.themeId) ? props.user.themeId : null);
+  const [appearanceError, setAppearanceError] = useState<string | null>(null);
+  const [appearanceSaved, setAppearanceSaved] = useState(false);
+  const [appearanceSaving, setAppearanceSaving] = useState(false);
+
+  useEffect(() => {
+    if (!props.open) return;
+    setThemeId(isThemeId(props.user.themeId) ? props.user.themeId : null);
+    setAppearanceError(null);
+  }, [props.open, props.user.id, props.user.themeId]);
+
+  useEffect(() => { setAppearanceSaved(false); }, [props.open, props.user.id]);
 
   useEffect(() => {
     if (!props.open) {
@@ -125,6 +143,29 @@ export function AccountSettingsModal(props: {
 
         <div className="account-settings-grid">
           {props.workspaceSettings}
+          {props.onSaveThemePreference ? (
+            <form className="account-settings-section" onSubmit={event => {
+              event.preventDefault();
+              if (props.isBusy || appearanceSaving) return;
+              setAppearanceError(null);
+              setAppearanceSaved(false);
+              setAppearanceSaving(true);
+              void props.onSaveThemePreference!(themeId)
+                .then(() => setAppearanceSaved(true), error => setAppearanceError(error instanceof Error ? error.message : "Could not save appearance. Try again."))
+                .finally(() => setAppearanceSaving(false));
+            }}>
+              <h3>Appearance</h3>
+              <p>Your choice follows your account across teams and devices. Save to apply it.</p>
+              <ThemePicker label="Theme" value={themeId} allowInheritance defaultThemeId={props.branding?.defaultThemeId} palette={props.branding?.palette} disabled={props.isBusy || appearanceSaving} onChange={id => {
+                setThemeId(id);
+                setAppearanceError(null);
+                setAppearanceSaved(false);
+              }} />
+              <button className="primary-button" type="submit" disabled={props.isBusy || appearanceSaving || themeId === (props.user.themeId ?? null)}>Save appearance</button>
+              {appearanceError ? <p className="error-banner" role="alert">{appearanceError}</p> : null}
+              {appearanceSaved ? <p className="success-banner" role="status">Appearance saved.</p> : null}
+            </form>
+          ) : null}
           <form
             className="account-settings-section"
             onSubmit={(event) => {

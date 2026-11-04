@@ -7,9 +7,13 @@ import path from "node:path";
 import {
   BRANDING_MANIFEST,
   DEFAULT_HISTORY_TIME_ZONE_KEYS,
+  DEFAULT_THEME_ID,
+  isThemeId,
+  normalizeThemeColor,
   normalizeHistoryTimeZoneKeys,
   type BrandingManifest,
-  type HistoryTimeZoneKey
+  type HistoryTimeZoneKey,
+  type ThemeId
 } from "@planning-poker/shared";
 import { repoRoot, resolveDefaultDeploymentConfigPath } from "./configPaths.js";
 import { parseTrustedProxyIps, validateBaseUrl } from "./transportSecurity.js";
@@ -48,6 +52,7 @@ type RawDeploymentConfig = {
     accessTokenExpiresAt: string;
   };
   branding: {
+    defaultThemeId: ThemeId;
     loginLogo: string;
     loginBackground: string;
     teamLogo: string;
@@ -215,6 +220,22 @@ function quoteToml(value: string): string {
   return JSON.stringify(value);
 }
 
+function readDefaultThemeId(value: unknown): ThemeId {
+  if (value === undefined || value === null) return DEFAULT_THEME_ID;
+  if (isThemeId(value)) return value;
+  console.warn("[config] Unknown branding.default_theme_id; using opa-light.");
+  return DEFAULT_THEME_ID;
+}
+
+function safeBrandingPalette(palette: BrandingManifest["palette"]): BrandingManifest["palette"] {
+  return {
+    primaryAction: normalizeThemeColor(palette.primaryAction, BRANDING_MANIFEST.palette.primaryAction),
+    accentHighlight: normalizeThemeColor(palette.accentHighlight, BRANDING_MANIFEST.palette.accentHighlight),
+    surfaceTint: normalizeThemeColor(palette.surfaceTint, BRANDING_MANIFEST.palette.surfaceTint),
+    textEmphasis: normalizeThemeColor(palette.textEmphasis, BRANDING_MANIFEST.palette.textEmphasis)
+  };
+}
+
 function parseTomlValue(raw: string): boolean | number | string {
   const value = raw.trim();
   if (value === "true") {
@@ -291,6 +312,7 @@ function buildDefaultDeploymentConfig(allowedDomainsPath: string, appBaseUrl: st
       accessTokenExpiresAt: process.env.JIRA_ACCESS_TOKEN_EXPIRES_AT?.trim() ?? ""
     },
     branding: {
+      defaultThemeId: DEFAULT_THEME_ID,
       loginLogo: BRANDING_MANIFEST.loginLogo,
       loginBackground: BRANDING_MANIFEST.loginBackground,
       teamLogo: BRANDING_MANIFEST.teamLogo,
@@ -362,6 +384,7 @@ function serializeDeploymentConfig(config: RawDeploymentConfig): string {
     `access_token_expires_at = ${quoteToml(config.jira.accessTokenExpiresAt)}`,
     "",
     "[branding]",
+    `default_theme_id = ${quoteToml(config.branding.defaultThemeId)}`,
     `login_logo = ${quoteToml(config.branding.loginLogo)}`,
     `login_background = ${quoteToml(config.branding.loginBackground)}`,
     `team_logo = ${quoteToml(config.branding.teamLogo)}`,
@@ -486,6 +509,7 @@ function parseDeploymentConfig(raw: string, defaults: RawDeploymentConfig): RawD
       accessTokenExpiresAt: String(sections.jira?.access_token_expires_at ?? defaults.jira.accessTokenExpiresAt).trim()
     },
     branding: {
+      defaultThemeId: readDefaultThemeId(sections.branding?.default_theme_id),
       loginLogo: String(sections.branding?.login_logo ?? defaults.branding.loginLogo).trim() || defaults.branding.loginLogo,
       loginBackground: String(sections.branding?.login_background ?? defaults.branding.loginBackground).trim() || defaults.branding.loginBackground,
       teamLogo: String(sections.branding?.team_logo ?? defaults.branding.teamLogo).trim() || defaults.branding.teamLogo,
@@ -626,6 +650,11 @@ export class DeploymentConfigManager {
 
     const rawFile = fs.readFileSync(deploymentConfigPath, "utf8");
     this.rawConfig = parseDeploymentConfig(rawFile, this.defaults);
+    for (const [key, value] of Object.entries(this.rawConfig.branding.palette)) {
+      if (!normalizeThemeColor(value, "")) {
+        console.warn(`[config] Invalid branding palette color ${key}; using the safe default without changing the stored value.`);
+      }
+    }
     validateRequiredAdminCredentials(this.rawConfig, deploymentConfigPath);
     validateBaseUrl(this.rawConfig.app.baseUrl);
     // Upgrade the retired hosted-trial allowance in persisted deployments too.
@@ -724,6 +753,7 @@ export class DeploymentConfigManager {
         pendingSites: [...this.pendingJiraSites]
       },
       branding: {
+        defaultThemeId: this.currentConfig.branding.defaultThemeId ?? DEFAULT_THEME_ID,
         loginLogo: this.currentConfig.branding.loginLogo,
         loginBackground: this.currentConfig.branding.loginBackground,
         teamLogo: this.currentConfig.branding.teamLogo,
@@ -757,6 +787,13 @@ export class DeploymentConfigManager {
   }
 
   updateConfig(patch: DeploymentConfigPatch): DeploymentConfigSaveResult {
+    // Validate all appearance input before any in-memory configuration mutation.
+    if (patch.branding?.defaultThemeId !== undefined && !isThemeId(patch.branding.defaultThemeId)) {
+      throw new Error("Unknown theme ID");
+    }
+    for (const value of Object.values(patch.branding?.palette ?? {})) {
+      if (value !== undefined && !normalizeThemeColor(value, "")) throw new Error("Invalid branding color");
+    }
     if (patch.app?.baseUrl !== undefined) {
       const nextBaseUrl = patch.app.baseUrl.trim();
       if (!nextBaseUrl) {
@@ -825,6 +862,9 @@ export class DeploymentConfigManager {
     if (patch.jira?.accessTokenExpiresAt !== undefined) {
       this.rawConfig.jira.accessTokenExpiresAt = patch.jira.accessTokenExpiresAt.trim();
     }
+    if (patch.branding?.defaultThemeId !== undefined) {
+      this.rawConfig.branding.defaultThemeId = patch.branding.defaultThemeId;
+    }
     if (patch.branding?.backgroundOpacity !== undefined) {
       this.rawConfig.branding.backgroundOpacity = clampOpacity(patch.branding.backgroundOpacity);
     }
@@ -835,16 +875,16 @@ export class DeploymentConfigManager {
       this.rawConfig.branding.footerCompanyText = patch.branding.footerCompanyText.trim();
     }
     if (patch.branding?.palette?.primaryAction !== undefined) {
-      this.rawConfig.branding.palette.primaryAction = patch.branding.palette.primaryAction.trim();
+      this.rawConfig.branding.palette.primaryAction = normalizeThemeColor(patch.branding.palette.primaryAction, "");
     }
     if (patch.branding?.palette?.accentHighlight !== undefined) {
-      this.rawConfig.branding.palette.accentHighlight = patch.branding.palette.accentHighlight.trim();
+      this.rawConfig.branding.palette.accentHighlight = normalizeThemeColor(patch.branding.palette.accentHighlight, "");
     }
     if (patch.branding?.palette?.surfaceTint !== undefined) {
-      this.rawConfig.branding.palette.surfaceTint = patch.branding.palette.surfaceTint.trim();
+      this.rawConfig.branding.palette.surfaceTint = normalizeThemeColor(patch.branding.palette.surfaceTint, "");
     }
     if (patch.branding?.palette?.textEmphasis !== undefined) {
-      this.rawConfig.branding.palette.textEmphasis = patch.branding.palette.textEmphasis.trim();
+      this.rawConfig.branding.palette.textEmphasis = normalizeThemeColor(patch.branding.palette.textEmphasis, "");
     }
     if (patch.demo?.enabled !== undefined) {
       this.rawConfig.demo.enabled = patch.demo.enabled;
@@ -962,7 +1002,7 @@ export class DeploymentConfigManager {
     this.currentConfig.branding = {
       ...this.currentConfig.branding,
       ...this.rawConfig.branding,
-      palette: { ...this.rawConfig.branding.palette },
+      palette: safeBrandingPalette(this.rawConfig.branding.palette),
       avatarKeys: [...BRANDING_MANIFEST.avatarKeys],
       avatarIconKeys: [...BRANDING_MANIFEST.avatarIconKeys],
       avatarColorKeys: [...BRANDING_MANIFEST.avatarColorKeys]
@@ -972,6 +1012,9 @@ export class DeploymentConfigManager {
 
 function collectPatchFields(patch: DeploymentConfigPatch): string[] {
   const fields: string[] = [];
+  if (patch.branding?.defaultThemeId !== undefined) {
+    fields.push("branding.defaultThemeId");
+  }
   if (patch.app?.baseUrl !== undefined) {
     fields.push("app.baseUrl");
   }

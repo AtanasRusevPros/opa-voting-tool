@@ -52,6 +52,14 @@ export async function openControls(page: Page) {
   if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false') await toggle.click();
 }
 export async function showHistory(page: Page) {
+  const size=page.viewportSize();
+  if(size) {
+    const layout=boardViewport(size.width,size.height);
+    await expect(page.locator('.board-shell')).toHaveClass(layout.landscape ? /is-mobile-landscape/ : /^(?!.*is-mobile-landscape).*$/);
+    // Rotation commits layout and its history-size effect on separate frames.
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  }
   const grip=page.locator('.history-stack-resize-handle:visible, .history-resize-handle:visible');
   if(await grip.getAttribute('aria-expanded')==='false') await grip.click();
+  if(size && boardViewport(size.width,size.height).mobile) await expect(grip).toHaveAttribute('aria-expanded','true');
 }

@@ -3015,7 +3015,7 @@ for (const failure of ["network", "server", "timeout"] as const) {
     await page.getByRole("button", { name: "Platform", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Platform" });
     await dialog.getByRole("tab", { name: "App settings" }).click();
-    const baseUrl = dialog.getByLabel("Base URL", { exact: true });
+    const baseUrl = dialog.getByLabel("Base URL (HTTPS required except localhost)", { exact: true });
     await baseUrl.fill("https://unsaved.example.test");
     const token = await page.evaluate(() => localStorage.getItem("planning-poker:session-token"));
     let recovering = false;

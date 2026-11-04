@@ -20,6 +20,7 @@ OpaVoting is a lightweight, self-hosted tool for team voting and Scrum estimatio
 - Jira Cloud import into a team's pending estimation queue.
 - Team, hosted-workspace and platform statistics with live counts and JSON export.
 - Phone portrait/landscape controls, collapsible history, keyboard navigation and customizable branding.
+- [18 coordinated themes](project_docs/RnD_docs/THEMING.md), with a platform default and your own saved appearance.
 - Podman deployment, startup/watchdog supervision, backups and restore.
 
 Built for efficient realtime workloads, with [recorded load tests up to 400 concurrent simulated users](project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md). Capacity depends on hardware and workload; benchmarks are not a production SLA.

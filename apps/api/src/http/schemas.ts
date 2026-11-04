@@ -1,8 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Atanas G. Rusev
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { FIBONACCI_RANGE_END_OPTIONS, FIBONACCI_RANGE_START_OPTIONS, HISTORY_TIME_ZONE_KEYS } from "@planning-poker/shared";
+import { FIBONACCI_RANGE_END_OPTIONS, FIBONACCI_RANGE_START_OPTIONS, HISTORY_TIME_ZONE_KEYS, isThemeId, normalizeThemeColor, type ThemeId } from "@planning-poker/shared";
 import { z } from "zod";
+
+const themeIdSchema = z.custom<ThemeId>(isThemeId, "Unknown theme ID");
+const themeColorSchema = z.string().trim().max(80)
+  .refine((value) => normalizeThemeColor(value, "") !== "", "Invalid branding color")
+  .transform((value) => normalizeThemeColor(value, ""));
 
 export const requestCodeSchema = z.object({
   email: z.string().email()
@@ -206,6 +211,7 @@ export const profileSchema = z.object({
 });
 
 export const userPreferencesSchema = z.object({
+  themeId: themeIdSchema.nullable().optional(),
   openLastTeamOnLogin: z.boolean().optional(),
   teamId: z.string().min(1).optional(),
   boardShortcutsEnabled: z.boolean().optional(),
@@ -251,15 +257,16 @@ export const adminConfigPatchSchema = z.object({
     .optional(),
   branding: z
     .object({
+      defaultThemeId: themeIdSchema.optional(),
       backgroundOpacity: z.number().min(0).max(1).optional(),
       footerCreatorText: z.string().trim().max(120).optional(),
       footerCompanyText: z.string().trim().max(120).optional(),
       palette: z
         .object({
-          primaryAction: z.string().trim().min(4).max(32).optional(),
-          accentHighlight: z.string().trim().min(4).max(32).optional(),
-          surfaceTint: z.string().trim().min(4).max(32).optional(),
-          textEmphasis: z.string().trim().min(4).max(32).optional()
+          primaryAction: themeColorSchema.optional(),
+          accentHighlight: themeColorSchema.optional(),
+          surfaceTint: themeColorSchema.optional(),
+          textEmphasis: themeColorSchema.optional()
         })
         .optional()
     })

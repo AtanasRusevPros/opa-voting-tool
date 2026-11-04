@@ -4,6 +4,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { renderTrialWelcomeHtml, trialProjectGuide, trialHomeUrl, trialSitemap } from "./trialWelcome.js";
+import { applyInitialTheme } from "./themeHtml.js";
 import express from "express";
 import { DECKS, resolveAvatarSelection, type HistoryEntry, type RoundState, type TeamStateResponse } from "@planning-poker/shared";
 import type { DemoModeManager } from "../demoMode.js";
@@ -57,7 +58,7 @@ type RegisterRoutesDeps = {
     privacy?: AppConfig["privacy"];
     appBaseUrl: string;
     accessRequestsEnabled?: boolean;
-    branding: unknown;
+    branding: AppConfig["branding"];
     debugCodesEnabled: boolean;
     debugToolsEnabled: boolean;
     smtpHost?: string;
@@ -142,8 +143,8 @@ function writeRateLimitResponse(res: express.Response, resetAt: number): void {
   });
 }
 
-function renderJiraOauthResultPage(message: string): string {
-  const escaped = JSON.stringify(message);
+function renderJiraOauthResultTemplate(message: string): string {
+  const escaped = JSON.stringify(message).replace(/</g, "\\u003c");
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -164,7 +165,7 @@ function renderJiraOauthResultPage(message: string): string {
 </html>`;
 }
 
-function renderPublicTrialInfoPage(title: string, sections: Array<{ heading: string; body: string }>): string {
+function renderPublicTrialInfoTemplate(title: string, sections: Array<{ heading: string; body: string }>): string {
   const escapedTitle = title.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]!);
   const sectionMarkup = sections
     .map(
@@ -183,10 +184,11 @@ function renderPublicTrialInfoPage(title: string, sections: Array<{ heading: str
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapedTitle}</title>
     <style>
-      body { max-width: 780px; margin: 0 auto; padding: 32px 20px; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6; color: #203047; background: #f7fbff; }
-      a { color: #1e63c6; }
+      body { max-width: 780px; margin: 0 auto; padding: 32px 20px; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6; color: var(--theme-text); background: var(--theme-page); }
+      a { color: var(--theme-link); }
       h1 { line-height: 1.2; }
-      section { margin-top: 24px; padding: 18px 20px; border: 1px solid #dbe8f7; border-radius: 16px; background: white; }
+      section { margin-top: 24px; padding: 18px 20px; border: 1px solid var(--theme-border); border-radius: 16px; background: var(--theme-panel); }
+      @media print { section { color: #111; background: white; border-color: #777; } a { color: #111; } }
     </style>
   </head>
   <body>
@@ -231,6 +233,30 @@ export function registerRoutes({
   noteTeamRoundRevealed,
   noteTeamVoteChanged
 }: RegisterRoutesDeps): void {
+  function renderPublicTrialInfoPage(title: string, sections: Array<{ heading: string; body: string }>): string {
+    return applyInitialTheme(renderPublicTrialInfoTemplate(title, sections), config.branding);
+  }
+
+  function renderJiraOauthResultPage(message: string): string {
+    return applyInitialTheme(renderJiraOauthResultTemplate(message), config.branding);
+  }
+
+  function sendSpaHtml(req: express.Request, res: express.Response, next: express.NextFunction, welcome = false): void {
+    // All entry routes use the same personalized response path, including
+    // /index.html, which must never bypass this through express.static.
+    res.setHeader("Cache-Control", "private, no-store");
+    fs.readFile(path.join(webDist, "index.html"), "utf8", (error, template) => {
+      if (error) { next(error); return; }
+      try {
+        const token = typeof req.cookies?.session_token === "string" ? req.cookies.session_token : undefined;
+        const session = repository.peekSessionUser(token);
+        const html = welcome ? renderTrialWelcomeHtml(template, config.appBaseUrl, config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth) : template;
+        res.type("html").send(applyInitialTheme(html, config.branding, session?.themeId));
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
   app.use((req, res, next) => {
     const match = /^\/api\/teams\/([^/]+)\//.exec(req.path);
     if (match && !req.path.endsWith("/statistics/activity") && ["POST", "PATCH", "DELETE"].includes(req.method)) {
@@ -759,7 +785,8 @@ export function registerRoutes({
           openLastTeamOnLogin: result.user.openLastTeamOnLogin,
           boardShortcutsEnabled: result.user.boardShortcutsEnabled,
           historyTimezonePopupEnabled: result.user.historyTimezonePopupEnabled,
-          historyTimezoneKeys: result.user.historyTimezoneKeys ?? null
+          historyTimezoneKeys: result.user.historyTimezoneKeys ?? null,
+          themeId: result.user.themeId ?? null
         },
         token: result.user.sessionToken,
         workspace: result.workspace,
@@ -808,7 +835,8 @@ export function registerRoutes({
         openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
-        historyTimezoneKeys: user.historyTimezoneKeys ?? null
+        historyTimezoneKeys: user.historyTimezoneKeys ?? null,
+        themeId: user.themeId ?? null
       },
       token: user.sessionToken
     });
@@ -855,7 +883,8 @@ export function registerRoutes({
         openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
-        historyTimezoneKeys: user.historyTimezoneKeys ?? null
+        historyTimezoneKeys: user.historyTimezoneKeys ?? null,
+        themeId: user.themeId ?? null
       },
       token: user.sessionToken
     });
@@ -887,7 +916,8 @@ export function registerRoutes({
         openLastTeamOnLogin: user.openLastTeamOnLogin,
         boardShortcutsEnabled: user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: user.historyTimezonePopupEnabled,
-        historyTimezoneKeys: user.historyTimezoneKeys ?? null
+        historyTimezoneKeys: user.historyTimezoneKeys ?? null,
+        themeId: user.themeId ?? null
       },
       token: user.sessionToken
     });
@@ -967,7 +997,8 @@ export function registerRoutes({
         openLastTeamOnLogin: authedReq.user.openLastTeamOnLogin,
         boardShortcutsEnabled: authedReq.user.boardShortcutsEnabled,
         historyTimezonePopupEnabled: authedReq.user.historyTimezonePopupEnabled,
-        historyTimezoneKeys: authedReq.user.historyTimezoneKeys ?? null
+        historyTimezoneKeys: authedReq.user.historyTimezoneKeys ?? null,
+        themeId: authedReq.user.themeId ?? null
       },
       token: authedReq.user.sessionToken,
       ...teams
@@ -1225,6 +1256,7 @@ export function registerRoutes({
         jira: payload.data.jira,
         branding: payload.data.branding
           ? {
+              defaultThemeId: payload.data.branding.defaultThemeId,
               backgroundOpacity: payload.data.branding.backgroundOpacity,
               footerCreatorText: payload.data.branding.footerCreatorText,
               footerCompanyText: payload.data.branding.footerCompanyText,
@@ -1375,6 +1407,7 @@ export function registerRoutes({
     let user;
     try {
       user = repository.updateUserPreferences(userId, {
+        themeId: payload.data.themeId,
         teamId: payload.data.teamId,
         openLastTeamOnLogin: payload.data.openLastTeamOnLogin,
         boardShortcutsEnabled: payload.data.boardShortcutsEnabled,
@@ -1386,6 +1419,10 @@ export function registerRoutes({
       return;
     }
     res.json({ user });
+    const hasOtherPreferences = payload.data.openLastTeamOnLogin !== undefined ||
+      payload.data.boardShortcutsEnabled !== undefined || payload.data.historyTimezonePopupEnabled !== undefined ||
+      payload.data.historyTimezoneKeys !== undefined;
+    if (!hasOtherPreferences) return;
     if (payload.data.teamId) {
       broadcastSoon(payload.data.teamId);
     } else {
@@ -2153,27 +2190,29 @@ export function registerRoutes({
     if (!config.publicTrial.enabled) { res.status(404).type("text/plain").send("Not found"); return; }
     res.type("text/plain").send(trialProjectGuide());
   });
-  app.get(["/", "/index.html"], (_req, res, next) => {
-    if (!config.publicTrial.enabled) { next(); return; }
-    fs.readFile(path.join(webDist, "index.html"), "utf8", (error, template) => {
-      if (error) { next(error); return; }
-      res.setHeader("Cache-Control", "no-cache");
-      res.type("html").send(renderTrialWelcomeHtml(template, config.appBaseUrl, config.publicTrial.maxRevealedRoundsPerWorkspacePerMonth));
-    });
+  app.get("*", (req, res, next) => {
+    // Static serving decodes and normalizes paths too. Match equivalent entry
+    // URLs first so encoded index.html cannot bypass personalization/cache rules.
+    let entryPath: string;
+    try {
+      entryPath = path.posix.normalize(decodeURIComponent(req.path).replace(/\\/g, "/")).toLowerCase();
+    } catch { next(); return; }
+    if (entryPath === "/" || entryPath === "/index.html") {
+      sendSpaHtml(req, res, next, config.publicTrial.enabled);
+    } else if (entryPath === "/admin" || entryPath === "/admin/") {
+      res.setHeader("X-Robots-Tag", "noindex");
+      sendSpaHtml(req, res, next);
+    } else {
+      next();
+    }
   });
 
-  app.get(["/admin", "/admin/"], (_req, res) => {
-    res.setHeader("X-Robots-Tag", "noindex");
-    res.setHeader("Cache-Control", "no-cache");
-    res.sendFile(path.join(webDist, "index.html"));
-  });
-
-  app.use(express.static(webDist));
+  app.use(express.static(webDist, { index: false }));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api/") || ["/robots.txt", "/sitemap.xml"].includes(req.path)) {
       next();
       return;
     }
-    res.sendFile(path.join(webDist, "index.html"));
+    sendSpaHtml(req, res, next);
   });
 }

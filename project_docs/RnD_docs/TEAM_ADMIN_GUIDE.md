@@ -33,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [Phone and touch use](#phone-and-touch-use)
 - [Workspace identity on a team](#workspace-identity-on-a-team)
 
+- [Personal Appearance](#personal-appearance)
+
 </details>
 
 Status: Public operator guide
@@ -277,3 +279,7 @@ Phone board controls open as a compact panel; the X at its top right closes it. 
 ## Workspace identity on a team
 
 In hosted workspaces, the board and Team Admin/People show **Workspace: name** beneath the team title. On phones it appears inside board controls, keeping the compact header clear. Long names are shortened on one line; hover to read the tooltip, or tap/click the line (Enter on a keyboard) to expand the full name. Workspace renames update connected boards and open People panels. Ordinary self-hosted teams omit this label; workspace renaming stays in **Account → Workspaces**.
+
+## Personal Appearance
+
+Team admins use **Account → Appearance** like other users. A saved theme applies to your own account across teams; it does not set a team or workspace theme. Only the super-admin sets the platform default. See [Themes](THEMING.md).
