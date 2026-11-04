@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # OpaVoting Documentation
 
-[Project home](../README.md) · [Try the free live demo](https://app.opavotingtool.eu) · [Source](https://github.com/AtanasRusevPros/opa-voting-tool)
+[Project home](../README.md) · [Try the free live demo](https://app.opavotingtool.eu) · [Visual demos](../README.md#visual-demos) · [Screenshots](media/demos/README.md) · [Source](https://github.com/AtanasRusevPros/opa-voting-tool)
 
 Choose your role or task. Guides describe the current app; planned product directions belong in the [roadmap](../ROADMAP.md), and historical test results carry their own dates and limits.
 

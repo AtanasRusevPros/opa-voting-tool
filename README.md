@@ -9,7 +9,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 OpaVoting is a lightweight, self-hosted tool for team voting and Scrum estimation, created by **Atanas G. Rusev**. It combines realtime voting, persistent team history and administration in a single Linux container. Free and open source under AGPL-3.0-or-later; currently **v1.0.0**.
 
-[Features](#features) · [Self-host](#self-hosted-deployment) · [Deploy with AI](#deploy-with-your-ai-assistant) · [Demo limits](#hosted-trial-collaboration-and-limits) · [Develop](#quick-start) · [Documentation](#project-docs) · [Contribute](#contributing) · [License](#license)
+[Features](#features) · [Visual demos](#visual-demos) · [Self-host](#self-hosted-deployment) · [Deploy with AI](#deploy-with-your-ai-assistant) · [Demo limits](#hosted-trial-collaboration-and-limits) · [Develop](#quick-start) · [Documentation](#project-docs) · [Contribute](#contributing) · [License](#license)
+
+**See OpaVoting in action — an 80-participant demo board.** Start a round, vote and reveal the result.
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="project_docs/media/demos/voting-80-participants.png">
+  <img src="project_docs/media/demos/voting-80-participants.gif" alt="OpaVoting board with 80 demo participants: votes arrive, cards are revealed and the result appears in history." width="1200">
+</picture>
+
+[More voting and theme demos ↓](#visual-demos) · [Static screenshots](project_docs/media/demos/README.md)
+
+These are synthetic demo participants; the hosted trial has the [workspace limits described below](#hosted-trial-collaboration-and-limits).
 
 <a id="why-opavoting"></a>
 ## Features
@@ -129,6 +140,32 @@ Open `http://localhost:3000`. `dev.sh` selects nvm's pinned version when availab
 | Review performance and direction | [Benchmarks](project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md) |
 
 Branding supports managed uploads and the shipped fallback files: [`login-logo.svg`](apps/web/public/branding/login-logo.svg), [`login-background.svg`](apps/web/public/branding/login-background.svg), [`team-logo.svg`](apps/web/public/branding/team-logo.svg), [`team-background.svg`](apps/web/public/branding/team-background.svg), plus [avatar icons](apps/web/public/branding/avatars). Configuration and file precedence are documented in [Usage](project_docs/RnD_docs/USAGE.md#editable-deployment-files).
+
+## Visual Demos
+
+Short app demonstrations using synthetic participants. Prefer still images? Open the [static screenshot gallery](project_docs/media/demos/README.md).
+
+### Vote, reveal and keep the result
+
+Watch a team vote, reveal its cards and save the result to history. [Voting and history guide](project_docs/RnD_docs/TEAM_ADMIN_GUIDE.md).
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="project_docs/media/demos/voting-and-reveal.png">
+  <img src="project_docs/media/demos/voting-and-reveal.gif" alt="A 13-participant demo team votes in a dark appearance, reveals its cards and records the result in history." width="1200">
+</picture>
+
+[View static screenshot](project_docs/media/demos/voting-and-reveal.png)
+
+### Make the board your own
+
+The same board in light, moderate and dark appearances. OpaVoting offers [18 coordinated themes](project_docs/RnD_docs/THEMING.md), with a platform default and personal preferences.
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="project_docs/media/demos/theme-styles.png">
+  <img src="project_docs/media/demos/theme-styles.gif" alt="The same OpaVoting board and saved result shown in light, slate and dark navy themes." width="1200">
+</picture>
+
+[View static screenshot](project_docs/media/demos/theme-styles.png) · [Try the free live demo](https://app.opavotingtool.eu) · [Self-host](#self-hosted-deployment)
 
 ## Contributing
 

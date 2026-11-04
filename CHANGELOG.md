@@ -13,6 +13,8 @@ Until a fuller release-note process exists, use this changelog together with Git
 
 ## Unreleased
 
+- Add short product GIFs and static screenshots to the README and documentation index, showing an 80-participant demo board, voting/reveal/history and theme appearances.
+
 - Add 18 coordinated light, moderate and dark themes, a platform default in Branding and saved personal appearance in Account. Apply themes before first paint, preserve logos/avatar identities and keep voting updates independent of theme work. Add focused persistence, validation, contrast and browser coverage.
 
 - Prevent Account controls and appearance previews from clipping on narrow screens or with enlarged text; keep long team rows and timezone controls within their panels.

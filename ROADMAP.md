@@ -15,12 +15,13 @@ The roadmap is intentionally conservative: it names the direction without preten
 - Free hosted demo with workspace quotas; ordinary self-hosting has no demo quotas.
 - Team administration, persistent voting history, Jira import and scoped statistics.
 - Mobile board controls and responsive test coverage.
+- [Product demos and static screenshots](project_docs/media/demos/README.md): an 80-participant demo board, voting/reveal/history and coordinated themes.
 - AI-assisted deployment instructions with explicit environment verification limits.
 - [Measured simulated-load results](project_docs/RnD_docs/PUBLIC_BENCHMARK_SUMMARY.md), [documentation](project_docs/README.md) and AGPLv3/DCO contribution guidance.
 
 ## Near-Term Direction
 
-- Product screenshots and lightweight workflow animations for the repository, guides and landing page.
+- Extend the README's product demos with more workflow captures and guide/landing-page illustrations.
 - Continue deployed feedback and environment verification, including fresh-host AI deployment and network/TLS setup.
 - Keep guides concise, navigable and aligned with the implementation as features evolve.
 
